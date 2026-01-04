@@ -100,19 +100,7 @@ RootChild:
 
 	{
 		c := newCodegenCtx(root, sourceText)
-		generateScript(&c, scriptSetupEl, scriptEl)
-		newMappingsStart := len(ctx.mappings)
-		ctx.mappings = append(ctx.mappings, c.mappings...)
-		for i := newMappingsStart; i < len(ctx.mappings); i++ {
-			ctx.mappings[i].ServiceOffset += ctx.serviceText.Len()
-		}
-		ctx.serviceText.Write([]byte(c.serviceText.String()))
-		ctx.diagnostics = append(ctx.diagnostics, c.diagnostics...)
-	}
-
-	{
-		c := newCodegenCtx(root, sourceText)
-		generateTemplate(&c, templateEl)
+		generateScript(&c, scriptSetupEl, scriptEl, templateEl)
 		newMappingsStart := len(ctx.mappings)
 		ctx.mappings = append(ctx.mappings, c.mappings...)
 		for i := newMappingsStart; i < len(ctx.mappings); i++ {
