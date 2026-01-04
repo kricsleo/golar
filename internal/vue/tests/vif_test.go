@@ -92,7 +92,7 @@ func TestVElseIfAfterNonConditionalElement(t *testing.T) {
 	content := withVueNodeModules(t, `// @filename: file.vue
 <template>
 	<div v-if="true"></div>
-	<span>not part of chain</span>
+	<div>not part of chain</div>
 	<div [|v-else-if|]="true"></div>
 </template>`)
 	f, done := fourslash.NewFourslash(t, nil, content)

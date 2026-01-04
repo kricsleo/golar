@@ -1,6 +1,7 @@
 package vue_codegen
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
@@ -29,10 +30,49 @@ declare global {
 				: T extends Iterable<infer V>
 					? [V, number]
 					: [T[keyof T], ` + "`${keyof T}`" + `, number]
+
+	type __VLS_FunctionalComponent<T> = (props: (T extends { $props: infer Props } ? Props : {}), ctx?: any) => import('vue/jsx-runtime').JSX.Element & {
+		__ctx?: {
+			attrs?: any;
+			slots?: T extends { $slots: infer Slots } ? Slots : Record<string, any>;
+			emit?: T extends { $emit: infer Emit } ? Emit : {};
+			props?: typeof props;
+			expose?: (exposed: T) => void;
+		};
+	};
+
+	function __VLS_AsFunctionalComponent<T, K = T extends new (...args: any) => any ? InstanceType<T> : unknown>(t: T, instance?: K):
+		T extends new (...args: any) => any
+			? __VLS_FunctionalComponent<K>
+			: T extends () => any
+				? (props: {}, ctx?: any) => ReturnType<T>
+				: T extends (...args: any) => any
+					? T
+					: __VLS_FunctionalComponent<{}>;
+
+	// TODO: pre 3.5?
+	type __VLS_GlobalComponents = import('vue').GlobalComponents
+
+	type __VLS_ExtractComponentType<N0 extends string, LocalComponents, Self, N1 extends string, N2 extends string = N1, N3 extends string = N1> =
+		N1 extends keyof LocalComponents
+			? { [K in N0]: LocalComponents[N1] }
+			: N2 extends keyof LocalComponents
+				? { [K in N0]: LocalComponents[N2] }
+				: N3 extends keyof LocalComponents
+					? { [K in N0]: LocalComponents[N3] }
+					: Self extends object
+						? { [K in N0]: Self }
+						: N1 extends keyof __VLS_GlobalComponents
+							? { [K in N0]: __VLS_GlobalComponents[N1] }
+							: N2 extends keyof __VLS_GlobalComponents
+								? { [K in N0]: __VLS_GlobalComponents[N2] }
+								: N3 extends keyof __VLS_GlobalComponents
+									? { [K in N0]: __VLS_GlobalComponents[N3] }
+									: {};
 }
 `
 
-func Codegen(sourceText string, root *vue_ast.RootNode) (string, []mapping.Mapping, []*ast.Diagnostic) {
+func Codegen(sourceText string, root *vue_ast.RootNode) (string, []mapping.Mapping, []mapping.RangeMapping, []*ast.Diagnostic) {
 	ctx := newCodegenCtx(root, sourceText)
 	ctx.serviceText.WriteString(globalTypesReference)
 
@@ -98,27 +138,31 @@ RootChild:
 		lineStart = idx + 1
 	}
 
-	{
-		c := newCodegenCtx(root, sourceText)
-		generateScript(&c, scriptSetupEl, scriptEl, templateEl)
-		newMappingsStart := len(ctx.mappings)
-		ctx.mappings = append(ctx.mappings, c.mappings...)
-		for i := newMappingsStart; i < len(ctx.mappings); i++ {
-			ctx.mappings[i].ServiceOffset += ctx.serviceText.Len()
-		}
-		ctx.serviceText.Write([]byte(c.serviceText.String()))
-		ctx.diagnostics = append(ctx.diagnostics, c.diagnostics...)
-	}
+	// {
+	// 	c := newCodegenCtx(root, sourceText)
+	// 	generateScript(&c, scriptSetupEl, scriptEl, templateEl)
+	// 	newMappingsStart := len(ctx.mappings)
+	// 	ctx.mappings = append(ctx.mappings, c.mappings...)
+	// 	for i := newMappingsStart; i < len(ctx.mappings); i++ {
+	// 		ctx.mappings[i].ServiceOffset += ctx.serviceText.Len()
+	// 		// TODO: range mappings?
+	// 	}
+	// 	ctx.serviceText.Write([]byte(c.serviceText.String()))
+	// 	ctx.diagnostics = append(ctx.diagnostics, c.diagnostics...)
+	// }
+	generateScript(&ctx, scriptSetupEl, scriptEl, templateEl)
 
-	return ctx.serviceText.String(), ctx.mappings, ctx.diagnostics
+	return ctx.serviceText.String(), ctx.mappings, ctx.rangeMappings, ctx.diagnostics
 }
 
 type codegenCtx struct {
-	ast         *vue_ast.RootNode
-	sourceText  string
-	serviceText strings.Builder
-	mappings    []mapping.Mapping
-	diagnostics []*ast.Diagnostic
+	ast                     *vue_ast.RootNode
+	sourceText              string
+	serviceText             strings.Builder
+	mappings                []mapping.Mapping
+	rangeMappings           []mapping.RangeMapping
+	diagnostics             []*ast.Diagnostic
+	internalVariableCounter int
 }
 
 func newCodegenCtx(root *vue_ast.RootNode, sourceText string) codegenCtx {
@@ -143,4 +187,19 @@ func (c *codegenCtx) mapText(from, to int) {
 		ServiceOffset: serviceOffset,
 		Length:        to - from,
 	})
+}
+
+func (c *codegenCtx) mapRange(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
+	c.rangeMappings = append(c.rangeMappings, mapping.RangeMapping{
+		SourceOffset:  sourceStart,
+		SourceLength:  sourceEnd - sourceStart,
+		ServiceOffset: serviceStart,
+		ServiceLength: serviceEnd - serviceStart,
+	})
+}
+
+func (c *codegenCtx) newInternalVariable() string {
+	c.internalVariableCounter++
+	// TODO: maybe something more performant?
+	return "__VLS_Var_" + strconv.Itoa(c.internalVariableCounter)
 }

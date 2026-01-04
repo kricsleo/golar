@@ -173,6 +173,47 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.mapExpressionInNonBindingPosition(forDirective.Source)
 				c.serviceText.WriteString(")\n")
 			}
+			// TODO: recognize builtin components & HTML tags
+			// TODO: expression components like foo.bar
+			// TODO: global components
+			// TODO: self component
+			// TODO: component name casing
+			if elem.Tag != "template" && elem.Tag != "div" {
+				componentVar := c.newInternalVariable()
+				c.serviceText.WriteString("let ")
+				c.serviceText.WriteString(componentVar)
+				c.serviceText.WriteString("!: __VLS_ExtractComponentType<'")
+				c.serviceText.WriteString(elem.Tag)
+				c.serviceText.WriteString("', __VLS_SetupExposed, void, '")
+				c.serviceText.WriteString(elem.Tag)
+				c.serviceText.WriteString("'>['")
+				// TODO: mapping?
+				c.serviceText.WriteString(elem.Tag)
+				c.serviceText.WriteString("']\n")
+
+				functionalVar := c.newInternalVariable()
+				c.serviceText.WriteString("const ")
+				c.serviceText.WriteString(functionalVar)
+				c.serviceText.WriteString(" = __VLS_AsFunctionalComponent(")
+				c.serviceText.WriteString(componentVar)
+				c.serviceText.WriteString(", new ")
+				c.serviceText.WriteString(componentVar)
+				c.serviceText.WriteString("({\n")
+				// TODO: props here
+				c.serviceText.WriteString("}))\n")
+
+				// TODO: generic support
+				c.serviceText.WriteString(functionalVar)
+				propsStart := c.serviceText.Len() + 1
+				c.serviceText.WriteString("({\n")
+				// TODO: props here
+				c.serviceText.WriteString("})\n")
+				propsEnd := c.serviceText.Len() - 2
+				// TODO: is this valid?
+				tagStart := elem.Loc.Pos() + 1
+				c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
+			}
+
 			c.visit(elem)
 			if forDirective != nil {
 				c.exitScope()

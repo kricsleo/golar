@@ -98,7 +98,7 @@ func TestMapperAngularTemplate(t *testing.T) {
 			),
 			Length: len(`()`),
 		},
-	})
+	}, nil)
 
 	ranges := mapper.ToServiceRange(
 		idx(`{{|data?.icon?.toString()}}`),
@@ -141,7 +141,7 @@ func TestMapperFallbackToAnyMatch(t *testing.T) {
 			),
 			Length: 0,
 		},
-	})
+	}, nil)
 
 	ranges := mapper.ToServiceRange(
 		idx(`{{|data?.icon?.toString()}}`),
@@ -168,6 +168,78 @@ func TestMapperFallbackToAnyMatch(t *testing.T) {
 	)
 }
 
+func TestMapperPrefersExactRangeMatch(t *testing.T) {
+	mapper := NewMapper(nil, []RangeMapping{
+		{
+			SourceOffset:  0,
+			SourceLength:  5,
+			ServiceOffset: 100,
+			ServiceLength: 5,
+		},
+		{
+			SourceOffset:  0,
+			SourceLength:  10,
+			ServiceOffset: 200,
+			ServiceLength: 10,
+		},
+	})
+
+	ranges := mapper.ToServiceRange(0, 5, false)
+	if len(ranges) != 1 {
+		t.Fatalf("expected 1 range, got %d", len(ranges))
+	}
+	assertRangeOffsets(t, ranges[0], 100, 105)
+}
+
+func TestMapperPrefersExactServiceRangeMatch(t *testing.T) {
+	mapper := NewMapper(nil, []RangeMapping{
+		{
+			SourceOffset:  0,
+			SourceLength:  10,
+			ServiceOffset: 100,
+			ServiceLength: 10,
+		},
+		{
+			SourceOffset:  5,
+			SourceLength:  5,
+			ServiceOffset: 100,
+			ServiceLength: 5,
+		},
+	})
+
+	ranges := mapper.ToSourceRange(100, 105, false)
+	if len(ranges) != 1 {
+		t.Fatalf("expected 1 range, got %d", len(ranges))
+	}
+	assertRangeOffsets(t, ranges[0], 5, 10)
+}
+
+func TestMapperPrefersExactRangeMappingOverMapping(t *testing.T) {
+	mapper := &Mapper{
+		Mappings: []Mapping{
+			{
+				SourceOffset:  0,
+				ServiceOffset: 100,
+				Length:        10,
+			},
+		},
+		RangeMappings: []RangeMapping{
+			{
+				SourceOffset:  0,
+				SourceLength:  5,
+				ServiceOffset: 200,
+				ServiceLength: 5,
+			},
+		},
+	}
+
+	ranges := mapper.ToServiceRange(0, 5, false)
+	if len(ranges) != 1 {
+		t.Fatalf("expected 1 range, got %d", len(ranges))
+	}
+	assertRangeOffsets(t, ranges[0], 200, 205)
+}
+
 func TestMapperFallbackOverlapRange(t *testing.T) {
 	mapper := NewMapper([]Mapping{
 		{
@@ -175,7 +247,7 @@ func TestMapperFallbackOverlapRange(t *testing.T) {
 			ServiceOffset: 100,
 			Length:        10,
 		},
-	})
+	}, nil)
 
 	ranges := mapper.ToSourceRange(90, 120, true)
 	if len(ranges) != 1 {
@@ -196,7 +268,7 @@ func TestMapperNoOverlapRange(t *testing.T) {
 			ServiceOffset: 120,
 			Length:        10,
 		},
-	})
+	}, nil)
 
 	ranges := mapper.ToSourceRange(112, 115, true)
 	if len(ranges) != 0 {
@@ -205,7 +277,7 @@ func TestMapperNoOverlapRange(t *testing.T) {
 }
 
 func TestMapperEmptyMappings(t *testing.T) {
-	mapper := NewMapper(nil)
+	mapper := NewMapper(nil, nil)
 
 	if got := mapper.ToSourceLocation(5); got != nil {
 		t.Fatalf("expected nil locations, got %v", got)
@@ -224,7 +296,7 @@ func TestMapperDedupesLocations(t *testing.T) {
 			ServiceOffset: 100,
 			Length:        10,
 		},
-	})
+	}, nil)
 
 	locations := mapper.ToServiceLocation(15)
 	if len(locations) != 1 {
@@ -247,7 +319,7 @@ func TestMapperFallbackSkipsReversedRange(t *testing.T) {
 			ServiceOffset: 100,
 			Length:        5,
 		},
-	})
+	}, nil)
 
 	ranges := mapper.ToServiceRange(12, 31, true)
 	assertRangeSet(t, ranges, [][2]int{

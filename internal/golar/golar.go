@@ -173,7 +173,7 @@ func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind co
 		return parser.ParseSourceFile(opts, sourceText, scriptKind)
 	}
 	ast := vue_parser.Parse(sourceText)
-	serviceText, mappings, codegenDiagnostics := vue_codegen.Codegen(sourceText, ast)
+	serviceText, mappings, rangeMappings, codegenDiagnostics := vue_codegen.Codegen(sourceText, ast)
 	file := parser.ParseSourceFile(opts, serviceText, scriptKind)
 	for _, d := range codegenDiagnostics {
 		d.SetFile(file)
@@ -184,7 +184,7 @@ func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind co
 	file.SetDiagnostics(append(file.Diagnostics(), codegenDiagnostics...))
 	file.GolarLanguageData = languageData{
 		sourceText: sourceText,
-		mapper:     mapping.NewMapper(mappings),
+		mapper:     mapping.NewMapper(mappings, rangeMappings),
 	}
 
 	return file
