@@ -143,7 +143,7 @@ func (p *Parser) onopentagend(end int) {
 	if p.currentOpenTag.Ns == vue_ast.NamespaceHTML && isPreTag(p.currentOpenTag.Tag) {
 		p.inPre++
 	}
-	if _, ok := VOID_TAGS[p.currentOpenTag.Tag]; ok {
+	if _, ok := VoidTags[p.currentOpenTag.Tag]; ok {
 		p.onCloseTag(p.currentOpenTag, end, false)
 	} else {
 		p.stack = slices.Insert(p.stack, 0, p.currentOpenTag)
@@ -156,7 +156,7 @@ func (p *Parser) onopentagend(end int) {
 
 func (p *Parser) onclosetag(start int, end int) {
 	name := p.sourceText[start:end]
-	if _, ok := VOID_TAGS[name]; !ok {
+	if _, ok := VoidTags[name]; !ok {
 		found := false
 		for i, e := range p.stack {
 			if strings.ToLower(e.Tag) == strings.ToLower(name) {
@@ -950,7 +950,8 @@ func condense(s string) string {
 
 // copied from https://github.com/vuejs/core/blob/44ee43848fe8563c914be6cf731157e360d4e801/packages/shared/src/domTagConfig.ts
 var (
-	HTML_TAGS = map[string]struct{}{
+	NativeTags = map[string]struct{}{
+		// html tags
 		"html":       struct{}{},
 		"body":       struct{}{},
 		"base":       struct{}{},
@@ -1062,9 +1063,8 @@ var (
 		"blockquote": struct{}{},
 		"iframe":     struct{}{},
 		"tfoot":      struct{}{},
-	}
 
-	SVG_TAGS = map[string]struct{}{
+		// svg tags
 		"svg":                 struct{}{},
 		"animate":             struct{}{},
 		"animateMotion":       struct{}{},
@@ -1130,14 +1130,13 @@ var (
 		"symbol":              struct{}{},
 		"text":                struct{}{},
 		"textPath":            struct{}{},
-		"title":               struct{}{},
+		// "title":               struct{}{},
 		"tspan":               struct{}{},
 		"unknown":             struct{}{},
 		"use":                 struct{}{},
 		"view":                struct{}{},
-	}
 
-	MATH_TAGS = map[string]struct{}{
+		// math tags
 		"annotation":     struct{}{},
 		"annotation-xml": struct{}{},
 		"maction":        struct{}{},
@@ -1185,7 +1184,7 @@ var (
 		"semantics":      struct{}{},
 	}
 
-	VOID_TAGS = map[string]struct{}{
+	VoidTags = map[string]struct{}{
 		"area":   struct{}{},
 		"base":   struct{}{},
 		"br":     struct{}{},

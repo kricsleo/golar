@@ -1,11 +1,15 @@
 package vue_codegen
 
 import (
+	"slices"
+	"strings"
+	"unicode/utf8"
+
 	"github.com/auvred/golar/internal/collections"
 	"github.com/auvred/golar/internal/vue/ast"
+	"github.com/auvred/golar/internal/vue/parser"
 	"github.com/auvred/golar/internal/vue/diagnostics"
 	"github.com/microsoft/typescript-go/shim/ast"
-	"slices"
 )
 
 type templateCodegenCtx struct {
@@ -173,12 +177,11 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.mapExpressionInNonBindingPosition(forDirective.Source)
 				c.serviceText.WriteString(")\n")
 			}
-			// TODO: recognize builtin components & HTML tags
 			// TODO: expression components like foo.bar
 			// TODO: global components
 			// TODO: self component
 			// TODO: component name casing
-			if elem.Tag != "template" && elem.Tag != "div" {
+			if elem.Tag != "template" && elem.Tag != "component" && (isBuiltInComponent(elem.Tag) || !isNativeElement(elem.Tag)) {
 				componentVar := c.newInternalVariable()
 				c.serviceText.WriteString("let ")
 				c.serviceText.WriteString(componentVar)
@@ -192,6 +195,39 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.serviceText.WriteString("']\n")
 
 				functionalVar := c.newInternalVariable()
+
+				c.serviceText.WriteString(";({} as unknown as typeof ")
+				c.serviceText.WriteString(functionalVar)
+				c.serviceText.WriteString(")")
+				propsStart := c.serviceText.Len() + 1
+				c.serviceText.WriteString("({\n")
+				for _, prop := range elem.Props {
+					switch prop.Kind {
+					case vue_ast.KindAttribute:
+						attr := prop.AsAttribute()
+						propNameStart := c.serviceText.Len()
+						c.serviceText.WriteByte('\'')
+						camelize(attr.Name, &c.serviceText)
+						propNameEnd := c.serviceText.Len() + 1
+						c.mapRange(attr.Loc.Pos(), attr.Loc.Pos() + len(attr.Name), propNameStart, propNameEnd)
+						if attr.Value == nil {
+							c.serviceText.WriteString("': true,\n")
+						} else {
+							c.serviceText.WriteString("': '")
+							// TODO: escape
+							c.serviceText.WriteString(attr.Value.Content)
+							c.serviceText.WriteString("',\n")
+						}
+					}
+				}
+				// TODO: props here
+				c.serviceText.WriteString("})\n")
+				propsEnd := c.serviceText.Len() - 2
+				// TODO: is this valid?
+				tagStart := elem.Loc.Pos() + 1
+				c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
+
+				// TODO: generic support
 				c.serviceText.WriteString("const ")
 				c.serviceText.WriteString(functionalVar)
 				c.serviceText.WriteString(" = __VLS_AsFunctionalComponent(")
@@ -201,17 +237,6 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.serviceText.WriteString("({\n")
 				// TODO: props here
 				c.serviceText.WriteString("}))\n")
-
-				// TODO: generic support
-				c.serviceText.WriteString(functionalVar)
-				propsStart := c.serviceText.Len() + 1
-				c.serviceText.WriteString("({\n")
-				// TODO: props here
-				c.serviceText.WriteString("})\n")
-				propsEnd := c.serviceText.Len() - 2
-				// TODO: is this valid?
-				tagStart := elem.Loc.Pos() + 1
-				c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
 			}
 
 			c.visit(elem)
@@ -455,4 +480,50 @@ func (m *expressionMapper) mapInNonBindingPosition(node *ast.Node) bool {
 	// TODO: JSX
 
 	return node.ForEachChild(m.mapInNonBindingPosition)
+}
+
+func camelize(str string, buf *strings.Builder) {
+	hadDash := false
+	lastWritten := 0
+	for i, r := range str {
+		if r == '-' {
+			hadDash = true
+			// TODO: what if double dash, like foo--bar
+			continue
+		}
+
+		if hadDash {
+			hadDash = false
+			buf.WriteString(str[lastWritten:i-1])
+			// TODO(perf): fast path for ascii, also ToUpper allocates internally
+			buf.WriteString(strings.ToUpper(string(r)))
+			lastWritten = i + utf8.RuneLen(r)
+		}
+	}
+	buf.WriteString(str[lastWritten:])
+}
+
+func isBuiltInComponent(name string) bool {
+	switch (name) {
+    case "Teleport",
+    	"teleport",
+    	"Suspense",
+    	"suspense",
+    	"KeepAlive",
+    	"keep-alive",
+    	"BaseTransition",
+			"base-transition",
+			"Transition",
+			"transition",
+			"TransitionGroup",
+			"transition-group":
+			return true
+		default:
+			return false
+	}
+}
+
+func isNativeElement(name string) bool {
+	_, ok := vue_parser.NativeTags[name]
+	return ok
 }
