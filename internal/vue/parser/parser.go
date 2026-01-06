@@ -401,15 +401,30 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 					case "slot":
 						panic("TODO: v-slot")
 					case "on":
-						fallthrough
+						// https://github.com/vuejs/core/issues/14287
+						prefixLen = 1
+						suffixLen = 1
+						ast := ParseTsAst("(" + p.currentAttrValue + ")")
+						// TODO: report syntactic diagnostics
+						diagnostics := ast.Diagnostics()
+						if len(diagnostics) != 0 {
+							prefixLen = 0
+							suffixLen = 0
+							ast = ParseTsAst(p.currentAttrValue)
+							if len(ast.Diagnostics()) != 0 {
+								// TODO: report
+								_ = diagnostics
+							}
+						}
+						prop.Expression = vue_ast.NewSimpleExpressionNode(ast, core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
 					default:
 						prefixLen = 1
 						suffixLen = 1
 						expressionText = "(" + p.currentAttrValue + ")"
+						prop.Expression = vue_ast.NewSimpleExpressionNode(ParseTsAst(
+							expressionText,
+						), core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
 					}
-					prop.Expression = vue_ast.NewSimpleExpressionNode(ParseTsAst(
-						expressionText,
-					), core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
 				}
 				// if currentProp.name == "for" {
 				// 	currentProp.forParseResult = parseForExpression(currentProp.exp)
@@ -1212,6 +1227,9 @@ func ParseTsAst(source string) *ast.SourceFile {
 		},
 		JSDocParsingMode: ast.JSDocParsingModeParseAll,
 	}, source, core.ScriptKindTSX) // TODO: script kind
-	binder.BindSourceFile(file)
+	// TODO: JSDiagnostics?
+	if len(file.Diagnostics()) == 0 {
+		binder.BindSourceFile(file)
+	}
 	return file
 }

@@ -19,10 +19,12 @@ func TestDefinePropsCallExpression(t *testing.T) {
 
 <template>
 	{{ foo/*1*/ }}
+	{{ $props/*2*/ }}
 </template>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
 	f.VerifyQuickInfoAt(t, "1", "(property) foo: string", "")
+	f.VerifyQuickInfoAt(t, "2", "(property) $props: DefineProps<LooseRequired<{ foo: string; }>, never>", "")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
 }
 
@@ -38,11 +40,13 @@ func TestDefinePropsVariableDecl(t *testing.T) {
 
 <template>
 	{{ foo/*2*/ }}
+	{{ $props/*3*/ }}
 </template>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
 	f.VerifyQuickInfoAt(t, "1", "(property) foo: string", "")
 	f.VerifyQuickInfoAt(t, "2", "(property) foo: string", "")
+	f.VerifyQuickInfoAt(t, "3", "(property) $props: DefineProps<LooseRequired<{ foo: string; }>, never>", "")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
 }
 

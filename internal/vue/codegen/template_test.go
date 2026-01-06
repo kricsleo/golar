@@ -2,6 +2,7 @@ package vue_codegen
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/auvred/golar/internal/vue/ast"
@@ -43,8 +44,8 @@ func TestExpressionMapper(t *testing.T) {
 				"{ a: __VLS_Ctx. a }",
 			},
 			{
-				"{ a:  }",
-				"{ a: __VLS_Ctx.  }",
+				"/*syntax errors*/{ a:  }",
+				"/*syntax errors*/{ a: __VLS_Ctx.  }",
 			},
 			{
 				"{ a }",
@@ -55,8 +56,8 @@ func TestExpressionMapper(t *testing.T) {
 				"{ [ __VLS_Ctx.a]: __VLS_Ctx. a }",
 			},
 			{
-				"() => { class foo { bar: Foo }",
-				"() => { class foo { bar: Foo }",
+				"() => { class foo { bar: Foo } }",
+				"() => { class foo { bar: Foo } }",
 			},
 			{
 				"() => { interface foo { hello: world } }",
@@ -175,32 +176,36 @@ func TestExpressionMapper(t *testing.T) {
 				"() => { class foo<T extends Foo = Bar> {} }",
 			},
 			{
-				"() => { class foo {}; class bar extends foo, baz {}",
-				"() => { class foo {}; class bar extends foo, __VLS_Ctx. baz {}",
+				"() => { class foo {}; class bar extends foo {} }",
+				"() => { class foo {}; class bar extends foo {} }",
 			},
 			{
-				"() => { interface foo {}; class bar implements foo, baz {}",
-				"() => { interface foo {}; class bar implements foo, baz {}",
+				"() => { class foo {}; class bar extends baz {} }",
+				"() => { class foo {}; class bar extends __VLS_Ctx. baz {} }",
 			},
 			{
-				"() => { class foo { constructor<T extends Foo>() {} }",
-				"() => { class foo { constructor<T extends Foo>() {} }",
+				"() => { interface foo {}; class bar implements foo, baz {} }",
+				"() => { interface foo {}; class bar implements foo, baz {} }",
 			},
 			{
-				"() => { class foo { constructor(): Foo {} }",
-				"() => { class foo { constructor(): Foo {} }",
+				"() => { class foo { constructor<T extends Foo>() {} } }",
+				"() => { class foo { constructor<T extends Foo>() {} } }",
 			},
 			{
-				"() => { class foo { method<T extends Foo>() {} }",
-				"() => { class foo { method<T extends Foo>() {} }",
+				"() => { class foo { constructor(): Foo {} } }",
+				"() => { class foo { constructor(): Foo {} } }",
 			},
 			{
-				"() => { class foo { method(): Foo {} }",
-				"() => { class foo { method(): Foo {} }",
+				"() => { class foo { method<T extends Foo>() {} } }",
+				"() => { class foo { method<T extends Foo>() {} } }",
 			},
 			{
-				"() => { class foo { [method]() { bar } }",
-				"() => { class foo { [ __VLS_Ctx.method]() { __VLS_Ctx. bar } }",
+				"() => { class foo { method(): Foo {} } }",
+				"() => { class foo { method(): Foo {} } }",
+			},
+			{
+				"() => { class foo { [method]() { bar } } }",
+				"() => { class foo { [ __VLS_Ctx.method]() { __VLS_Ctx. bar } } }",
 			},
 			{
 				"() => { function foo(bar: Foo = hello) { bar } }",
@@ -282,6 +287,14 @@ func TestExpressionMapper(t *testing.T) {
 				ctx := newTemplateCodegenCtx(&base)
 
 				tsAst := vue_parser.ParseTsAst("(" + c.sourceText + ")")
+				diagnostics := tsAst.Diagnostics()
+				if strings.Contains(c.sourceText, "/*syntax errors*/") {
+					if len(diagnostics) == 0 {
+						t.Fatalf("expected to contain syntax errors: %v", diagnostics)
+					}
+				} else if len(diagnostics) > 0 {
+					t.Fatalf("esyntax errors: %v", diagnostics)
+				}
 				expr := vue_ast.NewSimpleExpressionNode(tsAst, core.NewTextRange(0, len(c.sourceText)), 1, 1)
 				ctx.mapExpressionInNonBindingPosition(expr)
 

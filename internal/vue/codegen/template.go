@@ -247,6 +247,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				// TODO: props here
 				c.serviceText.WriteString("}))\n")
 
+				// TODO: emits type mismatch mapping locations
 				for _, prop := range elem.Props {
 					if prop.Kind != vue_ast.KindDirective {
 						continue
@@ -283,13 +284,42 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 					c.serviceText.WriteString(emitName)
 					c.serviceText.WriteString("', '")
 					camelize(emitName, &c.serviceText) // camelizedEmitName
-					c.serviceText.WriteString("'> = {\n'on")
+					c.serviceText.WriteString("'> = {\n")
+					emitNameStart := c.serviceText.Len()
+					c.serviceText.WriteString("'on")
 					// TODO(perf): no unnecessary allocations
 					camelize(strings.Title(emitName), &c.serviceText)
+					c.mapRange(dir.Loc.Pos(), dir.Loc.Pos() + len(dir.RawName), emitNameStart, c.serviceText.Len() + 1)
 					c.serviceText.WriteString("': ")
-					// TODO: compound expressions with $event
-					c.mapExpressionInBindingPosition(dir.Expression)
-					c.serviceText.WriteString("}\n")
+					if dir.Expression.Ast == nil {
+						c.serviceText.WriteString("() => {}")
+					} else {
+						isCompound := true
+						if len(dir.Expression.Ast.Statements.Nodes) == 0 {
+							panic("Expected event listener AST to have at least one statement")
+						}
+						if len(dir.Expression.Ast.Statements.Nodes) == 1 {
+							if ast.IsExpressionStatement(dir.Expression.Ast.Statements.Nodes[0]) {
+								expr := ast.SkipParentheses(dir.Expression.Ast.Statements.Nodes[0].AsExpressionStatement().Expression)
+								if ast.IsArrowFunction(expr) || ast.IsIdentifier(expr) || ast.IsPropertyAccessExpression(expr) || ast.IsFunctionExpression(expr) {
+									isCompound = false
+								}
+							}
+						}
+
+						if isCompound {
+							c.serviceText.WriteString("(...[$event]) => {\n")
+							c.enterScope()
+							c.declareScopeVar("$event")
+							c.mapExpressionInNonBindingPosition(dir.Expression)
+							c.exitScope()
+							c.serviceText.WriteString("}\n")
+							// TODO: condition guards
+						} else {
+							c.mapExpressionInNonBindingPosition(dir.Expression)
+						}
+					}
+					c.serviceText.WriteString("\n}\n")
 				}
 
 				c.serviceText.WriteString("var ")
@@ -367,9 +397,14 @@ func (c *templateCodegenCtx) mapExpressionInNonBindingPosition(expr *vue_ast.Sim
 			expr := firstStmt.AsExpressionStatement().Expression
 			if ast.IsParenthesizedExpression(expr) {
 				m.mapInNonBindingPosition(expr.AsParenthesizedExpression().Expression)
+				goto FinalizeMapping
 			}
 		}
+
+		// TODO: iter statements?
+		m.mapInNonBindingPosition(firstStmt)
 	}
+FinalizeMapping:
 	m.mapTextToNodePos(expr.Ast.End() - expr.SuffixLen)
 }
 func (c *templateCodegenCtx) mapExpressionInBindingPosition(expr *vue_ast.SimpleExpressionNode) {

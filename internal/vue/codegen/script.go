@@ -162,7 +162,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					}
 					propsVariableName = "__VLS_Props"
 					c.mapText(lastMappedPos, innerStart+statement.Pos())
-					c.serviceText.WriteString("const __VLS_Props = ")
+					c.serviceText.WriteString("\nconst __VLS_Props = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				case "defineEmits":
@@ -173,7 +173,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					}
 					emitsVariableName = "__VLS_Emits"
 					c.mapText(lastMappedPos, innerStart+statement.Pos())
-					c.serviceText.WriteString("const __VLS_Emits = ")
+					c.serviceText.WriteString("\nconst __VLS_Emits = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				}
@@ -233,6 +233,12 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString(", new () => {}>>,\n")
 		} else {
 			c.serviceText.WriteString("...{} as unknown as import('vue').ComponentPublicInstance,\n")
+		}
+		if propsVariableName != "" {
+			// TODO: model props and emit props
+			c.serviceText.WriteString("...{} as unknown as { $props: typeof ")
+			c.serviceText.WriteString(propsVariableName)
+			c.serviceText.WriteString("},\n")
 		}
 		c.serviceText.WriteString("}\n")
 
