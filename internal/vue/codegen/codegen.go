@@ -29,7 +29,7 @@ declare global {
 				? [T[number], number]
 				: T extends Iterable<infer V>
 					? [V, number]
-					: [T[keyof T], ` + "`${keyof T}`" + `, number]
+					: [T[keyof T], ` + "`${keyof T & string}`" + `, number]
 
 	type __VLS_FunctionalComponent<T> = (props: (T extends { $props: infer Props } ? Props : {}), ctx?: any) => import('vue/jsx-runtime').JSX.Element & {
 		__ctx?: {
@@ -69,6 +69,100 @@ declare global {
 								: N3 extends keyof __VLS_GlobalComponents
 									? { [K in N0]: __VLS_GlobalComponents[N3] }
 									: {};
+
+	type __VLS_IsAny<T> = 0 extends 1 & T ? true : false;
+
+	type __VLS_PickNotAny<A, B> = __VLS_IsAny<A> extends true ? B : A;
+
+	type __VLS_SpreadMerge<A, B> = Omit<A, keyof B> & B;
+
+	type __VLS_PrettifyGlobal<T> = (T extends any ? { [K in keyof T]: T[K] } : { [K in keyof T as K]: T[K] }) & {};
+
+	type __VLS_UnionToIntersection<U> = (U extends unknown ? (arg: U) => unknown : never) extends ((arg: infer P) => unknown)
+		? P
+		: never;
+
+	type __VLS_OverloadUnionInner<T, U = unknown> = U & T extends (...args: infer A) => infer R
+		? U extends T
+			? never
+			: __VLS_OverloadUnionInner<T, Pick<T, keyof T> & U & ((...args: A) => R)> | ((...args: A) => R)
+		: never;
+	type __VLS_OverloadUnion<T> = Exclude<
+		__VLS_OverloadUnionInner<(() => never) & T>,
+		T extends () => never ? never : () => never
+	>;
+
+	type __VLS_ConstructorOverloads<T> = __VLS_OverloadUnion<T> extends infer F
+		? F extends (event: infer E, ...args: infer A) => any
+			? { [K in E & string]: (...args: A) => void }
+			: never
+		: never;
+
+	type __VLS_IsFunction<T, K> = K extends keyof T
+		? __VLS_IsAny<T[K]> extends false
+			? unknown extends T[K]
+				? false
+				: true
+			: false
+		: false;
+
+	type __VLS_NormalizeComponentEvent<
+		Props,
+		Emits,
+		onEvent extends keyof Props,
+		Event extends keyof Emits,
+		CamelizedEvent extends keyof Emits,
+	> = __VLS_IsFunction<Props, onEvent> extends true
+		? Props
+		: __VLS_IsFunction<Emits, Event> extends true
+			? { [K in onEvent]?: Emits[Event] }
+			: __VLS_IsFunction<Emits, CamelizedEvent> extends true
+				? { [K in onEvent]?: Emits[CamelizedEvent] }
+				: Props;
+
+	type __VLS_FunctionalComponentProps<T, K> = '__ctx' extends keyof __VLS_PickNotAny<K, {}>
+		? K extends { __ctx?: { props?: infer P } }
+			? NonNullable<P>
+			: never
+		: T extends (props: infer P, ...args: any) => any
+			? P
+			: {};
+
+	type __VLS_FunctionalComponentCtx<T, K> = __VLS_PickNotAny<
+		'__ctx' extends keyof __VLS_PickNotAny<K, {}>
+			? K extends { __ctx?: infer Ctx }
+				? NonNullable<Ctx>
+				: never
+			: any,
+		T extends (props: any, ctx: infer Ctx) => any
+			? Ctx
+			: any
+	>;
+
+	type __VLS_NormalizeEmits<T> = __VLS_PrettifyGlobal<
+		__VLS_UnionToIntersection<
+			__VLS_ConstructorOverloads<T> & {
+				[K in keyof T]: T[K] extends any[] ? { (...args: T[K]): void } : never
+			}
+		>
+	>;
+
+
+	type __VLS_ResolveEmits<
+		Comp,
+		Emits,
+		TypeEmits = Comp extends { __typeEmits?: infer T } // TODO: <3.6 {}
+			? unknown extends T
+				? {}
+				: import('vue').ShortEmitsToObject<T>
+			: {},
+		NormalizedEmits = __VLS_NormalizeEmits<Emits> extends infer E
+			? string extends keyof E
+				? {}
+				: E
+			: never,
+	> = __VLS_SpreadMerge<NormalizedEmits, TypeEmits>;
+
 }
 `
 

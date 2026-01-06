@@ -23,7 +23,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		scriptEl:      scriptEl,
 	}
 
-	c.serviceText.WriteString("import { defineComponent as __VLS_DefineComponent, defineProps } from 'vue'\n")
+	// we don't import define* macros because they're globally available
+	// https://github.com/vuejs/core/blob/aac7e1898907445c8f89b22047a9bfcf0a6e91b8/packages/runtime-core/types/scriptSetupHelpers.d.ts
+	c.serviceText.WriteString("import { defineComponent as __VLS_DefineComponent } from 'vue'\n")
 
 	var selfType string
 	if c.scriptEl != nil {
@@ -81,9 +83,14 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 
 		lastMappedPos := text.Loc.Pos()
 
-		var propsVariableName string
+		var (
+			propsVariableName string
+			emitsVariableName string
+		)
+
 
 		// TODO: report nested compiler macros (vue compiler errors on them)
+		// TODO: $emits, $props, emitstoprops
 
 		bindingRanges := []core.TextRange{}
 		importRanges := []core.TextRange{}
@@ -118,15 +125,22 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						break
 					}
 					calleeName := callee.Text()
-					if calleeName != "defineProps" {
-						break
+					switch calleeName {
+					case "defineProps":
+						if propsVariableName != "" {
+							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineProps")
+							break
+						}
+						propsVariableName = name.Text()
+					case "defineEmits":
+						if emitsVariableName != "" {
+							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineEmits")
+							break
+						}
+						emitsVariableName = name.Text()
 					}
-					if propsVariableName != "" {
-						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
-						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineProps")
-						break
-					}
-					propsVariableName = name.Text()
 				}
 			case ast.KindExpressionStatement:
 				expr := statement.AsExpressionStatement().Expression
@@ -139,19 +153,30 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					break
 				}
 				calleeName := callee.Text()
-				if calleeName != "defineProps" {
-					break
+				switch calleeName {
+				case "defineProps":
+					if propsVariableName != "" {
+						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineProps")
+						break
+					}
+					propsVariableName = "__VLS_Props"
+					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.serviceText.WriteString("const __VLS_Props = ")
+					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
+					lastMappedPos = innerStart + statement.End()
+				case "defineEmits":
+					if propsVariableName != "" {
+						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineEmits")
+						break
+					}
+					emitsVariableName = "__VLS_Emits"
+					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.serviceText.WriteString("const __VLS_Emits = ")
+					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
+					lastMappedPos = innerStart + statement.End()
 				}
-				if propsVariableName != "" {
-					calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
-					c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineProps")
-					break
-				}
-				propsVariableName = "__VLS_Props"
-				c.mapText(lastMappedPos, innerStart+statement.Pos())
-				c.serviceText.WriteString("const __VLS_Props = ")
-				c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
-				lastMappedPos = innerStart + statement.End()
 			case ast.KindFunctionDeclaration, ast.KindClassDeclaration, ast.KindEnumDeclaration:
 				if name := statement.Name(); name != nil {
 					bindingRanges = append(bindingRanges, name.Loc)
@@ -217,6 +242,11 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		if propsVariableName != "" {
 			c.serviceText.WriteString("__typeProps: {} as unknown as typeof ")
 			c.serviceText.WriteString(propsVariableName)
+			c.serviceText.WriteString(",\n")
+		}
+		if emitsVariableName != "" {
+			c.serviceText.WriteString("__typeEmits: {} as unknown as typeof ")
+			c.serviceText.WriteString(emitsVariableName)
 			c.serviceText.WriteString(",\n")
 		}
 		c.serviceText.WriteString("})\n")

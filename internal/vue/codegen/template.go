@@ -177,12 +177,21 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.mapExpressionInNonBindingPosition(forDirective.Source)
 				c.serviceText.WriteString(")\n")
 			}
+
+			// TODO: don't generate unused vars
 			// TODO: expression components like foo.bar
 			// TODO: global components
 			// TODO: self component
 			// TODO: component name casing
+			// TODO: native elements
 			if elem.Tag != "template" && elem.Tag != "component" && (isBuiltInComponent(elem.Tag) || !isNativeElement(elem.Tag)) {
+				ctxVar := c.newInternalVariable()
+				propsVar := c.newInternalVariable()
 				componentVar := c.newInternalVariable()
+				vnodeVar := c.newInternalVariable()
+				functionalVar := c.newInternalVariable()
+				emitsVar := ""
+
 				c.serviceText.WriteString("let ")
 				c.serviceText.WriteString(componentVar)
 				c.serviceText.WriteString("!: __VLS_ExtractComponentType<'")
@@ -194,9 +203,10 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.serviceText.WriteString(elem.Tag)
 				c.serviceText.WriteString("']\n")
 
-				functionalVar := c.newInternalVariable()
 
-				c.serviceText.WriteString(";({} as unknown as typeof ")
+				c.serviceText.WriteString("const ")
+				c.serviceText.WriteString(vnodeVar)
+				c.serviceText.WriteString(" = ({} as unknown as typeof ")
 				c.serviceText.WriteString(functionalVar)
 				c.serviceText.WriteString(")")
 				propsStart := c.serviceText.Len() + 1
@@ -220,7 +230,6 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 						}
 					}
 				}
-				// TODO: props here
 				c.serviceText.WriteString("})\n")
 				propsEnd := c.serviceText.Len() - 2
 				// TODO: is this valid?
@@ -237,7 +246,70 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.serviceText.WriteString("({\n")
 				// TODO: props here
 				c.serviceText.WriteString("}))\n")
+
+				for _, prop := range elem.Props {
+					if prop.Kind != vue_ast.KindDirective {
+						continue
+					}
+
+					dir := prop.AsDirective()
+					// TODO: model
+					// TODO: dynamic event name
+					if dir.Name != "on" || !dir.IsStatic {
+						continue
+					}
+					if emitsVar == "" {
+						emitsVar = c.newInternalVariable()
+						c.serviceText.WriteString("var ")
+						c.serviceText.WriteString(emitsVar)
+						c.serviceText.WriteString("!: __VLS_ResolveEmits<typeof ")
+						c.serviceText.WriteString(componentVar)
+						c.serviceText.WriteString(", typeof ")
+						c.serviceText.WriteString(ctxVar)
+						c.serviceText.WriteString(".emit>\n")
+					}
+
+					// TODO: model & vue:
+					c.serviceText.WriteString("const ")
+					c.serviceText.WriteString(c.newInternalVariable())
+					c.serviceText.WriteString(": __VLS_NormalizeComponentEvent<typeof ")
+					c.serviceText.WriteString(propsVar)
+					c.serviceText.WriteString(", typeof ")
+					c.serviceText.WriteString(emitsVar)
+					c.serviceText.WriteString(", '")
+					camelize("on-" + dir.Arg, &c.serviceText) // propName
+					c.serviceText.WriteString("', '")
+					emitName := dir.Arg
+					c.serviceText.WriteString(emitName)
+					c.serviceText.WriteString("', '")
+					camelize(emitName, &c.serviceText) // camelizedEmitName
+					c.serviceText.WriteString("'> = {\n'on")
+					// TODO(perf): no unnecessary allocations
+					camelize(strings.Title(emitName), &c.serviceText)
+					c.serviceText.WriteString("': ")
+					// TODO: compound expressions with $event
+					c.mapExpressionInBindingPosition(dir.Expression)
+					c.serviceText.WriteString("}\n")
+				}
+
+				c.serviceText.WriteString("var ")
+				c.serviceText.WriteString(ctxVar)
+				c.serviceText.WriteString("!: __VLS_FunctionalComponentCtx<typeof ")
+				c.serviceText.WriteString(componentVar)
+				c.serviceText.WriteString(", typeof ")
+				c.serviceText.WriteString(vnodeVar)
+				c.serviceText.WriteString(">\n")
+
+				c.serviceText.WriteString("var ")
+				c.serviceText.WriteString(propsVar)
+				c.serviceText.WriteString("!: __VLS_FunctionalComponentProps<typeof ")
+				c.serviceText.WriteString(componentVar)
+				c.serviceText.WriteString(", typeof ")
+				c.serviceText.WriteString(vnodeVar)
+				c.serviceText.WriteString(">\n")
 			}
+
+
 
 			c.visit(elem)
 			if forDirective != nil {

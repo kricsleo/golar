@@ -261,14 +261,12 @@ func (p *Parser) ondirarg(start int, end int) {
 		prop.Name += arg
 		prop.Loc = prop.Loc.WithEnd(end)
 	} else {
-		// TODO:
-		// isStatic := arg[0] != '['
-		// ;(currentProp as DirectiveNode).arg = createExp(
-		// 	isStatic ? arg : arg.slice(1, -1),
-		// 	isStatic,
-		// 	getLoc(start, end),
-		// 	isStatic ? ConstantTypes.CAN_STRINGIFY : ConstantTypes.NOT_CONSTANT,
-		// )
+		prop := p.currentProp.AsDirective()
+		prop.IsStatic = arg[0] != '['
+		if !prop.IsStatic  {
+			arg = arg[1:len(arg)-1]
+		}
+		prop.Arg = arg
 	}
 }
 
@@ -403,7 +401,7 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 					case "slot":
 						panic("TODO: v-slot")
 					case "on":
-						panic("TODO: v-on")
+						fallthrough
 					default:
 						prefixLen = 1
 						suffixLen = 1
