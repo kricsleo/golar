@@ -28,6 +28,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 	c.serviceText.WriteString("import { defineComponent as __VLS_DefineComponent } from 'vue'\n")
 
 	var selfType string
+	// TODO: revisit <script>
 	if c.scriptEl != nil {
 		if len(c.scriptEl.Children) != 1 {
 			panic("TODO: len of <script> children != 1")
@@ -86,6 +87,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		var (
 			propsVariableName string
 			emitsVariableName string
+			slotsVariableName string
 		)
 
 
@@ -140,6 +142,13 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 							break
 						}
 						emitsVariableName = name.Text()
+					case "defineSlots":
+						if slotsVariableName != "" {
+							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineSlots")
+							break
+						}
+						slotsVariableName = name.Text()
 					}
 				}
 			case ast.KindExpressionStatement:
@@ -166,7 +175,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				case "defineEmits":
-					if propsVariableName != "" {
+					if emitsVariableName != "" {
 						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineEmits")
 						break
@@ -174,6 +183,17 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					emitsVariableName = "__VLS_Emits"
 					c.mapText(lastMappedPos, innerStart+statement.Pos())
 					c.serviceText.WriteString("\nconst __VLS_Emits = ")
+					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
+					lastMappedPos = innerStart + statement.End()
+				case "defineSlots":
+					if slotsVariableName != "" {
+						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineSlots")
+						break
+					}
+					slotsVariableName = "__VLS_Slots"
+					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.serviceText.WriteString("\nconst __VLS_Slots = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				}
@@ -244,7 +264,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 
 		generateTemplate(c.codegenCtx, templateEl)
 
-		c.serviceText.WriteString("\nreturn __VLS_DefineComponent({\n")
+		c.serviceText.WriteString("\nconst __VLS_Base = __VLS_DefineComponent({\n")
 		if propsVariableName != "" {
 			c.serviceText.WriteString("__typeProps: {} as unknown as typeof ")
 			c.serviceText.WriteString(propsVariableName)
@@ -256,6 +276,14 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString(",\n")
 		}
 		c.serviceText.WriteString("})\n")
+
+		if slotsVariableName == "" {
+			c.serviceText.WriteString("return __VLS_Base\n")
+		} else {
+			c.serviceText.WriteString("return {} as unknown as __VLS_WithSlots<typeof __VLS_Base, typeof ")
+			c.serviceText.WriteString(slotsVariableName)
+			c.serviceText.WriteString(">\n")
+		}
 
 		c.serviceText.WriteString("\n})()\n")
 		for _, loc := range importRanges {

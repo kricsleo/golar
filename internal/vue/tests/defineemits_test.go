@@ -48,3 +48,42 @@ const emit = defineEmits<{ (e: 'foo', id: number): void  }>()
 		},
 	})
 }
+func TestDuplicateDefineEmitsCallExpression(t *testing.T) {
+	t.Parallel()
+
+	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
+	content := withVueNodeModules(t, `// @filename: file.vue
+<script lang="ts" setup>
+	const e = defineEmits<{ (e: 'foo'): void }>()
+	[|defineEmits|]<{ (e: 'foo'): void }>()
+</script>`)
+	f, done := fourslash.NewFourslash(t, nil, content)
+	defer done()
+
+	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+		{
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Message: "Duplicate defineEmits call.",
+		},
+	})
+}
+
+func TestDuplicateDefineEmitsVariableDecl(t *testing.T) {
+	t.Parallel()
+
+	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
+	content := withVueNodeModules(t, `// @filename: file.vue
+<script lang="ts" setup>
+	defineEmits<{ (e: 'foo'): void }>()
+	const e = [|defineEmits|]<{ (e: 'foo'): void }>()
+</script>`)
+	f, done := fourslash.NewFourslash(t, nil, content)
+	defer done()
+
+	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+		{
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Message: "Duplicate defineEmits call.",
+		},
+	})
+}

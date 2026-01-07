@@ -26,7 +26,7 @@ type compilerHostProxy struct {
 
 type languageData struct {
 	sourceText string
-	mapper     *mapping.Mapper
+	sourceMap     *mapping.SourceMap
 }
 
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
@@ -67,7 +67,7 @@ func (d *diagnosticProxy) sourceLoc() core.TextRange {
 		file := d.Diagnostic.File()
 		if file != nil && file.GolarLanguageData != nil {
 			langData := file.GolarLanguageData.(languageData)
-			for _, sourceLoc := range langData.mapper.ToSourceRange(d.Diagnostic.Pos(), d.Diagnostic.End(), true) {
+			for _, sourceLoc := range langData.sourceMap.ToSourceRange(d.Diagnostic.Pos(), d.Diagnostic.End(), true) {
 				d.cachedSourceLoc = core.NewTextRange(sourceLoc.MappedStart, sourceLoc.MappedEnd)
 				d.hasSource = true
 				return d.cachedSourceLoc
@@ -173,7 +173,7 @@ func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind co
 		return parser.ParseSourceFile(opts, sourceText, scriptKind)
 	}
 	ast := vue_parser.Parse(sourceText)
-	serviceText, mappings, rangeMappings, codegenDiagnostics := vue_codegen.Codegen(sourceText, ast)
+	serviceText, mappings, codegenDiagnostics := vue_codegen.Codegen(sourceText, ast)
 	file := parser.ParseSourceFile(opts, serviceText, scriptKind)
 	for _, d := range codegenDiagnostics {
 		d.SetFile(file)
@@ -184,7 +184,7 @@ func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind co
 	file.SetDiagnostics(append(file.Diagnostics(), codegenDiagnostics...))
 	file.GolarLanguageData = languageData{
 		sourceText: sourceText,
-		mapper:     mapping.NewMapper(mappings, rangeMappings),
+		sourceMap:     mapping.NewSourceMap(mappings),
 	}
 
 	return file
@@ -195,7 +195,7 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 		return diagnostic
 	}
 	langData := file.GolarLanguageData.(languageData)
-	for _, sourceRange := range langData.mapper.ToSourceRange(diagnostic.Pos(), diagnostic.End(), true) {
+	for _, sourceRange := range langData.sourceMap.ToSourceRange(diagnostic.Pos(), diagnostic.End(), true) {
 		diagnostic.SetLocation(core.NewTextRange(sourceRange.MappedStart, sourceRange.MappedEnd))
 		break
 	}
@@ -211,7 +211,7 @@ func positionToService(file *ast.SourceFile, pos int) int {
 	}
 
 	langData := file.GolarLanguageData.(languageData)
-	for _, serviceLoc := range langData.mapper.ToServiceLocation(pos) {
+	for _, serviceLoc := range langData.sourceMap.ToServiceLocation(pos) {
 		return serviceLoc.Offset
 	}
 	return pos

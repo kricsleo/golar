@@ -80,6 +80,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 
 			var conditionalDirective *vue_ast.DirectiveNode
 			var forDirective *vue_ast.ForParseResult
+			var slotDirective *vue_ast.DirectiveNode
 			var seenProps collections.Set[string]
 			hasSeenConditionalDirective := false
 
@@ -137,6 +138,9 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 					}
 				case "for":
 					forDirective = dir.ForParseResult
+				// TODO: #slot
+				case "slot":
+					slotDirective = dir
 				}
 			}
 			if conditionalDirective != nil {
@@ -322,6 +326,24 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 					c.serviceText.WriteString("\n}\n")
 				}
 
+				// TODO: named slots
+				// TODO: implicit default slot
+				if slotDirective != nil {
+					c.enterScope()
+					slotVar := c.newInternalVariable()
+					c.serviceText.WriteString("{\nconst { default: ")
+					c.serviceText.WriteString(slotVar)
+					c.serviceText.WriteString("} = ")
+					c.serviceText.WriteString(ctxVar)
+					c.serviceText.WriteString(".slots!\nconst [")
+
+					// TODO: nil ast?
+					c.mapExpressionInBindingPosition(slotDirective.Expression)
+					c.serviceText.WriteString("] = __VLS_vSlot(")
+					c.serviceText.WriteString(slotVar)
+					c.serviceText.WriteString(")\n")
+				}
+
 				c.serviceText.WriteString("var ")
 				c.serviceText.WriteString(ctxVar)
 				c.serviceText.WriteString("!: __VLS_FunctionalComponentCtx<typeof ")
@@ -339,9 +361,12 @@ func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
 				c.serviceText.WriteString(">\n")
 			}
 
-
-
 			c.visit(elem)
+
+			if slotDirective != nil {
+				c.exitScope()
+				c.serviceText.WriteString("}\n")
+			}
 			if forDirective != nil {
 				c.exitScope()
 				c.serviceText.WriteString("}\n")

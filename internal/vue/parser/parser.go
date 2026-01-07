@@ -394,16 +394,18 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 						}
 					}
 				} else {
-					var prefixLen int
-					var suffixLen int
-					var expressionText string
 					switch prop.Name {
 					case "slot":
-						panic("TODO: v-slot")
+						prop.Expression = vue_ast.NewSimpleExpressionNode(
+							ParseTsAst("(" + p.currentAttrValue + ")=>{}"),
+							core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex),
+							1,
+							5,
+						)
 					case "on":
 						// https://github.com/vuejs/core/issues/14287
-						prefixLen = 1
-						suffixLen = 1
+						prefixLen := 1
+						suffixLen := 1
 						ast := ParseTsAst("(" + p.currentAttrValue + ")")
 						// TODO: report syntactic diagnostics
 						diagnostics := ast.Diagnostics()
@@ -418,12 +420,9 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 						}
 						prop.Expression = vue_ast.NewSimpleExpressionNode(ast, core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
 					default:
-						prefixLen = 1
-						suffixLen = 1
-						expressionText = "(" + p.currentAttrValue + ")"
 						prop.Expression = vue_ast.NewSimpleExpressionNode(ParseTsAst(
-							expressionText,
-						), core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
+							"(" + p.currentAttrValue + ")",
+						), core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), 1, 1)
 					}
 				}
 				// if currentProp.name == "for" {

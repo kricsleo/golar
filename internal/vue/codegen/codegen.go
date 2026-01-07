@@ -163,10 +163,17 @@ declare global {
 			: never,
 	> = __VLS_SpreadMerge<NormalizedEmits, TypeEmits>;
 
+	type __VLS_WithSlots<T extends abstract new (...args: any) => any, S> = T & {
+		new(...args: ConstructorParameters<T>): {
+			$slots: S;
+		}
+	};
+
+	function __VLS_vSlot<S, D extends S>(slot: S, decl?: D): D extends (...args: infer P) => any ? P : any[];
 }
 `
 
-func Codegen(sourceText string, root *vue_ast.RootNode) (string, []mapping.Mapping, []mapping.RangeMapping, []*ast.Diagnostic) {
+func Codegen(sourceText string, root *vue_ast.RootNode) (string, []mapping.Mapping, []*ast.Diagnostic) {
 	ctx := newCodegenCtx(root, sourceText)
 	ctx.serviceText.WriteString(globalTypesReference)
 
@@ -246,7 +253,7 @@ RootChild:
 	// }
 	generateScript(&ctx, scriptSetupEl, scriptEl, templateEl)
 
-	return ctx.serviceText.String(), ctx.mappings, ctx.rangeMappings, ctx.diagnostics
+	return ctx.serviceText.String(), ctx.mappings, ctx.diagnostics
 }
 
 type codegenCtx struct {
@@ -254,7 +261,6 @@ type codegenCtx struct {
 	sourceText              string
 	serviceText             strings.Builder
 	mappings                []mapping.Mapping
-	rangeMappings           []mapping.RangeMapping
 	diagnostics             []*ast.Diagnostic
 	internalVariableCounter int
 }
@@ -277,18 +283,17 @@ func (c *codegenCtx) mapText(from, to int) {
 	serviceOffset := c.serviceText.Len()
 	c.serviceText.WriteString(c.sourceText[from:to])
 	c.mappings = append(c.mappings, mapping.Mapping{
-		SourceOffset:  from,
-		ServiceOffset: serviceOffset,
-		Length:        to - from,
+		SourceOffsets:  []int{from},
+		ServiceOffsets: []int{serviceOffset},
+		Lengths:        []int{to - from},
 	})
 }
 
 func (c *codegenCtx) mapRange(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
-	c.rangeMappings = append(c.rangeMappings, mapping.RangeMapping{
-		SourceOffset:  sourceStart,
-		SourceLength:  sourceEnd - sourceStart,
-		ServiceOffset: serviceStart,
-		ServiceLength: serviceEnd - serviceStart,
+	c.mappings = append(c.mappings, mapping.Mapping{
+		SourceOffsets:  []int{sourceStart, sourceEnd},
+		ServiceOffsets: []int{serviceStart, serviceEnd},
+		Lengths:        []int{0, 0},
 	})
 }
 

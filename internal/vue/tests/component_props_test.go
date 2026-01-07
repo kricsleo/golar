@@ -12,22 +12,21 @@ func TestMissingComponentProps(t *testing.T) {
 	t.Parallel()
 
 	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file-foo.vue
-<script setup lang="ts">
-	defineProps<{ foo: string }>()
-</script>
-
-// @filename: file.vue
+	content := withVueNodeModules(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
 
 <template>
 	<[|CompFoo|]/>
-</template>`)
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineProps<{ foo: string }>()
+</script>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
-	f.GoToFile(t, "file.vue")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
@@ -41,22 +40,21 @@ func TestComponentPropTypeMismatch(t *testing.T) {
 	t.Parallel()
 
 	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file-foo.vue
-<script setup lang="ts">
-	defineProps<{ foo: number }>()
-</script>
-
-// @filename: file.vue
+	content := withVueNodeModules(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
 
 <template>
 	<CompFoo [|foo|]="bar" />
-</template>`)
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineProps<{ foo: number }>()
+</script>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
-	f.GoToFile(t, "file.vue")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
@@ -64,26 +62,26 @@ func TestComponentPropTypeMismatch(t *testing.T) {
 		},
 	})
 }
+
 func TestComponentPropTypeMismatchDefinePropsVariable(t *testing.T) {
 	t.Parallel()
 
 	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file-foo.vue
-<script setup lang="ts">
-	const p = defineProps<{ foo: number }>()
-</script>
-
-// @filename: file.vue
+	content := withVueNodeModules(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
 
 <template>
 	<CompFoo [|foo|]="bar" />
-</template>`)
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	const p = defineProps<{ foo: number }>()
+</script>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
-	f.GoToFile(t, "file.vue")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
@@ -96,22 +94,21 @@ func TestComponentPropTypeMismatchBoolean(t *testing.T) {
 	t.Parallel()
 
 	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file-foo.vue
-<script setup lang="ts">
-	defineProps<{ foo: number }>()
-</script>
-
-// @filename: file.vue
+	content := withVueNodeModules(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
 
 <template>
 	<CompFoo [|foo|] />
-</template>`)
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineProps<{ foo: number }>()
+</script>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
-	f.GoToFile(t, "file.vue")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
@@ -124,22 +121,21 @@ func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
 	t.Parallel()
 
 	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file-foo.vue
-<script setup lang="ts">
-	defineProps<{ fooBar: number }>()
-</script>
-
-// @filename: file.vue
+	content := withVueNodeModules(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
 
 <template>
 	<CompFoo [|foo-bar|] />
-</template>`)
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineProps<{ fooBar: number }>()
+</script>`)
 	f, done := fourslash.NewFourslash(t, nil, content)
 	defer done()
-	f.GoToFile(t, "file.vue")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
