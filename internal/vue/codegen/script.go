@@ -28,45 +28,44 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 	c.serviceText.WriteString("import { defineComponent as __VLS_DefineComponent } from 'vue'\n")
 
 	var selfType string
-	// TODO: revisit <script>
 	if c.scriptEl != nil {
 		if len(c.scriptEl.Children) != 1 {
 			panic("TODO: len of <script> children != 1")
 		}
 
-		innerStart := c.scriptEl.InnerLoc.Pos()
+		// innerStart := c.scriptEl.InnerLoc.Pos()
 		text := c.scriptEl.Children[0].AsText()
 
 		mapStart := text.Loc.Pos()
-		hasExportDefault := false
-
-		for _, statement := range c.scriptEl.Ast.Statements.Nodes {
-			if !ast.IsExportAssignment(statement) {
-				continue
-			}
-
-			hasExportDefault = true
-			export := statement.AsExportAssignment()
-			c.mapText(mapStart, innerStart+export.Expression.Pos())
-			c.serviceText.WriteString(" {} as unknown as typeof __VLS_Export\n")
-			if c.scriptSetupEl == nil {
-				c.serviceText.WriteString("const __VLS_Export = ")
-				selfType = "__VLS_Export"
-			} else {
-				c.serviceText.WriteString("const __VLS_Self = ")
-				selfType = "__VLS_Self"
-			}
-			mapStart = innerStart + export.Expression.Pos()
-
-			break
-		}
+		// hasExportDefault := false
+		//
+		// for _, statement := range c.scriptEl.Ast.Statements.Nodes {
+		// 	if !ast.IsExportAssignment(statement) {
+		// 		continue
+		// 	}
+		//
+		// 	hasExportDefault = true
+		// 	export := statement.AsExportAssignment()
+		// 	c.mapText(mapStart, innerStart+export.Expression.Pos())
+		// 	c.serviceText.WriteString(" {} as unknown as typeof __VLS_Export\n")
+		// 	if c.scriptSetupEl == nil {
+		// 		c.serviceText.WriteString("const __VLS_Export = ")
+		// 		selfType = "__VLS_Export"
+		// 	} else {
+		// 		c.serviceText.WriteString("const __VLS_Self = ")
+		// 		selfType = "__VLS_Self"
+		// 	}
+		// 	mapStart = innerStart + export.Expression.Pos()
+		//
+		// 	break
+		// }
 
 		c.mapText(mapStart, text.Loc.End())
 		c.serviceText.WriteString("\n\n")
 
-		if !hasExportDefault {
-			c.serviceText.WriteString("const __VLS_Export = __VLS_DefineComponent({})\nexport default __VLS_Export\n")
-		}
+		// if !hasExportDefault {
+		// 	c.serviceText.WriteString("const __VLS_Export = __VLS_DefineComponent({})\nexport default __VLS_Export\n")
+		// }
 
 		// TODO: options wrapper - wrap export default |defineComponent(|{}|)|
 	}

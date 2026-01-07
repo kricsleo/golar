@@ -143,3 +143,27 @@ func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
 		},
 	})
 }
+
+func TestProps(t *testing.T) {
+	t.Parallel()
+
+	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
+	content := withVueNodeModules(t, `// @filename: file.vue
+<script setup lang="ts">
+	import CompFoo from './file-foo.vue'
+</script>
+
+<template>
+	<CompFoo foo="
+		multiline!
+	"/>
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineProps<{ foo: string }>()
+</script>`)
+	f, done := fourslash.NewFourslash(t, nil, content)
+	defer done()
+	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+}

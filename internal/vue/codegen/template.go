@@ -6,9 +6,10 @@ import (
 	"unicode/utf8"
 
 	"github.com/auvred/golar/internal/collections"
+	"github.com/auvred/golar/internal/utils"
 	"github.com/auvred/golar/internal/vue/ast"
-	"github.com/auvred/golar/internal/vue/parser"
 	"github.com/auvred/golar/internal/vue/diagnostics"
+	"github.com/auvred/golar/internal/vue/parser"
 	"github.com/microsoft/typescript-go/shim/ast"
 )
 
@@ -232,8 +233,20 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 						c.serviceText.WriteString("': true,\n")
 					} else {
 						c.serviceText.WriteString("': '")
+						// TODO: perf
 						// TODO: escape
-						c.serviceText.WriteString(attr.Value.Content)
+						for _, r := range attr.Value.Content {
+							switch r {
+							case '\\':
+								c.serviceText.WriteString("\\x5c")
+							case '\n':
+								c.serviceText.WriteString("\\x0a")
+							case '\'':
+								c.serviceText.WriteString("\\x27")
+							default:
+								c.serviceText.WriteRune(r)
+							}
+						}
 						c.serviceText.WriteString("',\n")
 					}
 				}
@@ -299,7 +312,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				camelize(strings.Title(emitName), &c.serviceText)
 				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos() + len(dir.RawName), emitNameStart, c.serviceText.Len() + 1)
 				c.serviceText.WriteString("': ")
-				if dir.Expression.Ast == nil {
+				if dir.Expression == nil || dir.Expression.Ast == nil {
 					c.serviceText.WriteString("() => {}")
 				} else {
 					isCompound := true
@@ -348,6 +361,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 		}
 
 		// TODO: implicit default slot?
+		// TODO: report duplicate slots
 		if slotDirective != nil {
 			parentComponentCtx := ctxVar
 			if parentComponentCtx == "" {
@@ -547,7 +561,9 @@ func (m *expressionMapper) mapInNonBindingPosition(node *ast.Node) bool {
 	switch node.Kind {
 	case ast.KindIdentifier:
 		if m.shouldPrefixIdentifier(node) {
-			m.mapTextToNodePos(node.Pos())
+			// TODO: perf
+			p := utils.TrimNodeTextRange(m.expr.Ast, node)
+			m.mapTextToNodePos(p.Pos())
 			m.serviceText.WriteString(" __VLS_Ctx.")
 			m.mapTextToNodePos(node.End())
 		}
