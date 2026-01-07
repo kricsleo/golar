@@ -21,7 +21,7 @@ func TestVIfEmptyDirective(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_005)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
 			Message: "v-if is missing expression.",
 		},
 	})
@@ -41,7 +41,7 @@ func TestVElseIfMissingExpression(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_005)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
 			Message: "v-else-if is missing expression.",
 		},
 	})
@@ -120,7 +120,7 @@ func TestVIfDuplicateConditionalDirective1(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_004)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_005)},
 			Message: "Multiple conditional directives cannot coexist on the same element.",
 		},
 	})
@@ -139,7 +139,7 @@ func TestVIfMultipleConditionalDirective2(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_004)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_005)},
 			Message: "Multiple conditional directives cannot coexist on the same element.",
 		},
 	})
@@ -159,7 +159,7 @@ func TestVIfMultipleConditionalDirective3(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_004)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_005)},
 			Message: "Multiple conditional directives cannot coexist on the same element.",
 		},
 	})

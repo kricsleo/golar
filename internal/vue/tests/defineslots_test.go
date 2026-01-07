@@ -22,7 +22,7 @@ func TestDuplicateDefineSlotsCallExpression(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineSlots call.",
 		},
 	})
@@ -42,7 +42,7 @@ func TestDuplicateDefineSlotsVariableDecl(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineSlots call.",
 		},
 	})

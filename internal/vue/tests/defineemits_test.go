@@ -62,7 +62,7 @@ func TestDuplicateDefineEmitsCallExpression(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineEmits call.",
 		},
 	})
@@ -82,7 +82,7 @@ func TestDuplicateDefineEmitsVariableDecl(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineEmits call.",
 		},
 	})

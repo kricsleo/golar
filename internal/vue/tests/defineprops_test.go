@@ -64,7 +64,7 @@ func TestDuplicateDefinePropsCallExpression(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineProps call.",
 		},
 	})
@@ -84,7 +84,7 @@ func TestDuplicateDefinePropsVariableDecl(t *testing.T) {
 
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_006)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_007)},
 			Message: "Duplicate defineProps call.",
 		},
 	})

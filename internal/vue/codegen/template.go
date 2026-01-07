@@ -15,6 +15,8 @@ import (
 type templateCodegenCtx struct {
 	*codegenCtx
 	scopes []collections.Set[string]
+	parentComponentVar string
+	condChain conditionalChain
 }
 
 func newTemplateCodegenCtx(base *codegenCtx) templateCodegenCtx {
@@ -26,7 +28,7 @@ func newTemplateCodegenCtx(base *codegenCtx) templateCodegenCtx {
 func generateTemplate(base *codegenCtx, el *vue_ast.ElementNode) {
 	c := newTemplateCodegenCtx(base)
 	if el != nil {
-		c.visit(el)
+		c.visit(el.AsNode())
 	}
 }
 
@@ -71,315 +73,339 @@ const (
 	conditionalChainBroken
 )
 
-func (c *templateCodegenCtx) visit(el *vue_ast.ElementNode) {
-	condChain := conditionalChainNone
-	for _, child := range el.Children {
-		switch child.Kind {
-		case vue_ast.KindElement:
-			elem := child.AsElement()
+func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
+	switch el.Kind {
+	case vue_ast.KindElement:
+		elem := el.AsElement()
 
-			var conditionalDirective *vue_ast.DirectiveNode
-			var forDirective *vue_ast.ForParseResult
-			var slotDirective *vue_ast.DirectiveNode
-			var seenProps collections.Set[string]
-			hasSeenConditionalDirective := false
+		var conditionalDirective *vue_ast.DirectiveNode
+		var forDirective *vue_ast.ForParseResult
+		var slotDirective *vue_ast.DirectiveNode
+		var seenProps collections.Set[string]
+		hasSeenConditionalDirective := false
 
-			for _, p := range elem.Props {
-				if p.Kind != vue_ast.KindDirective {
-					attr := p.AsAttribute()
-					if seenProps.Has(attr.Name) {
-						c.reportDiagnostic(attr.NameLoc, vue_diagnostics.Elements_cannot_have_multiple_X_0_with_the_same_name, "attributes")
-					} else {
-						seenProps.Add(attr.Name)
-					}
-					continue
-				}
-				dir := p.AsDirective()
-				if seenProps.Has(dir.RawName) {
-					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Elements_cannot_have_multiple_X_0_with_the_same_name, "directives")
-					continue
+		// TODO: unexpected props and directives, for example on <template>
+		for _, p := range elem.Props {
+			if p.Kind != vue_ast.KindDirective {
+				attr := p.AsAttribute()
+				if seenProps.Has(attr.Name) {
+					c.reportDiagnostic(attr.NameLoc, vue_diagnostics.Elements_cannot_have_multiple_X_0_with_the_same_name, "attributes")
 				} else {
-					seenProps.Add(dir.RawName)
+					seenProps.Add(attr.Name)
 				}
-				switch dir.Name {
-				case "if":
-					if hasSeenConditionalDirective {
-						c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
-						break
-					}
-					hasSeenConditionalDirective = true
-					condChain = conditionalChainValid
+				continue
+			}
+			dir := p.AsDirective()
+			if seenProps.Has(dir.RawName) {
+				c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Elements_cannot_have_multiple_X_0_with_the_same_name, "directives")
+				continue
+			} else {
+				seenProps.Add(dir.RawName)
+			}
+			switch dir.Name {
+			case "if":
+				if hasSeenConditionalDirective {
+					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
+					break
+				}
+				hasSeenConditionalDirective = true
+				c.condChain = conditionalChainValid
+				conditionalDirective = dir
+			case "else-if":
+				if hasSeenConditionalDirective {
+					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
+					break
+				}
+				hasSeenConditionalDirective = true
+				switch c.condChain {
+				case conditionalChainNone:
+					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.X_0_has_no_adjacent_v_if_or_v_else_if, "v-else-if")
+					c.condChain = conditionalChainBroken
+				case conditionalChainValid:
 					conditionalDirective = dir
-				case "else-if":
-					if hasSeenConditionalDirective {
-						c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
-						break
-					}
-					hasSeenConditionalDirective = true
-					switch condChain {
-					case conditionalChainNone:
-						c.reportDiagnostic(dir.NameLoc, vue_diagnostics.X_0_has_no_adjacent_v_if_or_v_else_if, "v-else-if")
-						condChain = conditionalChainBroken
-					case conditionalChainValid:
-						conditionalDirective = dir
-					}
-				case "else":
-					if hasSeenConditionalDirective {
-						c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
-						break
-					}
-					hasSeenConditionalDirective = true
-					switch condChain {
-					case conditionalChainNone:
-						c.reportDiagnostic(dir.NameLoc, vue_diagnostics.X_0_has_no_adjacent_v_if_or_v_else_if, "v-else")
-					case conditionalChainValid:
-						condChain = conditionalChainNone
-						conditionalDirective = dir
-					}
-				case "for":
-					forDirective = dir.ForParseResult
-				// TODO: #slot
-				case "slot":
-					slotDirective = dir
 				}
+			case "else":
+				if hasSeenConditionalDirective {
+					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.Multiple_conditional_directives_cannot_coexist_on_the_same_element)
+					break
+				}
+				hasSeenConditionalDirective = true
+				switch c.condChain {
+				case conditionalChainNone:
+					c.reportDiagnostic(dir.NameLoc, vue_diagnostics.X_0_has_no_adjacent_v_if_or_v_else_if, "v-else")
+				case conditionalChainValid:
+					c.condChain = conditionalChainNone
+					conditionalDirective = dir
+				}
+			case "for":
+				forDirective = dir.ForParseResult
+			// TODO: #slot
+			case "slot":
+				slotDirective = dir
 			}
-			if conditionalDirective != nil {
-				switch conditionalDirective.Name {
-				case "else-if":
-					c.serviceText.WriteString("else ")
-					fallthrough
-				case "if":
-					c.serviceText.WriteString("if (")
-					if conditionalDirective.Expression != nil && conditionalDirective.Expression.Ast != nil {
-						c.mapExpressionInNonBindingPosition(conditionalDirective.Expression)
+		}
+		if conditionalDirective != nil {
+			switch conditionalDirective.Name {
+			case "else-if":
+				c.serviceText.WriteString("else ")
+				fallthrough
+			case "if":
+				c.serviceText.WriteString("if (")
+				if conditionalDirective.Expression != nil && conditionalDirective.Expression.Ast != nil {
+					c.mapExpressionInNonBindingPosition(conditionalDirective.Expression)
+				} else {
+					c.reportDiagnostic(conditionalDirective.Loc, vue_diagnostics.X_0_is_missing_expression, conditionalDirective.RawName)
+					c.serviceText.WriteString("1 as number")
+				}
+				c.serviceText.WriteString(") {\n")
+			case "else":
+				c.serviceText.WriteString("else {\n")
+			}
+		} else if !hasSeenConditionalDirective {
+			c.condChain = conditionalChainNone
+		}
+		if forDirective != nil {
+			c.enterScope()
+			c.serviceText.WriteString("{\nconst [")
+			if forDirective.Value != nil {
+				c.mapExpressionInBindingPosition(forDirective.Value)
+			}
+			c.serviceText.WriteString(",")
+			if forDirective.Key != nil {
+				c.mapExpressionInBindingPosition(forDirective.Key)
+			}
+			c.serviceText.WriteString(",")
+			if forDirective.Index != nil {
+				c.mapExpressionInBindingPosition(forDirective.Index)
+			}
+			c.serviceText.WriteString("] = __VLS_vFor(")
+			c.mapExpressionInNonBindingPosition(forDirective.Source)
+			c.serviceText.WriteString(")\n")
+		}
+
+		// TODO: handle template and component
+		isComponent := elem.Tag != "template" && elem.Tag != "component" && (isBuiltInComponent(elem.Tag) || !isNativeElement(elem.Tag))
+		var ctxVar string
+		// TODO: don't generate unused vars
+		// TODO: expression components like foo.bar
+		// TODO: global components
+		// TODO: self component
+		// TODO: component name casing
+		// TODO: native elements
+		if isComponent {
+			ctxVar = c.newInternalVariable()
+			propsVar := c.newInternalVariable()
+			componentVar := c.newInternalVariable()
+			vnodeVar := c.newInternalVariable()
+			functionalVar := c.newInternalVariable()
+			emitsVar := ""
+
+			c.serviceText.WriteString("let ")
+			c.serviceText.WriteString(componentVar)
+			c.serviceText.WriteString("!: __VLS_ExtractComponentType<'")
+			c.serviceText.WriteString(elem.Tag)
+			c.serviceText.WriteString("', __VLS_SetupExposed, void, '")
+			c.serviceText.WriteString(elem.Tag)
+			c.serviceText.WriteString("'>['")
+			// TODO: mapping?
+			c.serviceText.WriteString(elem.Tag)
+			c.serviceText.WriteString("']\n")
+
+
+			c.serviceText.WriteString("const ")
+			c.serviceText.WriteString(vnodeVar)
+			c.serviceText.WriteString(" = ({} as unknown as typeof ")
+			c.serviceText.WriteString(functionalVar)
+			c.serviceText.WriteString(")")
+			propsStart := c.serviceText.Len() + 1
+			c.serviceText.WriteString("({\n")
+			for _, prop := range elem.Props {
+				switch prop.Kind {
+				case vue_ast.KindAttribute:
+					attr := prop.AsAttribute()
+					propNameStart := c.serviceText.Len()
+					c.serviceText.WriteByte('\'')
+					camelize(attr.Name, &c.serviceText)
+					propNameEnd := c.serviceText.Len() + 1
+					c.mapRange(attr.Loc.Pos(), attr.Loc.Pos() + len(attr.Name), propNameStart, propNameEnd)
+					if attr.Value == nil {
+						c.serviceText.WriteString("': true,\n")
 					} else {
-						c.reportDiagnostic(conditionalDirective.Loc, vue_diagnostics.X_0_is_missing_expression, conditionalDirective.RawName)
-						c.serviceText.WriteString("1 as number")
+						c.serviceText.WriteString("': '")
+						// TODO: escape
+						c.serviceText.WriteString(attr.Value.Content)
+						c.serviceText.WriteString("',\n")
 					}
-					c.serviceText.WriteString(") {\n")
-				case "else":
-					c.serviceText.WriteString("else {\n")
 				}
-			} else if !hasSeenConditionalDirective {
-				condChain = conditionalChainNone
 			}
-			if forDirective != nil {
-				c.enterScope()
-				c.serviceText.WriteString("{\nconst [")
-				if forDirective.Value != nil {
-					c.mapExpressionInBindingPosition(forDirective.Value)
+			c.serviceText.WriteString("})\n")
+			propsEnd := c.serviceText.Len() - 2
+			// TODO: is this valid?
+			tagStart := elem.Loc.Pos() + 1
+			c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
+
+			// TODO: generic support
+			c.serviceText.WriteString("const ")
+			c.serviceText.WriteString(functionalVar)
+			c.serviceText.WriteString(" = __VLS_AsFunctionalComponent(")
+			c.serviceText.WriteString(componentVar)
+			c.serviceText.WriteString(", new ")
+			c.serviceText.WriteString(componentVar)
+			c.serviceText.WriteString("({\n")
+			// TODO: props here
+			c.serviceText.WriteString("}))\n")
+
+			// TODO: emits type mismatch mapping locations
+			for _, prop := range elem.Props {
+				if prop.Kind != vue_ast.KindDirective {
+					continue
 				}
-				c.serviceText.WriteString(",")
-				if forDirective.Key != nil {
-					c.mapExpressionInBindingPosition(forDirective.Key)
+
+				dir := prop.AsDirective()
+				// TODO: model
+				// TODO: dynamic event name
+				if dir.Name != "on" || !dir.IsStatic {
+					continue
 				}
-				c.serviceText.WriteString(",")
-				if forDirective.Index != nil {
-					c.mapExpressionInBindingPosition(forDirective.Index)
-				}
-				c.serviceText.WriteString("] = __VLS_vFor(")
-				c.mapExpressionInNonBindingPosition(forDirective.Source)
-				c.serviceText.WriteString(")\n")
-			}
-
-			// TODO: don't generate unused vars
-			// TODO: expression components like foo.bar
-			// TODO: global components
-			// TODO: self component
-			// TODO: component name casing
-			// TODO: native elements
-			if elem.Tag != "template" && elem.Tag != "component" && (isBuiltInComponent(elem.Tag) || !isNativeElement(elem.Tag)) {
-				ctxVar := c.newInternalVariable()
-				propsVar := c.newInternalVariable()
-				componentVar := c.newInternalVariable()
-				vnodeVar := c.newInternalVariable()
-				functionalVar := c.newInternalVariable()
-				emitsVar := ""
-
-				c.serviceText.WriteString("let ")
-				c.serviceText.WriteString(componentVar)
-				c.serviceText.WriteString("!: __VLS_ExtractComponentType<'")
-				c.serviceText.WriteString(elem.Tag)
-				c.serviceText.WriteString("', __VLS_SetupExposed, void, '")
-				c.serviceText.WriteString(elem.Tag)
-				c.serviceText.WriteString("'>['")
-				// TODO: mapping?
-				c.serviceText.WriteString(elem.Tag)
-				c.serviceText.WriteString("']\n")
-
-
-				c.serviceText.WriteString("const ")
-				c.serviceText.WriteString(vnodeVar)
-				c.serviceText.WriteString(" = ({} as unknown as typeof ")
-				c.serviceText.WriteString(functionalVar)
-				c.serviceText.WriteString(")")
-				propsStart := c.serviceText.Len() + 1
-				c.serviceText.WriteString("({\n")
-				for _, prop := range elem.Props {
-					switch prop.Kind {
-					case vue_ast.KindAttribute:
-						attr := prop.AsAttribute()
-						propNameStart := c.serviceText.Len()
-						c.serviceText.WriteByte('\'')
-						camelize(attr.Name, &c.serviceText)
-						propNameEnd := c.serviceText.Len() + 1
-						c.mapRange(attr.Loc.Pos(), attr.Loc.Pos() + len(attr.Name), propNameStart, propNameEnd)
-						if attr.Value == nil {
-							c.serviceText.WriteString("': true,\n")
-						} else {
-							c.serviceText.WriteString("': '")
-							// TODO: escape
-							c.serviceText.WriteString(attr.Value.Content)
-							c.serviceText.WriteString("',\n")
-						}
-					}
-				}
-				c.serviceText.WriteString("})\n")
-				propsEnd := c.serviceText.Len() - 2
-				// TODO: is this valid?
-				tagStart := elem.Loc.Pos() + 1
-				c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
-
-				// TODO: generic support
-				c.serviceText.WriteString("const ")
-				c.serviceText.WriteString(functionalVar)
-				c.serviceText.WriteString(" = __VLS_AsFunctionalComponent(")
-				c.serviceText.WriteString(componentVar)
-				c.serviceText.WriteString(", new ")
-				c.serviceText.WriteString(componentVar)
-				c.serviceText.WriteString("({\n")
-				// TODO: props here
-				c.serviceText.WriteString("}))\n")
-
-				// TODO: emits type mismatch mapping locations
-				for _, prop := range elem.Props {
-					if prop.Kind != vue_ast.KindDirective {
-						continue
-					}
-
-					dir := prop.AsDirective()
-					// TODO: model
-					// TODO: dynamic event name
-					if dir.Name != "on" || !dir.IsStatic {
-						continue
-					}
-					if emitsVar == "" {
-						emitsVar = c.newInternalVariable()
-						c.serviceText.WriteString("var ")
-						c.serviceText.WriteString(emitsVar)
-						c.serviceText.WriteString("!: __VLS_ResolveEmits<typeof ")
-						c.serviceText.WriteString(componentVar)
-						c.serviceText.WriteString(", typeof ")
-						c.serviceText.WriteString(ctxVar)
-						c.serviceText.WriteString(".emit>\n")
-					}
-
-					// TODO: model & vue:
-					c.serviceText.WriteString("const ")
-					c.serviceText.WriteString(c.newInternalVariable())
-					c.serviceText.WriteString(": __VLS_NormalizeComponentEvent<typeof ")
-					c.serviceText.WriteString(propsVar)
-					c.serviceText.WriteString(", typeof ")
+				if emitsVar == "" {
+					emitsVar = c.newInternalVariable()
+					c.serviceText.WriteString("var ")
 					c.serviceText.WriteString(emitsVar)
-					c.serviceText.WriteString(", '")
-					camelize("on-" + dir.Arg, &c.serviceText) // propName
-					c.serviceText.WriteString("', '")
-					emitName := dir.Arg
-					c.serviceText.WriteString(emitName)
-					c.serviceText.WriteString("', '")
-					camelize(emitName, &c.serviceText) // camelizedEmitName
-					c.serviceText.WriteString("'> = {\n")
-					emitNameStart := c.serviceText.Len()
-					c.serviceText.WriteString("'on")
-					// TODO(perf): no unnecessary allocations
-					camelize(strings.Title(emitName), &c.serviceText)
-					c.mapRange(dir.Loc.Pos(), dir.Loc.Pos() + len(dir.RawName), emitNameStart, c.serviceText.Len() + 1)
-					c.serviceText.WriteString("': ")
-					if dir.Expression.Ast == nil {
-						c.serviceText.WriteString("() => {}")
-					} else {
-						isCompound := true
-						if len(dir.Expression.Ast.Statements.Nodes) == 0 {
-							panic("Expected event listener AST to have at least one statement")
-						}
-						if len(dir.Expression.Ast.Statements.Nodes) == 1 {
-							if ast.IsExpressionStatement(dir.Expression.Ast.Statements.Nodes[0]) {
-								expr := ast.SkipParentheses(dir.Expression.Ast.Statements.Nodes[0].AsExpressionStatement().Expression)
-								if ast.IsArrowFunction(expr) || ast.IsIdentifier(expr) || ast.IsPropertyAccessExpression(expr) || ast.IsFunctionExpression(expr) {
-									isCompound = false
-								}
+					c.serviceText.WriteString("!: __VLS_ResolveEmits<typeof ")
+					c.serviceText.WriteString(componentVar)
+					c.serviceText.WriteString(", typeof ")
+					c.serviceText.WriteString(ctxVar)
+					c.serviceText.WriteString(".emit>\n")
+				}
+
+				// TODO: model & vue:
+				c.serviceText.WriteString("const ")
+				c.serviceText.WriteString(c.newInternalVariable())
+				c.serviceText.WriteString(": __VLS_NormalizeComponentEvent<typeof ")
+				c.serviceText.WriteString(propsVar)
+				c.serviceText.WriteString(", typeof ")
+				c.serviceText.WriteString(emitsVar)
+				c.serviceText.WriteString(", '")
+				camelize("on-" + dir.Arg, &c.serviceText) // propName
+				c.serviceText.WriteString("', '")
+				emitName := dir.Arg
+				c.serviceText.WriteString(emitName)
+				c.serviceText.WriteString("', '")
+				camelize(emitName, &c.serviceText) // camelizedEmitName
+				c.serviceText.WriteString("'> = {\n")
+				emitNameStart := c.serviceText.Len()
+				c.serviceText.WriteString("'on")
+				// TODO(perf): no unnecessary allocations
+				camelize(strings.Title(emitName), &c.serviceText)
+				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos() + len(dir.RawName), emitNameStart, c.serviceText.Len() + 1)
+				c.serviceText.WriteString("': ")
+				if dir.Expression.Ast == nil {
+					c.serviceText.WriteString("() => {}")
+				} else {
+					isCompound := true
+					if len(dir.Expression.Ast.Statements.Nodes) == 0 {
+						panic("Expected event listener AST to have at least one statement")
+					}
+					if len(dir.Expression.Ast.Statements.Nodes) == 1 {
+						if ast.IsExpressionStatement(dir.Expression.Ast.Statements.Nodes[0]) {
+							expr := ast.SkipParentheses(dir.Expression.Ast.Statements.Nodes[0].AsExpressionStatement().Expression)
+							if ast.IsArrowFunction(expr) || ast.IsIdentifier(expr) || ast.IsPropertyAccessExpression(expr) || ast.IsFunctionExpression(expr) {
+								isCompound = false
 							}
 						}
-
-						if isCompound {
-							c.serviceText.WriteString("(...[$event]) => {\n")
-							c.enterScope()
-							c.declareScopeVar("$event")
-							c.mapExpressionInNonBindingPosition(dir.Expression)
-							c.exitScope()
-							c.serviceText.WriteString("}\n")
-							// TODO: condition guards
-						} else {
-							c.mapExpressionInNonBindingPosition(dir.Expression)
-						}
 					}
-					c.serviceText.WriteString("\n}\n")
+
+					if isCompound {
+						c.serviceText.WriteString("(...[$event]) => {\n")
+						c.enterScope()
+						c.declareScopeVar("$event")
+						c.mapExpressionInNonBindingPosition(dir.Expression)
+						c.exitScope()
+						c.serviceText.WriteString("}\n")
+						// TODO: condition guards
+					} else {
+						c.mapExpressionInNonBindingPosition(dir.Expression)
+					}
 				}
-
-				// TODO: named slots
-				// TODO: implicit default slot
-				if slotDirective != nil {
-					c.enterScope()
-					slotVar := c.newInternalVariable()
-					c.serviceText.WriteString("{\nconst { default: ")
-					c.serviceText.WriteString(slotVar)
-					c.serviceText.WriteString("} = ")
-					c.serviceText.WriteString(ctxVar)
-					c.serviceText.WriteString(".slots!\nconst [")
-
-					// TODO: nil ast?
-					c.mapExpressionInBindingPosition(slotDirective.Expression)
-					c.serviceText.WriteString("] = __VLS_vSlot(")
-					c.serviceText.WriteString(slotVar)
-					c.serviceText.WriteString(")\n")
-				}
-
-				c.serviceText.WriteString("var ")
-				c.serviceText.WriteString(ctxVar)
-				c.serviceText.WriteString("!: __VLS_FunctionalComponentCtx<typeof ")
-				c.serviceText.WriteString(componentVar)
-				c.serviceText.WriteString(", typeof ")
-				c.serviceText.WriteString(vnodeVar)
-				c.serviceText.WriteString(">\n")
-
-				c.serviceText.WriteString("var ")
-				c.serviceText.WriteString(propsVar)
-				c.serviceText.WriteString("!: __VLS_FunctionalComponentProps<typeof ")
-				c.serviceText.WriteString(componentVar)
-				c.serviceText.WriteString(", typeof ")
-				c.serviceText.WriteString(vnodeVar)
-				c.serviceText.WriteString(">\n")
+				c.serviceText.WriteString("\n}\n")
 			}
 
-			c.visit(elem)
+			c.serviceText.WriteString("var ")
+			c.serviceText.WriteString(ctxVar)
+			c.serviceText.WriteString("!: __VLS_FunctionalComponentCtx<typeof ")
+			c.serviceText.WriteString(componentVar)
+			c.serviceText.WriteString(", typeof ")
+			c.serviceText.WriteString(vnodeVar)
+			c.serviceText.WriteString(">\n")
 
-			if slotDirective != nil {
-				c.exitScope()
-				c.serviceText.WriteString("}\n")
-			}
-			if forDirective != nil {
-				c.exitScope()
-				c.serviceText.WriteString("}\n")
-			}
-			if conditionalDirective != nil {
-				c.serviceText.WriteString("}\n")
-			}
-		case vue_ast.KindInterpolation:
-			interpolation := child.AsInterpolation()
-			c.serviceText.WriteString(";( ")
-			c.mapExpressionInNonBindingPosition(interpolation.Content)
-			c.serviceText.WriteString(" )\n")
+			c.serviceText.WriteString("var ")
+			c.serviceText.WriteString(propsVar)
+			c.serviceText.WriteString("!: __VLS_FunctionalComponentProps<typeof ")
+			c.serviceText.WriteString(componentVar)
+			c.serviceText.WriteString(", typeof ")
+			c.serviceText.WriteString(vnodeVar)
+			c.serviceText.WriteString(">\n")
 		}
+
+		// TODO: implicit default slot?
+		if slotDirective != nil {
+			parentComponentCtx := ctxVar
+			if parentComponentCtx == "" {
+				parentComponentCtx = c.parentComponentVar
+			}
+			if parentComponentCtx == "" {
+				c.reportDiagnostic(slotDirective.Loc.WithEnd(slotDirective.Loc.Pos() + len(slotDirective.RawName)), vue_diagnostics.Slot_does_not_belong_to_the_parent_component)
+			} else if slotDirective.Expression != nil {
+				c.enterScope()
+				slotVar := c.newInternalVariable()
+				c.serviceText.WriteString("{\nconst { ")
+				if slotDirective.Arg == "" {
+					c.serviceText.WriteString("default: ")
+				} else {
+					// TODO: dynamic name
+					c.serviceText.WriteByte('\'')
+					c.serviceText.WriteString(slotDirective.Arg)
+					c.serviceText.WriteString("': ")
+				}
+				c.serviceText.WriteString(slotVar)
+				c.serviceText.WriteString("} = ")
+
+				c.serviceText.WriteString(parentComponentCtx)
+				c.serviceText.WriteString(".slots!\nconst [")
+				c.mapExpressionInBindingPosition(slotDirective.Expression)
+				c.serviceText.WriteString("] = __VLS_vSlot(")
+				c.serviceText.WriteString(slotVar)
+				c.serviceText.WriteString(")\n")
+			}
+		}
+
+
+		currCondChain := c.condChain
+		c.condChain = conditionalChainNone
+		currParentComponentVar := c.parentComponentVar
+		c.parentComponentVar = ctxVar
+		for _, child := range elem.Children {
+			c.visit(child)
+		}
+		c.parentComponentVar = currParentComponentVar
+		c.condChain = currCondChain
+
+		if slotDirective != nil && slotDirective.Expression != nil {
+			c.exitScope()
+			c.serviceText.WriteString("}\n")
+		}
+		if forDirective != nil {
+			c.exitScope()
+			c.serviceText.WriteString("}\n")
+		}
+		if conditionalDirective != nil {
+			c.serviceText.WriteString("}\n")
+		}
+	case vue_ast.KindInterpolation:
+		interpolation := el.AsInterpolation()
+		c.serviceText.WriteString(";( ")
+		c.mapExpressionInNonBindingPosition(interpolation.Content)
+		c.serviceText.WriteString(" )\n")
 	}
 }
 
