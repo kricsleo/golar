@@ -1,4 +1,3 @@
-
 package vue_tests
 
 import (

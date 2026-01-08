@@ -49,5 +49,7 @@ func TrimWhiteSpaceOrLineTerminator(str string) (string, int, int) {
 }
 
 func TrimNodeTextRange(sourceFile *ast.SourceFile, node *ast.Node) core.TextRange {
-	return scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos()).WithEnd(node.End())
+	pos := scanner.SkipTrivia(sourceFile.Text(), node.Pos())
+	return core.NewTextRange(pos, max(pos, node.End()))
+	// return scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos()).WithEnd(node.End())
 }

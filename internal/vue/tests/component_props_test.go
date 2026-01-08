@@ -57,7 +57,7 @@ func TestComponentPropTypeMismatch(t *testing.T) {
 	defer done()
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: "Type 'string' is not assignable to type 'number'.",
 		},
 	})
@@ -84,7 +84,7 @@ func TestComponentPropTypeMismatchDefinePropsVariable(t *testing.T) {
 	defer done()
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: "Type 'string' is not assignable to type 'number'.",
 		},
 	})
@@ -111,7 +111,7 @@ func TestComponentPropTypeMismatchBoolean(t *testing.T) {
 	defer done()
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: "Type 'boolean' is not assignable to type 'number'.",
 		},
 	})
@@ -138,7 +138,7 @@ func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
 	defer done()
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: "Type 'boolean' is not assignable to type 'number'.",
 		},
 	})

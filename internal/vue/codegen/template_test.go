@@ -21,31 +21,31 @@ func TestExpressionMapper(t *testing.T) {
 		}{
 			{
 				"hello",
-				" __VLS_Ctx.hello",
+				"__VLS_Ctx.hello",
 			},
 			{
 				"hello.world",
-				" __VLS_Ctx.hello.world",
+				"__VLS_Ctx.hello.world",
 			},
 			{
 				"hello[world]",
-				" __VLS_Ctx.hello[ __VLS_Ctx.world]",
+				"__VLS_Ctx.hello[__VLS_Ctx.world]",
 			},
 			{
 				"() => { const foo: SomeType = bar }",
-				"() => { const foo: SomeType = __VLS_Ctx. bar }",
+				"() => { const foo: SomeType = __VLS_Ctx.bar }",
 			},
 			{
 				"() => { return foo }",
-				"() => { return __VLS_Ctx. foo }",
+				"() => { return __VLS_Ctx.foo }",
 			},
 			{
 				"{ a: a }",
-				"{ a: __VLS_Ctx. a }",
+				"{ a: __VLS_Ctx.a }",
 			},
 			{
 				"/*syntax errors*/{ a:  }",
-				"/*syntax errors*/{ a: __VLS_Ctx.  }",
+				"/*syntax errors*/{ a:  __VLS_Ctx.}",
 			},
 			{
 				"{ a }",
@@ -53,7 +53,7 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"{ [a]: a }",
-				"{ [ __VLS_Ctx.a]: __VLS_Ctx. a }",
+				"{ [__VLS_Ctx.a]: __VLS_Ctx.a }",
 			},
 			{
 				"() => { class foo { bar: Foo } }",
@@ -85,19 +85,19 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { enum foo { a = hello, b }}",
-				"() => { enum foo { a = __VLS_Ctx. hello, b }}",
+				"() => { enum foo { a = __VLS_Ctx.hello, b }}",
 			},
 			{
 				"() => { const [, value] = foo }",
-				"() => { const [, value] = __VLS_Ctx. foo }",
+				"() => { const [, value] = __VLS_Ctx.foo }",
 			},
 			{
 				"() => { const { [foo]: bar = baz } = qux }",
-				"() => { const { [ __VLS_Ctx.foo]: bar = __VLS_Ctx. baz } = __VLS_Ctx. qux }",
+				"() => { const { [__VLS_Ctx.foo]: bar = __VLS_Ctx.baz } = __VLS_Ctx.qux }",
 			},
 			{
 				"{ ...foo }",
-				"{ ... __VLS_Ctx.foo }",
+				"{ ...__VLS_Ctx.foo }",
 			},
 			{
 				"() => { module foo { bar } }",
@@ -117,11 +117,11 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { import(foo) }",
-				"() => { import( __VLS_Ctx.foo) }",
+				"() => { import(__VLS_Ctx.foo) }",
 			},
 			{
 				"[foo]",
-				"[ __VLS_Ctx.foo]",
+				"[__VLS_Ctx.foo]",
 			},
 			{
 				"() => { class foo { constructor(readonly foo) { foo } } }",
@@ -129,19 +129,19 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"foo()",
-				" __VLS_Ctx.foo()",
+				"__VLS_Ctx.foo()",
 			},
 			{
 				"new foo()",
-				"new __VLS_Ctx. foo()",
+				"new __VLS_Ctx.foo()",
 			},
 			{
 				"() => { class foo { hello = bar } }",
-				"() => { class foo { hello = __VLS_Ctx. bar } }",
+				"() => { class foo { hello = __VLS_Ctx.bar } }",
 			},
 			{
 				"() => { class foo { [hello] = bar } }",
-				"() => { class foo { [ __VLS_Ctx.hello] = __VLS_Ctx. bar } }",
+				"() => { class foo { [__VLS_Ctx.hello] = __VLS_Ctx.bar } }",
 			},
 			{
 				"() => { class foo { accessor hello: string  } }",
@@ -157,7 +157,7 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { class foo { get [hello]() {}  } }",
-				"() => { class foo { get [ __VLS_Ctx.hello]() {}  } }",
+				"() => { class foo { get [__VLS_Ctx.hello]() {}  } }",
 			},
 			{
 				"() => { class foo { set hello<T extends Foo>() {}  } }",
@@ -169,7 +169,7 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { class foo { set [hello]() {}  } }",
-				"() => { class foo { set [ __VLS_Ctx.hello]() {}  } }",
+				"() => { class foo { set [__VLS_Ctx.hello]() {}  } }",
 			},
 			{
 				"() => { class foo<T extends Foo = Bar> {} }",
@@ -181,7 +181,7 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { class foo {}; class bar extends baz {} }",
-				"() => { class foo {}; class bar extends __VLS_Ctx. baz {} }",
+				"() => { class foo {}; class bar extends __VLS_Ctx.baz {} }",
 			},
 			{
 				"() => { interface foo {}; class bar implements foo, baz {} }",
@@ -205,11 +205,11 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { class foo { [method]() { bar } } }",
-				"() => { class foo { [ __VLS_Ctx.method]() { __VLS_Ctx. bar } } }",
+				"() => { class foo { [__VLS_Ctx.method]() { __VLS_Ctx.bar } } }",
 			},
 			{
 				"() => { function foo(bar: Foo = hello) { bar } }",
-				"() => { function foo(bar: Foo = __VLS_Ctx. hello) { bar } }",
+				"() => { function foo(bar: Foo = __VLS_Ctx.hello) { bar } }",
 			},
 			{
 				"() => { function foo<T extends Foo>() {} }",
@@ -241,15 +241,15 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"foo<T>",
-				" __VLS_Ctx.foo<T>",
+				"__VLS_Ctx.foo<T>",
 			},
 			{
 				"foo as Bar",
-				" __VLS_Ctx.foo as Bar",
+				"__VLS_Ctx.foo as Bar",
 			},
 			{
 				"foo<T>()",
-				" __VLS_Ctx.foo<T>()",
+				"__VLS_Ctx.foo<T>()",
 			},
 			{
 				"() => { const foo: Foo = '' }",
@@ -257,23 +257,23 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"() => { type foo = typeof bar }",
-				"() => { type foo = typeof __VLS_Ctx. bar }",
+				"() => { type foo = typeof __VLS_Ctx.bar }",
 			},
 			{
 				"() => { type foo = typeof bar[baz] }",
-				"() => { type foo = typeof __VLS_Ctx. bar[baz] }",
+				"() => { type foo = typeof __VLS_Ctx.bar[baz] }",
 			},
 			{
 				"() => { type foo = typeof bar<T> }",
-				"() => { type foo = typeof __VLS_Ctx. bar<T> }",
+				"() => { type foo = typeof __VLS_Ctx.bar<T> }",
 			},
 			{
 				"() => { type foo = typeof bar.baz }",
-				"() => { type foo = typeof __VLS_Ctx. bar.baz }",
+				"() => { type foo = typeof __VLS_Ctx.bar.baz }",
 			},
 			{
 				"() => { type foo = typeof bar['baz'] }",
-				"() => { type foo = typeof __VLS_Ctx. bar['baz'] }",
+				"() => { type foo = typeof __VLS_Ctx.bar['baz'] }",
 			},
 			{
 				"() => { const foo = 1; type foo = typeof foo }",
@@ -329,11 +329,11 @@ func TestExpressionMapper(t *testing.T) {
 			},
 			{
 				"{ [hello]: bar }",
-				"{ [ __VLS_Ctx.hello]: bar }",
+				"{ [__VLS_Ctx.hello]: bar }",
 			},
 			{
 				"{ hello: bar = foo }",
-				"{ hello: bar = __VLS_Ctx. foo }",
+				"{ hello: bar = __VLS_Ctx.foo }",
 			},
 		}
 

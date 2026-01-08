@@ -50,13 +50,13 @@ func TestComponentEventCallback(t *testing.T) {
 	f.VerifyQuickInfoAt(t, "5", `(parameter) id: number`, "")
 	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
   Types of parameters 'name' and 'args' are incompatible.
     Type 'number' is not assignable to type 'string'.`,
 		},
 		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
   Types of parameters 'name' and 'args' are incompatible.
     Type 'number' is not assignable to type 'string'.`,

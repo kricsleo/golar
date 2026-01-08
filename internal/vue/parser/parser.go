@@ -263,8 +263,8 @@ func (p *Parser) ondirarg(start int, end int) {
 	} else {
 		prop := p.currentProp.AsDirective()
 		prop.IsStatic = arg[0] != '['
-		if !prop.IsStatic  {
-			arg = arg[1:len(arg)-1]
+		if !prop.IsStatic {
+			arg = arg[1 : len(arg)-1]
 		}
 		prop.Arg = arg
 	}
@@ -397,7 +397,7 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 					switch prop.Name {
 					case "slot":
 						prop.Expression = vue_ast.NewSimpleExpressionNode(
-							ParseTsAst("(" + p.currentAttrValue + ")=>{}"),
+							ParseTsAst("("+p.currentAttrValue+")=>{}"),
 							core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex),
 							1,
 							5,
@@ -421,7 +421,7 @@ func (p *Parser) onattribend(quote QuoteType, end int) {
 						prop.Expression = vue_ast.NewSimpleExpressionNode(ast, core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), prefixLen, suffixLen)
 					default:
 						prop.Expression = vue_ast.NewSimpleExpressionNode(ParseTsAst(
-							"(" + p.currentAttrValue + ")",
+							"("+p.currentAttrValue+")",
 						), core.NewTextRange(p.currentAttrStartIndex, p.currentAttrEndIndex), 1, 1)
 					}
 				}
@@ -1143,10 +1143,10 @@ var (
 		"text":                struct{}{},
 		"textPath":            struct{}{},
 		// "title":               struct{}{},
-		"tspan":               struct{}{},
-		"unknown":             struct{}{},
-		"use":                 struct{}{},
-		"view":                struct{}{},
+		"tspan":   struct{}{},
+		"unknown": struct{}{},
+		"use":     struct{}{},
+		"view":    struct{}{},
 
 		// math tags
 		"annotation":     struct{}{},

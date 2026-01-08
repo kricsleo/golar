@@ -15,9 +15,9 @@ import (
 
 type templateCodegenCtx struct {
 	*codegenCtx
-	scopes []collections.Set[string]
+	scopes             []collections.Set[string]
 	parentComponentVar string
-	condChain conditionalChain
+	condChain          conditionalChain
 }
 
 func newTemplateCodegenCtx(base *codegenCtx) templateCodegenCtx {
@@ -212,7 +212,6 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.serviceText.WriteString(elem.Tag)
 			c.serviceText.WriteString("']\n")
 
-
 			c.serviceText.WriteString("const ")
 			c.serviceText.WriteString(vnodeVar)
 			c.serviceText.WriteString(" = ({} as unknown as typeof ")
@@ -228,7 +227,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 					c.serviceText.WriteByte('\'')
 					camelize(attr.Name, &c.serviceText)
 					propNameEnd := c.serviceText.Len() + 1
-					c.mapRange(attr.Loc.Pos(), attr.Loc.Pos() + len(attr.Name), propNameStart, propNameEnd)
+					c.mapRange(attr.Loc.Pos(), attr.Loc.Pos()+len(attr.Name), propNameStart, propNameEnd)
 					if attr.Value == nil {
 						c.serviceText.WriteString("': true,\n")
 					} else {
@@ -299,7 +298,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString(", typeof ")
 				c.serviceText.WriteString(emitsVar)
 				c.serviceText.WriteString(", '")
-				camelize("on-" + dir.Arg, &c.serviceText) // propName
+				camelize("on-"+dir.Arg, &c.serviceText) // propName
 				c.serviceText.WriteString("', '")
 				emitName := dir.Arg
 				c.serviceText.WriteString(emitName)
@@ -310,7 +309,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString("'on")
 				// TODO(perf): no unnecessary allocations
 				camelize(strings.Title(emitName), &c.serviceText)
-				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos() + len(dir.RawName), emitNameStart, c.serviceText.Len() + 1)
+				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos()+len(dir.RawName), emitNameStart, c.serviceText.Len()+1)
 				c.serviceText.WriteString("': ")
 				if dir.Expression == nil || dir.Expression.Ast == nil {
 					c.serviceText.WriteString("() => {}")
@@ -368,7 +367,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				parentComponentCtx = c.parentComponentVar
 			}
 			if parentComponentCtx == "" {
-				c.reportDiagnostic(slotDirective.Loc.WithEnd(slotDirective.Loc.Pos() + len(slotDirective.RawName)), vue_diagnostics.Slot_does_not_belong_to_the_parent_component)
+				c.reportDiagnostic(slotDirective.Loc.WithEnd(slotDirective.Loc.Pos()+len(slotDirective.RawName)), vue_diagnostics.Slot_does_not_belong_to_the_parent_component)
 			} else if slotDirective.Expression != nil {
 				c.enterScope()
 				slotVar := c.newInternalVariable()
@@ -392,7 +391,6 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString(")\n")
 			}
 		}
-
 
 		currCondChain := c.condChain
 		c.condChain = conditionalChainNone
@@ -564,8 +562,8 @@ func (m *expressionMapper) mapInNonBindingPosition(node *ast.Node) bool {
 			// TODO: perf
 			p := utils.TrimNodeTextRange(m.expr.Ast, node)
 			m.mapTextToNodePos(p.Pos())
-			m.serviceText.WriteString(" __VLS_Ctx.")
-			m.mapTextToNodePos(node.End())
+			m.serviceText.WriteString("__VLS_Ctx.")
+			m.mapTextToNodePos(p.End())
 		}
 		return false
 	case ast.KindShorthandPropertyAssignment:
@@ -668,7 +666,7 @@ func camelize(str string, buf *strings.Builder) {
 
 		if hadDash {
 			hadDash = false
-			buf.WriteString(str[lastWritten:i-1])
+			buf.WriteString(str[lastWritten : i-1])
 			// TODO(perf): fast path for ascii, also ToUpper allocates internally
 			buf.WriteString(strings.ToUpper(string(r)))
 			lastWritten = i + utf8.RuneLen(r)
@@ -678,22 +676,22 @@ func camelize(str string, buf *strings.Builder) {
 }
 
 func isBuiltInComponent(name string) bool {
-	switch (name) {
-    case "Teleport",
-    	"teleport",
-    	"Suspense",
-    	"suspense",
-    	"KeepAlive",
-    	"keep-alive",
-    	"BaseTransition",
-			"base-transition",
-			"Transition",
-			"transition",
-			"TransitionGroup",
-			"transition-group":
-			return true
-		default:
-			return false
+	switch name {
+	case "Teleport",
+		"teleport",
+		"Suspense",
+		"suspense",
+		"KeepAlive",
+		"keep-alive",
+		"BaseTransition",
+		"base-transition",
+		"Transition",
+		"transition",
+		"TransitionGroup",
+		"transition-group":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -89,7 +89,6 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			slotsVariableName string
 		)
 
-
 		// TODO: report nested compiler macros (vue compiler errors on them)
 		// TODO: $emits, $props, emitstoprops
 

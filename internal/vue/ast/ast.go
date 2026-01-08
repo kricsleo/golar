@@ -155,8 +155,8 @@ type DirectiveNode struct {
 	// Nil when directive doesn't have expression
 	Expression     *SimpleExpressionNode
 	ForParseResult *ForParseResult
-	IsStatic bool
-	Arg string // TODO: support dynamic event names like @[event]="" *SimpleExpressionNode
+	IsStatic       bool
+	Arg            string // TODO: support dynamic event names like @[event]="" *SimpleExpressionNode
 	// modifiers: SimpleExpressionNode[]
 }
 
