@@ -1,100 +1,102 @@
 package mapping
 
-import "sort"
+import (
+	"sort"
 
-// TODO: revise and simplify
+	"github.com/auvred/golar/internal/collections"
+)
+
+type CodeRangeKey int
+
+const (
+	SourceOffsets CodeRangeKey = iota
+	ServiceOffsets
+)
 
 type Mapping struct {
-	SourceOffset  int
-	ServiceOffset int
-	Length        int
+	SourceOffsets  []int
+	ServiceOffsets []int
+	Lengths        []int
+	ServiceLengths []int
 }
 
-type RangeMapping struct {
-	SourceOffset  int
-	SourceLength  int
-	ServiceOffset int
-	ServiceLength int
+type MappingMemo struct {
+	offsets  []int
+	mappings []*collections.Set[*Mapping]
+}
+
+type SourceMap struct {
+	Mappings               []Mapping
+	sourceCodeOffsetsMemo  *MappingMemo
+	serviceCodeOffsetsMemo *MappingMemo
 }
 
 type MappedLocation struct {
 	Offset  int
-	Mapping Mapping
+	Mapping *Mapping
 }
 
 type MappedRange struct {
 	MappedStart  int
 	MappedEnd    int
-	StartMapping RangeMapping
-	EndMapping   RangeMapping
+	StartMapping *Mapping
+	EndMapping   *Mapping
 }
 
-type Mapper struct {
-	Mappings                []Mapping
-	RangeMappings           []RangeMapping
-	sourceOffsetsMemo       *mappingMemo
-	serviceOffsetsMemo      *mappingMemo
-	sourceRangeOffsetsMemo  *mappingMemo
-	serviceRangeOffsetsMemo *mappingMemo
+func NewSourceMap(mappings []Mapping) *SourceMap {
+	return &SourceMap{Mappings: mappings}
 }
 
-func NewMapper(mappings []Mapping, rangeMappings []RangeMapping) *Mapper {
-	return &Mapper{
-		Mappings:      mappings,
-		RangeMappings: rangeMappings,
-	}
+func (m *SourceMap) ToSourceRange(
+	serviceStart int,
+	serviceEnd int,
+	fallbackToAnyMatch bool,
+) []MappedRange {
+	return m.findMatchingStartEnd(serviceStart, serviceEnd, fallbackToAnyMatch, ServiceOffsets)
 }
 
-func (m *Mapper) ToSourceRange(serviceStart, serviceEnd int, fallbackToAnyMatch bool) []MappedRange {
-	return m.findMatchingStartEnd(serviceStart, serviceEnd, fallbackToAnyMatch, rangeService)
+func (m *SourceMap) ToServiceRange(
+	sourceStart int,
+	sourceEnd int,
+	fallbackToAnyMatch bool,
+) []MappedRange {
+	return m.findMatchingStartEnd(sourceStart, sourceEnd, fallbackToAnyMatch, SourceOffsets)
 }
 
-func (m *Mapper) ToServiceRange(sourceStart, sourceEnd int, fallbackToAnyMatch bool) []MappedRange {
-	return m.findMatchingStartEnd(sourceStart, sourceEnd, fallbackToAnyMatch, rangeSource)
+func (m *SourceMap) ToSourceLocation(serviceOffset int) []MappedLocation {
+	return m.findMatchingOffsets(serviceOffset, ServiceOffsets)
 }
 
-func (m *Mapper) ToSourceLocation(serviceOffset int) []MappedLocation {
-	return m.findMatchingOffsets(serviceOffset, rangeService)
+func (m *SourceMap) ToServiceLocation(sourceOffset int) []MappedLocation {
+	return m.findMatchingOffsets(sourceOffset, SourceOffsets)
 }
 
-func (m *Mapper) ToServiceLocation(sourceOffset int) []MappedLocation {
-	return m.findMatchingOffsets(sourceOffset, rangeSource)
-}
-
-type rangeKey int
-
-const (
-	rangeSource rangeKey = iota
-	rangeService
-)
-
-type mappingMemo struct {
-	offsets  []int
-	mappings [][]int
-}
-
-func (m *Mapper) findMatchingOffsets(offset int, fromRange rangeKey) []MappedLocation {
+func (m *SourceMap) findMatchingOffsets(
+	offset int,
+	fromRange CodeRangeKey,
+) []MappedLocation {
 	memo := m.getMemoBasedOnRange(fromRange)
 	if len(memo.offsets) == 0 {
 		return nil
 	}
 
-	start, end, _, _ := binarySearch(memo.offsets, offset)
-	toRange := otherRange(fromRange)
-	seen := make(map[int]struct{})
-	var results []MappedLocation
+	start, end, _ := BinarySearch(memo.offsets, offset)
+	skip := collections.NewSetWithSizeHint[*Mapping](len(memo.mappings))
+	toRange := otherRangeKey(fromRange)
+	results := make([]MappedLocation, 0)
 
 	for i := start; i <= end; i++ {
-		for _, mappingIndex := range memo.mappings[i] {
-			if _, ok := seen[mappingIndex]; ok {
+		for mapping := range memo.mappings[i].Keys() {
+			if !skip.AddIfAbsent(mapping) {
 				continue
 			}
-			seen[mappingIndex] = struct{}{}
-
-			mapping := m.Mappings[mappingIndex]
-			fromOffset, fromLength := mappingOffsetLength(mapping, fromRange)
-			toOffset, toLength := mappingOffsetLength(mapping, toRange)
-			mapped, ok := translateOffset(offset, fromOffset, toOffset, fromLength, toLength)
+			mapped, ok := TranslateOffset(
+				offset,
+				getOffsets(mapping, fromRange),
+				getOffsets(mapping, toRange),
+				getLengths(mapping, fromRange),
+				getLengths(mapping, toRange),
+			)
 			if ok {
 				results = append(results, MappedLocation{
 					Offset:  mapped,
@@ -107,27 +109,27 @@ func (m *Mapper) findMatchingOffsets(offset int, fromRange rangeKey) []MappedLoc
 	return results
 }
 
-func (m *Mapper) findMatchingStartEnd(
+func (m *SourceMap) findMatchingStartEnd(
 	start int,
 	end int,
 	fallbackToAnyMatch bool,
-	fromRange rangeKey,
+	fromRange CodeRangeKey,
 ) []MappedRange {
-	if exactMatches := m.findExactRangeMatches(start, end, fromRange); len(exactMatches) > 0 {
-		return exactMatches
-	}
-
-	toRange := otherRange(fromRange)
-	var mappedStarts []mappedRangeLocation
-	var results []MappedRange
+	toRange := otherRangeKey(fromRange)
+	mappedStarts := make([]MappedLocation, 0)
+	results := make([]MappedRange, 0)
 	hadMatch := false
 
-	for _, mappedStart := range m.findMatchingRangeOffsets(start, fromRange) {
+	for _, mappedStart := range m.findMatchingOffsets(start, fromRange) {
 		mappedStarts = append(mappedStarts, mappedStart)
 		mapping := mappedStart.Mapping
-		fromOffset, fromLength := rangeOffsetLength(mapping, fromRange)
-		toOffset, toLength := rangeOffsetLength(mapping, toRange)
-		mappedEnd, ok := translateOffset(end, fromOffset, toOffset, fromLength, toLength)
+		mappedEnd, ok := TranslateOffset(
+			end,
+			getOffsets(mapping, fromRange),
+			getOffsets(mapping, toRange),
+			getLengths(mapping, fromRange),
+			getLengths(mapping, toRange),
+		)
 		if ok {
 			hadMatch = true
 			results = append(results, MappedRange{
@@ -140,426 +142,153 @@ func (m *Mapper) findMatchingStartEnd(
 	}
 
 	if !hadMatch && fallbackToAnyMatch {
-		if len(mappedStarts) > 0 {
-			endMatches := m.findMatchingRangeOffsets(end, fromRange)
-			for _, mappedStart := range mappedStarts {
-				for _, mappedEnd := range endMatches {
-					if mappedEnd.Offset < mappedStart.Offset {
-						continue
-					}
-					results = append(results, MappedRange{
-						MappedStart:  mappedStart.Offset,
-						MappedEnd:    mappedEnd.Offset,
-						StartMapping: mappedStart.Mapping,
-						EndMapping:   mappedEnd.Mapping,
-					})
-					break
+		endMatches := m.findMatchingOffsets(end, fromRange)
+		for _, mappedStart := range mappedStarts {
+			for _, mappedEnd := range endMatches {
+				if mappedEnd.Offset < mappedStart.Offset {
+					continue
 				}
+				results = append(results, MappedRange{
+					MappedStart:  mappedStart.Offset,
+					MappedEnd:    mappedEnd.Offset,
+					StartMapping: mappedStart.Mapping,
+					EndMapping:   mappedEnd.Mapping,
+				})
+				break
 			}
 		}
-	}
-
-	if fallbackToAnyMatch && len(results) == 0 {
-		results = append(results, m.findOverlappingRanges(start, end, fromRange)...)
 	}
 
 	return results
 }
 
-func (m *Mapper) getMemoBasedOnRange(fromRange rangeKey) *mappingMemo {
-	if fromRange == rangeSource {
-		if m.sourceOffsetsMemo == nil {
-			memo := m.createMemo(rangeSource)
-			m.sourceOffsetsMemo = &memo
+func (m *SourceMap) getMemoBasedOnRange(fromRange CodeRangeKey) *MappingMemo {
+	if fromRange == SourceOffsets {
+		if m.sourceCodeOffsetsMemo == nil {
+			memo := m.createMemo(SourceOffsets)
+			m.sourceCodeOffsetsMemo = &memo
 		}
-		return m.sourceOffsetsMemo
+		return m.sourceCodeOffsetsMemo
 	}
-	if m.serviceOffsetsMemo == nil {
-		memo := m.createMemo(rangeService)
-		m.serviceOffsetsMemo = &memo
+	if m.serviceCodeOffsetsMemo == nil {
+		memo := m.createMemo(ServiceOffsets)
+		m.serviceCodeOffsetsMemo = &memo
 	}
-	return m.serviceOffsetsMemo
+	return m.serviceCodeOffsetsMemo
 }
 
-func (m *Mapper) getRangeMemoBasedOnRange(fromRange rangeKey) *mappingMemo {
-	if fromRange == rangeSource {
-		if m.sourceRangeOffsetsMemo == nil {
-			memo := m.createRangeMemo(rangeSource)
-			m.sourceRangeOffsetsMemo = &memo
-		}
-		return m.sourceRangeOffsetsMemo
-	}
-	if m.serviceRangeOffsetsMemo == nil {
-		memo := m.createRangeMemo(rangeService)
-		m.serviceRangeOffsetsMemo = &memo
-	}
-	return m.serviceRangeOffsetsMemo
-}
-
-func (m *Mapper) createMemo(key rangeKey) mappingMemo {
-	offsetsSet := make(map[int]struct{})
+func (m *SourceMap) createMemo(key CodeRangeKey) MappingMemo {
+	offsetsSet := collections.NewSetWithSizeHint[int](0)
 	for _, mapping := range m.Mappings {
-		offset, length := mappingOffsetLength(mapping, key)
-		offsetsSet[offset] = struct{}{}
-		offsetsSet[offset+length] = struct{}{}
+		offsets := getOffsets(&mapping, key)
+		lengths := getLengths(&mapping, key)
+		count := min(len(offsets), len(lengths))
+		for i := range count {
+			offsetsSet.Add(offsets[i])
+			offsetsSet.Add(offsets[i] + lengths[i])
+		}
 	}
 
-	offsets := make([]int, 0, len(offsetsSet))
-	for offset := range offsetsSet {
+	offsets := make([]int, 0, offsetsSet.Len())
+	for offset := range offsetsSet.Keys() {
 		offsets = append(offsets, offset)
 	}
 	sort.Ints(offsets)
 
-	mappings := make([][]int, len(offsets))
-
-	for mappingIndex, mapping := range m.Mappings {
-		startOffset, length := mappingOffsetLength(mapping, key)
-		endOffset := startOffset + length
-
-		startIndex, _, startMatch, startOk := binarySearch(offsets, startOffset)
-		endIndex, _, endMatch, endOk := binarySearch(offsets, endOffset)
-		if startOk {
-			startIndex = startMatch
-		}
-		if endOk {
-			endIndex = endMatch
-		}
-		if !startOk || !endOk {
-			continue
-		}
-
-		for i := startIndex; i <= endIndex; i++ {
-			mappings[i] = append(mappings[i], mappingIndex)
-		}
+	mappings := make([]*collections.Set[*Mapping], len(offsets))
+	for i := range mappings {
+		mappings[i] = collections.NewSetWithSizeHint[*Mapping](0)
 	}
-
-	return mappingMemo{offsets: offsets, mappings: mappings}
-}
-
-func (m *Mapper) createRangeMemo(key rangeKey) mappingMemo {
-	offsetsSet := make(map[int]struct{})
-	for _, mapping := range m.RangeMappings {
-		offset, length := rangeOffsetLength(mapping, key)
-		offsetsSet[offset] = struct{}{}
-		offsetsSet[offset+length] = struct{}{}
-	}
-
-	offsets := make([]int, 0, len(offsetsSet))
-	for offset := range offsetsSet {
-		offsets = append(offsets, offset)
-	}
-	sort.Ints(offsets)
-
-	mappings := make([][]int, len(offsets))
-
-	for mappingIndex, mapping := range m.RangeMappings {
-		startOffset, length := rangeOffsetLength(mapping, key)
-		endOffset := startOffset + length
-
-		startIndex, _, startMatch, startOk := binarySearch(offsets, startOffset)
-		endIndex, _, endMatch, endOk := binarySearch(offsets, endOffset)
-		if startOk {
-			startIndex = startMatch
-		}
-		if endOk {
-			endIndex = endMatch
-		}
-		if !startOk || !endOk {
-			continue
-		}
-
-		for i := startIndex; i <= endIndex; i++ {
-			mappings[i] = append(mappings[i], mappingIndex)
-		}
-	}
-
-	return mappingMemo{offsets: offsets, mappings: mappings}
-}
-
-func (m *Mapper) findOverlappingRanges(start int, end int, fromRange rangeKey) []MappedRange {
-	results := m.findOverlappingRangeMappings(start, end, fromRange)
-	results = append(results, m.findOverlappingMappings(start, end, fromRange)...)
-	return results
-}
-
-func otherRange(key rangeKey) rangeKey {
-	if key == rangeSource {
-		return rangeService
-	}
-	return rangeSource
-}
-
-func mappingOffsetLength(mapping Mapping, key rangeKey) (int, int) {
-	if key == rangeSource {
-		return mapping.SourceOffset, mapping.Length
-	}
-	return mapping.ServiceOffset, mapping.Length
-}
-
-func rangeOffsetLength(mapping RangeMapping, key rangeKey) (int, int) {
-	if key == rangeSource {
-		return mapping.SourceOffset, mapping.SourceLength
-	}
-	return mapping.ServiceOffset, mapping.ServiceLength
-}
-
-func rangeMappingFromMapping(mapping Mapping) RangeMapping {
-	return RangeMapping{
-		SourceOffset:  mapping.SourceOffset,
-		SourceLength:  mapping.Length,
-		ServiceOffset: mapping.ServiceOffset,
-		ServiceLength: mapping.Length,
-	}
-}
-
-type mappedRangeLocation struct {
-	Offset  int
-	Mapping RangeMapping
-}
-
-func (m *Mapper) findExactRangeMatches(start int, end int, fromRange rangeKey) []MappedRange {
-	if results := m.findExactRangeMatchesFromRangeMappings(start, end, fromRange); len(results) > 0 {
-		return results
-	}
-	return m.findExactRangeMatchesFromMappings(start, end, fromRange)
-}
-
-func (m *Mapper) findMatchingRangeOffsets(offset int, fromRange rangeKey) []mappedRangeLocation {
-	results := m.findMatchingRangeOffsetsFromRangeMappings(offset, fromRange)
-	return append(results, m.findMatchingRangeOffsetsFromMappings(offset, fromRange)...)
-}
-
-func (m *Mapper) findExactRangeMatchesFromRangeMappings(start int, end int, fromRange rangeKey) []MappedRange {
-	if len(m.RangeMappings) == 0 {
-		return nil
-	}
-
-	toRange := otherRange(fromRange)
-	var results []MappedRange
-
-	for _, mapping := range m.RangeMappings {
-		fromOffset, fromLength := rangeOffsetLength(mapping, fromRange)
-		if start != fromOffset || end != fromOffset+fromLength {
-			continue
-		}
-
-		toOffset, toLength := rangeOffsetLength(mapping, toRange)
-		results = append(results, MappedRange{
-			MappedStart:  toOffset,
-			MappedEnd:    toOffset + toLength,
-			StartMapping: mapping,
-			EndMapping:   mapping,
-		})
-	}
-
-	return results
-}
-
-func (m *Mapper) findExactRangeMatchesFromMappings(start int, end int, fromRange rangeKey) []MappedRange {
-	if len(m.Mappings) == 0 {
-		return nil
-	}
-
-	toRange := otherRange(fromRange)
-	var results []MappedRange
 
 	for _, mapping := range m.Mappings {
-		fromOffset, fromLength := mappingOffsetLength(mapping, fromRange)
-		if start != fromOffset || end != fromOffset+fromLength {
-			continue
-		}
-
-		toOffset, toLength := mappingOffsetLength(mapping, toRange)
-		rangeMapping := rangeMappingFromMapping(mapping)
-		results = append(results, MappedRange{
-			MappedStart:  toOffset,
-			MappedEnd:    toOffset + toLength,
-			StartMapping: rangeMapping,
-			EndMapping:   rangeMapping,
-		})
-	}
-
-	return results
-}
-
-func (m *Mapper) findMatchingRangeOffsetsFromRangeMappings(
-	offset int,
-	fromRange rangeKey,
-) []mappedRangeLocation {
-	memo := m.getRangeMemoBasedOnRange(fromRange)
-	if len(memo.offsets) == 0 {
-		return nil
-	}
-
-	start, end, _, _ := binarySearch(memo.offsets, offset)
-	toRange := otherRange(fromRange)
-	seen := make(map[int]struct{})
-	var results []mappedRangeLocation
-
-	for i := start; i <= end; i++ {
-		for _, mappingIndex := range memo.mappings[i] {
-			if _, ok := seen[mappingIndex]; ok {
-				continue
-			}
-			seen[mappingIndex] = struct{}{}
-
-			mapping := m.RangeMappings[mappingIndex]
-			fromOffset, fromLength := rangeOffsetLength(mapping, fromRange)
-			toOffset, toLength := rangeOffsetLength(mapping, toRange)
-			mapped, ok := translateOffset(offset, fromOffset, toOffset, fromLength, toLength)
-			if ok {
-				results = append(results, mappedRangeLocation{
-					Offset:  mapped,
-					Mapping: mapping,
-				})
+		offsetsList := getOffsets(&mapping, key)
+		lengths := getLengths(&mapping, key)
+		count := min(len(offsetsList), len(lengths))
+		for i := range count {
+			startOffset := offsetsList[i]
+			endOffset := startOffset + lengths[i]
+			_, _, startMatch := BinarySearch(offsets, startOffset)
+			_, _, endMatch := BinarySearch(offsets, endOffset)
+			for j := startMatch; j <= endMatch; j++ {
+				mappings[j].Add(&mapping)
 			}
 		}
 	}
 
-	return results
+	return MappingMemo{offsets: offsets, mappings: mappings}
 }
 
-func (m *Mapper) findMatchingRangeOffsetsFromMappings(
-	offset int,
-	fromRange rangeKey,
-) []mappedRangeLocation {
-	memo := m.getMemoBasedOnRange(fromRange)
-	if len(memo.offsets) == 0 {
-		return nil
+func otherRangeKey(key CodeRangeKey) CodeRangeKey {
+	if key == SourceOffsets {
+		return ServiceOffsets
+	}
+	return SourceOffsets
+}
+
+func getOffsets(mapping *Mapping, key CodeRangeKey) []int {
+	if key == SourceOffsets {
+		return mapping.SourceOffsets
+	}
+	return mapping.ServiceOffsets
+}
+
+func getLengths(mapping *Mapping, key CodeRangeKey) []int {
+	if key == SourceOffsets {
+		return mapping.Lengths
+	}
+	if len(mapping.ServiceLengths) > 0 {
+		return mapping.ServiceLengths
+	}
+	return mapping.Lengths
+}
+
+func TranslateOffset(
+	start int,
+	fromOffsets []int,
+	toOffsets []int,
+	fromLengths []int,
+	toLengths []int,
+) (int, bool) {
+	if len(toLengths) == 0 {
+		toLengths = fromLengths
 	}
 
-	start, end, _, _ := binarySearch(memo.offsets, offset)
-	toRange := otherRange(fromRange)
-	seen := make(map[int]struct{})
-	var results []mappedRangeLocation
+	count := min(len(fromOffsets), len(toOffsets), len(fromLengths), len(toLengths))
+	if count == 0 {
+		return 0, false
+	}
 
-	for i := start; i <= end; i++ {
-		for _, mappingIndex := range memo.mappings[i] {
-			if _, ok := seen[mappingIndex]; ok {
-				continue
-			}
-			seen[mappingIndex] = struct{}{}
+	offsets := fromOffsets
+	if len(offsets) > count {
+		offsets = offsets[:count]
+	}
 
-			mapping := m.Mappings[mappingIndex]
-			fromOffset, fromLength := mappingOffsetLength(mapping, fromRange)
-			toOffset, toLength := mappingOffsetLength(mapping, toRange)
-			mapped, ok := translateOffset(offset, fromOffset, toOffset, fromLength, toLength)
-			if ok {
-				results = append(results, mappedRangeLocation{
-					Offset:  mapped,
-					Mapping: rangeMappingFromMapping(mapping),
-				})
-			}
+	low := 0
+	high := len(offsets) - 1
+
+	for low <= high {
+		mid := (low + high) / 2
+		fromOffset := offsets[mid]
+		fromLength := fromLengths[mid]
+		if start >= fromOffset && start <= fromOffset+fromLength {
+			toLength := toLengths[mid]
+			toOffset := toOffsets[mid]
+			rangeOffset := min(start-fromOffset, toLength)
+			return toOffset + rangeOffset, true
+		}
+		if start < fromOffset {
+			high = mid - 1
+		} else {
+			low = mid + 1
 		}
 	}
 
-	return results
+	return 0, false
 }
 
-func (m *Mapper) findOverlappingRangeMappings(start int, end int, fromRange rangeKey) []MappedRange {
-	memo := m.getRangeMemoBasedOnRange(fromRange)
-	if len(memo.offsets) == 0 {
-		return nil
-	}
-
-	startLow, startHigh, _, _ := binarySearch(memo.offsets, start)
-	endLow, endHigh, _, _ := binarySearch(memo.offsets, end)
-	startIndex := min(startLow, startHigh)
-	endIndex := max(endLow, endHigh)
-	toRange := otherRange(fromRange)
-	seen := make(map[int]struct{})
-	var results []MappedRange
-
-	for i := startIndex; i <= endIndex; i++ {
-		for _, mappingIndex := range memo.mappings[i] {
-			if _, ok := seen[mappingIndex]; ok {
-				continue
-			}
-			seen[mappingIndex] = struct{}{}
-
-			mapping := m.RangeMappings[mappingIndex]
-			fromStart, fromLength := rangeOffsetLength(mapping, fromRange)
-			fromEnd := fromStart + fromLength
-			if end < fromStart || start > fromEnd {
-				continue
-			}
-
-			overlapStart := max(start, fromStart)
-			overlapEnd := min(end, fromEnd)
-
-			toOffset, toLength := rangeOffsetLength(mapping, toRange)
-			mappedStart, okStart := translateOffset(overlapStart, fromStart, toOffset, fromLength, toLength)
-			mappedEnd, okEnd := translateOffset(overlapEnd, fromStart, toOffset, fromLength, toLength)
-			if !okStart || !okEnd {
-				continue
-			}
-
-			results = append(results, MappedRange{
-				MappedStart:  mappedStart,
-				MappedEnd:    mappedEnd,
-				StartMapping: mapping,
-				EndMapping:   mapping,
-			})
-		}
-	}
-
-	return results
-}
-
-func (m *Mapper) findOverlappingMappings(start int, end int, fromRange rangeKey) []MappedRange {
-	memo := m.getMemoBasedOnRange(fromRange)
-	if len(memo.offsets) == 0 {
-		return nil
-	}
-
-	startLow, startHigh, _, _ := binarySearch(memo.offsets, start)
-	endLow, endHigh, _, _ := binarySearch(memo.offsets, end)
-	startIndex := min(startLow, startHigh)
-	endIndex := max(endLow, endHigh)
-	toRange := otherRange(fromRange)
-	seen := make(map[int]struct{})
-	var results []MappedRange
-
-	for i := startIndex; i <= endIndex; i++ {
-		for _, mappingIndex := range memo.mappings[i] {
-			if _, ok := seen[mappingIndex]; ok {
-				continue
-			}
-			seen[mappingIndex] = struct{}{}
-
-			mapping := m.Mappings[mappingIndex]
-			fromStart, fromLength := mappingOffsetLength(mapping, fromRange)
-			fromEnd := fromStart + fromLength
-			if end < fromStart || start > fromEnd {
-				continue
-			}
-
-			overlapStart := max(start, fromStart)
-			overlapEnd := min(end, fromEnd)
-
-			toOffset, toLength := mappingOffsetLength(mapping, toRange)
-			mappedStart, okStart := translateOffset(overlapStart, fromStart, toOffset, fromLength, toLength)
-			mappedEnd, okEnd := translateOffset(overlapEnd, fromStart, toOffset, fromLength, toLength)
-			if !okStart || !okEnd {
-				continue
-			}
-
-			rangeMapping := rangeMappingFromMapping(mapping)
-			results = append(results, MappedRange{
-				MappedStart:  mappedStart,
-				MappedEnd:    mappedEnd,
-				StartMapping: rangeMapping,
-				EndMapping:   rangeMapping,
-			})
-		}
-	}
-
-	return results
-}
-
-func binarySearch(values []int, searchValue int) (low int, high int, match int, hasMatch bool) {
+func BinarySearch(values []int, searchValue int) (low int, high int, match int) {
 	if len(values) == 0 {
-		return 0, -1, 0, false
+		return 0, -1, 0
 	}
 
 	low = 0
@@ -576,34 +305,12 @@ func binarySearch(values []int, searchValue int) (low int, high int, match int, 
 			low = mid
 			high = mid
 			match = mid
-			hasMatch = true
 			break
 		}
 	}
 
-	finalLow := max(min(min(low, high), len(values)-1), 0)
-	finalHigh := min(max(max(low, high), 0), len(values)-1)
+	finalLow := max(min(low, high, len(values)-1), 0)
+	finalHigh := min(max(low, high, 0), len(values)-1)
 
-	return finalLow, finalHigh, match, hasMatch
-}
-
-func translateOffset(
-	start int,
-	fromOffset int,
-	toOffset int,
-	fromLength int,
-	toLengthOptional ...int,
-) (int, bool) {
-	if start < fromOffset || start > fromOffset+fromLength {
-		return 0, false
-	}
-
-	toLength := fromLength
-	if len(toLengthOptional) > 0 {
-		toLength = toLengthOptional[0]
-	}
-
-	rangeOffset := min(start-fromOffset, toLength)
-
-	return toOffset + rangeOffset, true
+	return finalLow, finalHigh, match
 }

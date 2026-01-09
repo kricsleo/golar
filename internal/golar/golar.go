@@ -26,7 +26,7 @@ type compilerHostProxy struct {
 
 type languageData struct {
 	sourceText string
-	sourceMap     *mapping.SourceMap
+	sourceMap  *mapping.SourceMap
 }
 
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
@@ -73,7 +73,7 @@ func (d *diagnosticProxy) sourceLoc() core.TextRange {
 				return d.cachedSourceLoc
 			}
 		}
-		d.cachedSourceLoc = d.Diagnostic.Loc()
+		d.cachedSourceLoc = core.NewTextRange(0, 0)
 	}
 	return d.cachedSourceLoc
 }
@@ -184,7 +184,7 @@ func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind co
 	file.SetDiagnostics(append(file.Diagnostics(), codegenDiagnostics...))
 	file.GolarLanguageData = languageData{
 		sourceText: sourceText,
-		sourceMap:     mapping.NewSourceMap(mappings),
+		sourceMap:  mapping.NewSourceMap(mappings),
 	}
 
 	return file
