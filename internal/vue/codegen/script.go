@@ -141,6 +141,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						}
 						emitsVariableName = name.Text()
 					case "defineSlots":
+						if !c.options.supportsDefineSlots() {
+							break
+						}
 						if slotsVariableName != "" {
 							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineSlots")
@@ -184,6 +187,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				case "defineSlots":
+					if !c.options.supportsDefineSlots() {
+						break
+					}
 					if slotsVariableName != "" {
 						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 						c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineSlots")
@@ -263,15 +269,29 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		generateTemplate(c.codegenCtx, templateEl)
 
 		c.serviceText.WriteString("\nconst __VLS_Base = __VLS_DefineComponent({\n")
+		// TODO: withDefaults
+		// TODO: defineProps(arg)
 		if propsVariableName != "" {
-			c.serviceText.WriteString("__typeProps: {} as unknown as typeof ")
-			c.serviceText.WriteString(propsVariableName)
-			c.serviceText.WriteString(",\n")
+			if c.options.supportsTypeProps() {
+				c.serviceText.WriteString("__typeProps: {} as unknown as typeof ")
+				c.serviceText.WriteString(propsVariableName)
+				c.serviceText.WriteString(",\n")
+			} else {
+				c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<typeof ")
+				c.serviceText.WriteString(propsVariableName)
+				c.serviceText.WriteString(">,\n")
+			}
 		}
 		if emitsVariableName != "" {
-			c.serviceText.WriteString("__typeEmits: {} as unknown as typeof ")
-			c.serviceText.WriteString(emitsVariableName)
-			c.serviceText.WriteString(",\n")
+			if c.options.supportsTypeEmits() {
+				c.serviceText.WriteString("__typeEmits: {} as unknown as typeof ")
+				c.serviceText.WriteString(emitsVariableName)
+				c.serviceText.WriteString(",\n")
+			} else {
+				c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<typeof ")
+				c.serviceText.WriteString(emitsVariableName)
+				c.serviceText.WriteString(">,\n")
+			}
 		}
 		c.serviceText.WriteString("})\n")
 

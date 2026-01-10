@@ -1,6 +1,7 @@
 package golar
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -14,9 +15,11 @@ import (
 	"github.com/microsoft/typescript-go/shim/ast"
 	"github.com/microsoft/typescript-go/shim/compiler"
 	"github.com/microsoft/typescript-go/shim/core"
+	"github.com/microsoft/typescript-go/shim/diagnostics"
 	"github.com/microsoft/typescript-go/shim/diagnosticwriter"
 	"github.com/microsoft/typescript-go/shim/golarext"
 	"github.com/microsoft/typescript-go/shim/parser"
+	"github.com/microsoft/typescript-go/shim/tspath"
 	"github.com/microsoft/typescript-go/shim/vfs"
 )
 
@@ -35,7 +38,7 @@ func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.
 		if !ok {
 			return nil
 		}
-		return parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
+		return parseFile(h.FS(), opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
 	}
 	return h.CompilerHost.GetSourceFile(opts)
 }
@@ -168,26 +171,112 @@ func wrapASTDiagnostic(diagnostic *ast.Diagnostic) diagnosticwriter.Diagnostic {
 	return newDiagnosticProxy(diagnostic)
 }
 
-func parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
+func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
 	if !strings.HasSuffix(opts.FileName, ".vue") {
 		return parser.ParseSourceFile(opts, sourceText, scriptKind)
 	}
-	ast := vue_parser.Parse(sourceText)
-	serviceText, mappings, codegenDiagnostics := vue_codegen.Codegen(sourceText, ast)
+	vueAst, parsingErrors := vue_parser.Parse(sourceText)
+	var serviceText string
+	var mappings []mapping.Mapping
+	var fileDiagnostics []*ast.Diagnostic
+	if len(parsingErrors) > 0 {
+		// TODO: error recovery?
+		fileDiagnostics = make([]*ast.Diagnostic, len(parsingErrors))
+		for i, err := range parsingErrors {
+			// TODO: statically define parsing errors as diagnostics
+			msg := &diagnostics.Message{}
+			diagnostics.Message_Set_code(msg, 1_000_999)
+			diagnostics.Message_Set_category(msg, diagnostics.CategoryError)
+			diagnostics.Message_Set_key(msg, diagnostics.Key(err.Message))
+			diagnostics.Message_Set_text(msg, err.Message)
+			fileDiagnostics[i] = ast.NewDiagnostic(nil, core.NewTextRange(err.Pos, err.Pos), msg)
+		}
+	} else if vueVersion, ok := resolveVueVersion(fs, opts.FileName); ok {
+		options := vue_codegen.VueOptions{
+			Version: vueVersion,
+		}
+		serviceText, mappings, fileDiagnostics = vue_codegen.Codegen(sourceText, vueAst, options)
+	} else {
+		msg := &diagnostics.Message{}
+		diagnostics.Message_Set_code(msg, 1_000_999)
+		diagnostics.Message_Set_category(msg, diagnostics.CategoryError)
+		diagnostics.Message_Set_key(msg, "unable_to_resolve_vue_version")
+		diagnostics.Message_Set_text(msg, "Unable to resolve Vue version")
+		fileDiagnostics = []*ast.Diagnostic{ast.NewDiagnostic(nil, core.NewTextRange(0, 0), msg)}
+	}
 	file := parser.ParseSourceFile(opts, serviceText, scriptKind)
-	for _, d := range codegenDiagnostics {
+	for _, d := range fileDiagnostics {
 		d.SetFile(file)
 		for _, r := range d.RelatedInformation() {
 			r.SetFile(file)
 		}
 	}
-	file.SetDiagnostics(append(file.Diagnostics(), codegenDiagnostics...))
+	file.SetDiagnostics(append(file.Diagnostics(), fileDiagnostics...))
 	file.GolarLanguageData = languageData{
 		sourceText: sourceText,
 		sourceMap:  mapping.NewSourceMap(mappings),
 	}
 
 	return file
+}
+
+func resolveVueVersion(fs vfs.FS, fileName string) (int, bool) {
+	dir := tspath.GetDirectoryPath(fileName)
+	for {
+		pkgPath := tspath.CombinePaths(dir, "node_modules", "vue", "package.json")
+		if fs != nil {
+			contents, ok := fs.ReadFile(pkgPath)
+			if ok {
+				var pkg struct {
+					Version string `json:"version"`
+				}
+				if json.Unmarshal([]byte(contents), &pkg) == nil {
+					return parseVueVersion(pkg.Version)
+				}
+				break
+			}
+		}
+		parent := tspath.GetDirectoryPath(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return 0, false
+}
+
+func parseVueVersion(version string) (int, bool) {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return 0, false
+	}
+	if version[0] == 'v' || version[0] == 'V' {
+		version = version[1:]
+	}
+	parts := [3]int{}
+	partIdx := 0
+	digits := 0
+	for i := 0; i < len(version) && partIdx < len(parts); i++ {
+		ch := version[i]
+		if ch >= '0' && ch <= '9' {
+			parts[partIdx] = parts[partIdx]*10 + int(ch-'0')
+			digits++
+			continue
+		}
+		if ch == '.' {
+			if digits == 0 {
+				return 0, false
+			}
+			partIdx++
+			digits = 0
+			continue
+		}
+		break
+	}
+	if partIdx == 0 && digits == 0 {
+		return 0, false
+	}
+	return parts[0]*1_000_000 + parts[1]*1_000 + parts[2], true
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
@@ -236,8 +325,7 @@ func WrapFourslashFS(globalOptions map[string]string, fs vfs.FS) vfs.FS {
 		vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
 	}
 	if extraFiles := globalOptions["golarextrafiles"]; extraFiles != "" {
-		pairs := strings.Split(extraFiles, "\x1f")
-		for _, pair := range pairs {
+		for pair := range strings.SplitSeq(extraFiles, "\x1f") {
 			if pair == "" {
 				continue
 			}

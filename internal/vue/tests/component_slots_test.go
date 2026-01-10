@@ -5,14 +5,10 @@ import (
 
 	"github.com/microsoft/typescript-go/shim/fourslash"
 	"github.com/microsoft/typescript-go/shim/lsp/lsproto"
-	"github.com/microsoft/typescript-go/shim/testutil"
 )
 
 func TestComponentSlots(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -86,35 +82,37 @@ func TestComponentSlots(t *testing.T) {
 		default(props: { msg: "hello" }): any
 		'named-foo'(props: { msg: "foo" }): any
 	}>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyQuickInfoAt(t, "1", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "2", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "3", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "4", `const msg: "foo"`, "")
-	f.VerifyQuickInfoAt(t, "5", `const msg: "foo"`, "")
-	f.VerifyQuickInfoAt(t, "6", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "7", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "8", `const msg: "hello"`, "")
-	f.VerifyQuickInfoAt(t, "9", `const msg: "foo"`, "")
-	f.VerifyQuickInfoAt(t, "10", `const msg: "foo"`, "")
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
-			Message: "Slot does not belong to the parent component.",
-		},
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
-			Message: "Slot does not belong to the parent component.",
-		},
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
-			Message: "Slot does not belong to the parent component.",
-		},
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
-			Message: "Slot does not belong to the parent component.",
-		},
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		if version == vue_3_2 {
+			return
+		}
+		f.VerifyQuickInfoAt(t, "1", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "2", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "3", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "4", `const msg: "foo"`, "")
+		f.VerifyQuickInfoAt(t, "5", `const msg: "foo"`, "")
+		f.VerifyQuickInfoAt(t, "6", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "7", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "8", `const msg: "hello"`, "")
+		f.VerifyQuickInfoAt(t, "9", `const msg: "foo"`, "")
+		f.VerifyQuickInfoAt(t, "10", `const msg: "foo"`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
+				Message: "Slot does not belong to the parent component.",
+			},
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
+				Message: "Slot does not belong to the parent component.",
+			},
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
+				Message: "Slot does not belong to the parent component.",
+			},
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_008)},
+				Message: "Slot does not belong to the parent component.",
+			},
+		})
 	})
 }

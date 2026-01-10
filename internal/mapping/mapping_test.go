@@ -198,14 +198,14 @@ func TestTranslateOffset(t *testing.T) {
 
 func TestSourceMapLocations(t *testing.T) {
 	mapping := Mapping{
-		SourceOffsets:    []int{0, 10},
-		GeneratedOffsets: []int{100, 110},
-		Lengths:          []int{5, 5},
+		SourceOffsets:  []int{0, 10},
+		ServiceOffsets: []int{100, 110},
+		Lengths:        []int{5, 5},
 	}
 	overlapMapping := Mapping{
-		SourceOffsets:    []int{0},
-		GeneratedOffsets: []int{100},
-		Lengths:          []int{10},
+		SourceOffsets:  []int{0},
+		ServiceOffsets: []int{100},
+		Lengths:        []int{10},
 	}
 
 	cases := []struct {
@@ -231,7 +231,7 @@ func TestSourceMapLocations(t *testing.T) {
 			want:     []int{2},
 		},
 		{
-			name:     "to generated location",
+			name:     "to service location",
 			mappings: []Mapping{mapping},
 			toSource: false,
 			offset:   12,
@@ -260,7 +260,7 @@ func TestSourceMapLocations(t *testing.T) {
 			if tc.toSource {
 				locations = sourceMap.ToSourceLocation(tc.offset)
 			} else {
-				locations = sourceMap.ToGeneratedLocation(tc.offset)
+				locations = sourceMap.ToServiceLocation(tc.offset)
 			}
 
 			if tc.wantEmpty {
@@ -276,40 +276,40 @@ func TestSourceMapLocations(t *testing.T) {
 
 func TestSourceMapRanges(t *testing.T) {
 	basicMapping := Mapping{
-		SourceOffsets:    []int{0},
-		GeneratedOffsets: []int{100},
-		Lengths:          []int{5},
+		SourceOffsets:  []int{0},
+		ServiceOffsets: []int{100},
+		Lengths:        []int{5},
 	}
 	multiSegment := Mapping{
-		SourceOffsets:    []int{0, 20},
-		GeneratedOffsets: []int{100, 200},
-		Lengths:          []int{5, 5},
+		SourceOffsets:  []int{0, 20},
+		ServiceOffsets: []int{100, 200},
+		Lengths:        []int{5, 5},
 	}
-	generatedLengthMapping := Mapping{
-		SourceOffsets:    []int{0},
-		GeneratedOffsets: []int{100},
-		Lengths:          []int{10},
-		GeneratedLengths: []int{5},
+	serviceLengthMapping := Mapping{
+		SourceOffsets:  []int{0},
+		ServiceOffsets: []int{100},
+		Lengths:        []int{10},
+		ServiceLengths: []int{5},
 	}
 	mappingA := Mapping{
-		SourceOffsets:    []int{0},
-		GeneratedOffsets: []int{100},
-		Lengths:          []int{5},
+		SourceOffsets:  []int{0},
+		ServiceOffsets: []int{100},
+		Lengths:        []int{5},
 	}
 	mappingB := Mapping{
-		SourceOffsets:    []int{10},
-		GeneratedOffsets: []int{200},
-		Lengths:          []int{5},
+		SourceOffsets:  []int{10},
+		ServiceOffsets: []int{200},
+		Lengths:        []int{5},
 	}
 	reversedStart := Mapping{
-		SourceOffsets:    []int{0},
-		GeneratedOffsets: []int{200},
-		Lengths:          []int{5},
+		SourceOffsets:  []int{0},
+		ServiceOffsets: []int{200},
+		Lengths:        []int{5},
 	}
 	reversedEnd := Mapping{
-		SourceOffsets:    []int{10},
-		GeneratedOffsets: []int{100},
-		Lengths:          []int{5},
+		SourceOffsets:  []int{10},
+		ServiceOffsets: []int{100},
+		Lengths:        []int{5},
 	}
 
 	cases := []struct {
@@ -331,7 +331,7 @@ func TestSourceMapRanges(t *testing.T) {
 			want:     [][2]int{{0, 5}},
 		},
 		{
-			name:     "direct mapping to generated",
+			name:     "direct mapping to service",
 			mappings: []Mapping{basicMapping},
 			toSource: false,
 			start:    0,
@@ -367,8 +367,8 @@ func TestSourceMapRanges(t *testing.T) {
 			want:     nil,
 		},
 		{
-			name:     "generated lengths constrain mapped end",
-			mappings: []Mapping{generatedLengthMapping},
+			name:     "service lengths constrain mapped end",
+			mappings: []Mapping{serviceLengthMapping},
 			toSource: false,
 			start:    2,
 			end:      8,
@@ -402,7 +402,7 @@ func TestSourceMapRanges(t *testing.T) {
 			if tc.toSource {
 				ranges = sourceMap.ToSourceRange(tc.start, tc.end, tc.fallback)
 			} else {
-				ranges = sourceMap.ToGeneratedRange(tc.start, tc.end, tc.fallback)
+				ranges = sourceMap.ToServiceRange(tc.start, tc.end, tc.fallback)
 			}
 			assertRangesSet(t, ranges, tc.want)
 		})

@@ -5,14 +5,10 @@ import (
 
 	"github.com/microsoft/typescript-go/shim/fourslash"
 	"github.com/microsoft/typescript-go/shim/lsp/lsproto"
-	"github.com/microsoft/typescript-go/shim/testutil"
 )
 
 func TestComponentEventCallback(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 
@@ -40,35 +36,31 @@ func TestComponentEventCallback(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineEmits<{ (e: 'foo', id: number): void }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyQuickInfoAt(t, "1", `(parameter) id: number`, "")
-	f.VerifyQuickInfoAt(t, "2", `(parameter) id: number`, "")
-	f.VerifyQuickInfoAt(t, "3", `(parameter) id: number`, "")
-	f.VerifyQuickInfoAt(t, "4", `(parameter) id: number`, "")
-	f.VerifyQuickInfoAt(t, "5", `(parameter) id: number`, "")
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyQuickInfoAt(t, "1", `(parameter) id: number`, "")
+		f.VerifyQuickInfoAt(t, "2", `(parameter) id: number`, "")
+		f.VerifyQuickInfoAt(t, "3", `(parameter) id: number`, "")
+		f.VerifyQuickInfoAt(t, "4", `(parameter) id: number`, "")
+		f.VerifyQuickInfoAt(t, "5", `(parameter) id: number`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
   Types of parameters 'name' and 'args' are incompatible.
     Type 'number' is not assignable to type 'string'.`,
-		},
-		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
+			},
+			{
+				Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: `Type '(name: string) => void' is not assignable to type '(id: number) => any'.
   Types of parameters 'name' and 'args' are incompatible.
     Type 'number' is not assignable to type 'string'.`,
-		},
+			},
+		})
 	})
 }
 
 func TestComponentEventCompound(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 	let foo: number = 1
@@ -86,20 +78,16 @@ func TestComponentEventCompound(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineEmits<{ (e: 'foo', id: number): void }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyQuickInfoAt(t, "1", `var $event: number`, "")
-	f.VerifyQuickInfoAt(t, "2", `var $event: number`, "")
-	f.VerifyQuickInfoAt(t, "3", `var $event: number`, "")
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyQuickInfoAt(t, "1", `var $event: number`, "")
+		f.VerifyQuickInfoAt(t, "2", `var $event: number`, "")
+		f.VerifyQuickInfoAt(t, "3", `var $event: number`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
 }
 
 func TestComponentEventFunctionSetupVars(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 
@@ -113,18 +101,14 @@ func TestComponentEventFunctionSetupVars(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineEmits<{ (e: 'foo'): void }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyQuickInfoAt(t, "1", `(property) foo: "bar"`, "")
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyQuickInfoAt(t, "1", `(property) foo: "bar"`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
 }
 
 func TestComponentEventEmptyListener(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -136,8 +120,7 @@ func TestComponentEventEmptyListener(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineEmits<{ (e: 'foo'): void }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
 }

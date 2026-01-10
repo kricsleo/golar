@@ -43,7 +43,7 @@ type Parser struct {
 	errors []ParseError
 }
 
-func Parse(source string) *vue_ast.RootNode {
+func Parse(source string) (*vue_ast.RootNode, []ParseError) {
 	p := Parser{
 		tokenizer:             NewTokenizer(source),
 		sourceText:            source,
@@ -53,7 +53,7 @@ func Parse(source string) *vue_ast.RootNode {
 	p.tokenizer.parser = &p
 	p.currentRoot = vue_ast.NewRootNode()
 	p.tokenizer.parse()
-	return p.currentRoot
+	return p.currentRoot, p.errors
 }
 
 func (p *Parser) emitError(msg string, pos int) {

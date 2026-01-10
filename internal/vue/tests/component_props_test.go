@@ -5,14 +5,10 @@ import (
 
 	"github.com/microsoft/typescript-go/shim/fourslash"
 	"github.com/microsoft/typescript-go/shim/lsp/lsproto"
-	"github.com/microsoft/typescript-go/shim/testutil"
 )
 
 func TestMissingComponentProps(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -24,23 +20,38 @@ func TestMissingComponentProps(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineProps<{ foo: string }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
-			Message: `Argument of type '{}' is not assignable to parameter of type '{ readonly foo: string; } & VNodeProps & AllowedComponentProps & ComponentCustomProps'.
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+				{
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+					Message: `Argument of type '{}' is not assignable to parameter of type 'Partial<{}> & Omit<Readonly<ExtractPropTypes<__VLS_TypePropsToOption<Readonly<Omit<{ foo: string; }, never> & {}>>>> & VNodeProps & AllowedComponentProps & ComponentCustomProps, never>'.
+  Property 'foo' is missing in type '{}' but required in type 'Omit<Readonly<ExtractPropTypes<__VLS_TypePropsToOption<Readonly<Omit<{ foo: string; }, never> & {}>>>> & VNodeProps & AllowedComponentProps & ComponentCustomProps, never>'.`,
+				},
+			})
+		case vue_3_3, vue_3_4:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+				{
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+					Message: `Argument of type '{}' is not assignable to parameter of type 'Partial<{}> & Omit<{ readonly foo: string; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Readonly<...>, never>'.
+  Property 'foo' is missing in type '{}' but required in type 'Omit<{ readonly foo: string; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Readonly<ExtractPropTypes<__VLS_TypePropsToOption<DefineProps<LooseRequired<{ foo: string; }>, never>>>>, never>'.`,
+				},
+			})
+		default:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+				{
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+					Message: `Argument of type '{}' is not assignable to parameter of type '{ readonly foo: string; } & VNodeProps & AllowedComponentProps & ComponentCustomProps'.
   Property 'foo' is missing in type '{}' but required in type '{ readonly foo: string; }'.`,
-		},
+				},
+			})
+		}
 	})
 }
 
 func TestComponentPropTypeMismatch(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -52,22 +63,18 @@ func TestComponentPropTypeMismatch(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineProps<{ foo: number }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: "Type 'string' is not assignable to type 'number'.",
-		},
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: "Type 'string' is not assignable to type 'number'.",
+			},
+		})
 	})
 }
 
 func TestComponentPropTypeMismatchDefinePropsVariable(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -79,22 +86,18 @@ func TestComponentPropTypeMismatchDefinePropsVariable(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	const p = defineProps<{ foo: number }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: "Type 'string' is not assignable to type 'number'.",
-		},
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: "Type 'string' is not assignable to type 'number'.",
+			},
+		})
 	})
 }
 
 func TestComponentPropTypeMismatchBoolean(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -106,22 +109,18 @@ func TestComponentPropTypeMismatchBoolean(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineProps<{ foo: number }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: "Type 'boolean' is not assignable to type 'number'.",
-		},
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: "Type 'boolean' is not assignable to type 'number'.",
+			},
+		})
 	})
 }
 
 func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -133,22 +132,18 @@ func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineProps<{ fooBar: number }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
-		{
-			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
-			Message: "Type 'boolean' is not assignable to type 'number'.",
-		},
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: "Type 'boolean' is not assignable to type 'number'.",
+			},
+		})
 	})
 }
 
 func TestProps(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
 </script>
@@ -162,8 +157,7 @@ func TestProps(t *testing.T) {
 // @filename: file-foo.vue
 <script setup lang="ts">
 	defineProps<{ foo: string }>()
-</script>`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
 }

@@ -283,7 +283,7 @@ func TestExpressionMapper(t *testing.T) {
 
 		for i, c := range cases {
 			t.Run(strconv.Itoa(i), func(t *testing.T) {
-				base := newCodegenCtx(nil, c.sourceText)
+				base := newCodegenCtx(nil, c.sourceText, VueOptions{Version: 3_006_000})
 				ctx := newTemplateCodegenCtx(&base)
 
 				tsAst := vue_parser.ParseTsAst("(" + c.sourceText + ")")
@@ -339,7 +339,7 @@ func TestExpressionMapper(t *testing.T) {
 
 		for i, c := range cases {
 			t.Run(strconv.Itoa(i), func(t *testing.T) {
-				base := newCodegenCtx(nil, c.sourceText)
+				base := newCodegenCtx(nil, c.sourceText, VueOptions{Version: 3_006_000})
 				ctx := newTemplateCodegenCtx(&base)
 
 				tsAst := vue_parser.ParseTsAst("(" + c.sourceText + ")=>{}")

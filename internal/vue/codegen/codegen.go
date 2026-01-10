@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
-	"github.com/auvred/golar/internal/utils"
 	"github.com/auvred/golar/internal/vue/ast"
 	"github.com/auvred/golar/internal/vue/diagnostics"
 	"github.com/microsoft/typescript-go/shim/ast"
@@ -31,7 +30,7 @@ declare global {
 					? [V, number]
 					: [T[keyof T], ` + "`${keyof T & string}`" + `, number]
 
-	type __VLS_FunctionalComponent<T> = (props: (T extends { $props: infer Props } ? Props : {}), ctx?: any) => import('vue/jsx-runtime').JSX.Element & {
+	type __VLS_FunctionalComponent<T> = (props: (T extends { $props: infer Props } ? Props : {}), ctx?: any) => {
 		__ctx?: {
 			attrs?: any;
 			slots?: T extends { $slots: infer Slots } ? Slots : Record<string, any>;
@@ -147,14 +146,17 @@ declare global {
 		>
 	>;
 
+	type __VLS_ShortEmitsToObject<E> = E extends Record<string, any[]>
+		? { [K in keyof E]: (...args: E[K]) => any }
+		: E;
 
 	type __VLS_ResolveEmits<
 		Comp,
 		Emits,
-		TypeEmits = Comp extends { __typeEmits?: infer T } // TODO: <3.6 {}
+		TypeEmits = Comp extends { __typeEmits?: infer T }
 			? unknown extends T
 				? {}
-				: import('vue').ShortEmitsToObject<T>
+				: __VLS_ShortEmitsToObject<T>
 			: {},
 		NormalizedEmits = __VLS_NormalizeEmits<Emits> extends infer E
 			? string extends keyof E
@@ -170,11 +172,24 @@ declare global {
 	};
 
 	function __VLS_vSlot<S, D extends S>(slot: S, decl?: D): D extends (...args: infer P) => any ? P : any[];
+
+	type __VLS_TypePropsToOption<T> = {
+		[K in keyof T]-?: {} extends Pick<T, K>
+			? { type: import('vue').PropType<Required<T>[K]> }
+			: { type: import('vue').PropType<T[K]>, required: true }
+	};
+}
+
+// pre 3.5 shims
+// https://github.com/vuejs/core/pull/3399
+declare module 'vue' {
+	export interface GlobalComponents {}
+	export interface GlobalDirectives {}
 }
 `
 
-func Codegen(sourceText string, root *vue_ast.RootNode) (string, []mapping.Mapping, []*ast.Diagnostic) {
-	ctx := newCodegenCtx(root, sourceText)
+func Codegen(sourceText string, root *vue_ast.RootNode, options VueOptions) (string, []mapping.Mapping, []*ast.Diagnostic) {
+	ctx := newCodegenCtx(root, sourceText, options)
 	ctx.serviceText.WriteString(globalTypesReference)
 
 	var scriptEl *vue_ast.ElementNode
@@ -263,15 +278,38 @@ type codegenCtx struct {
 	mappings                []mapping.Mapping
 	diagnostics             []*ast.Diagnostic
 	internalVariableCounter int
+	options                 VueOptions
 }
 
-func newCodegenCtx(root *vue_ast.RootNode, sourceText string) codegenCtx {
+type VueOptions struct {
+	// major * 1_000_000 + minor * 1_000 + patch
+	Version int
+}
+
+func semver2int(major, minor, patch int) int {
+	return major*1_000_000 + minor*1_000 + patch
+}
+
+// https://github.com/vuejs/core/pull/10801
+func (opts *VueOptions) supportsTypeProps() bool {
+	return opts.Version >= semver2int(3, 5, 0)
+}
+func (opts *VueOptions) supportsTypeEmits() bool {
+	return opts.supportsTypeProps()
+}
+
+func (opts *VueOptions) supportsDefineSlots() bool {
+	return opts.Version >= semver2int(3, 3, 0)
+}
+
+func newCodegenCtx(root *vue_ast.RootNode, sourceText string, options VueOptions) codegenCtx {
 	return codegenCtx{
 		ast:         root,
 		sourceText:  sourceText,
 		serviceText: strings.Builder{},
 		mappings:    []mapping.Mapping{},
 		diagnostics: []*ast.Diagnostic{},
+		options:     options,
 	}
 }
 

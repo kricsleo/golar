@@ -5,25 +5,20 @@ import (
 
 	"github.com/microsoft/typescript-go/shim/fourslash"
 	"github.com/microsoft/typescript-go/shim/lsp/lsproto"
-	"github.com/microsoft/typescript-go/shim/testutil"
 )
 
 func TestSetupImportsBinding(t *testing.T) {
-	t.Parallel()
-
-	defer testutil.RecoverAndFail(t, "Panic on fourslash test")
-	content := withVueNodeModules(t, `// @filename: file.vue
+	runFourslashTest(t, `// @filename: file.vue
 <script lang="ts" setup>
-	import { useId/*1*/ } from 'vue'
+	import { useCssModule/*1*/ } from 'vue'
 </script>
 
 <template>
-	{{ useId/*2*/ }}
+	{{ useCssModule/*2*/ }}
 </template>
-`)
-	f, done := fourslash.NewFourslash(t, nil, content)
-	defer done()
-	f.VerifyQuickInfoAt(t, "1", `(alias) function useId(): string`, "")
-	f.VerifyQuickInfoAt(t, "2", `(property) useId: () => string`, "")
-	f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyQuickInfoAt(t, "1", `(alias) function useCssModule(name?: string): Record<string, string>`, "")
+		f.VerifyQuickInfoAt(t, "2", `(property) useCssModule: (name?: string) => Record<string, string>`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
 }
