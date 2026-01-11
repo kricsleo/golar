@@ -281,25 +281,35 @@ type codegenCtx struct {
 	options                 VueOptions
 }
 
+type VueVersion int
 type VueOptions struct {
 	// major * 1_000_000 + minor * 1_000 + patch
-	Version int
+	Version VueVersion
 }
 
-func semver2int(major, minor, patch int) int {
-	return major*1_000_000 + minor*1_000 + patch
+func NewVueVersionFromSemver(major, minor, patch int) VueVersion {
+	return VueVersion(major*1_000_000 + minor*1_000 + patch)
 }
 
 // https://github.com/vuejs/core/pull/10801
-func (opts *VueOptions) supportsTypeProps() bool {
-	return opts.Version >= semver2int(3, 5, 0)
+func (v VueVersion) supportsTypeProps() bool {
+	return v >= NewVueVersionFromSemver(3, 5, 0)
 }
-func (opts *VueOptions) supportsTypeEmits() bool {
-	return opts.supportsTypeProps()
+func (v VueVersion) supportsTypeEmits() bool {
+	return v.supportsTypeProps()
 }
 
-func (opts *VueOptions) supportsDefineSlots() bool {
-	return opts.Version >= semver2int(3, 3, 0)
+func (v VueVersion) supportsDefineSlots() bool {
+	return v >= NewVueVersionFromSemver(3, 3, 0)
+}
+
+func (v VueVersion) supportsDefineModel() bool {
+	return v >= NewVueVersionFromSemver(3, 4, 0)
+}
+
+// https://github.com/vuejs/core/pull/11699
+func (v VueVersion) modelRefHasGetterAndSetter() bool {
+	return v >= NewVueVersionFromSemver(3, 5, 0)
 }
 
 func newCodegenCtx(root *vue_ast.RootNode, sourceText string, options VueOptions) codegenCtx {

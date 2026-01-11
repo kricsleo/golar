@@ -87,9 +87,11 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			propsVariableName string
 			emitsVariableName string
 			slotsVariableName string
+			modelPropsVariableNames []string
 		)
 
 		// TODO: report nested compiler macros (vue compiler errors on them)
+		// TODO: report incorrect compiler macros arguments
 		// TODO: $emits, $props, emitstoprops
 
 		bindingRanges := []core.TextRange{}
@@ -111,10 +113,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					}
 					visitor(name)
 
-					// TODO: report props destructuring?
-					if !ast.IsIdentifier(name) {
-						break
-					}
+					nameIsIdentifier := ast.IsIdentifier(name)
 					if decl.Initializer == nil || !ast.IsCallExpression(decl.Initializer) {
 						break
 					}
@@ -127,6 +126,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					calleeName := callee.Text()
 					switch calleeName {
 					case "defineProps":
+						// TODO: report props destructuring?
+						if !nameIsIdentifier {
+							break
+						}
 						if propsVariableName != "" {
 							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineProps")
@@ -134,6 +137,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						}
 						propsVariableName = name.Text()
 					case "defineEmits":
+						// TODO: can there be destructuring
+						if !nameIsIdentifier {
+							break
+						}
 						if emitsVariableName != "" {
 							calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 							c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineEmits")
@@ -141,7 +148,11 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						}
 						emitsVariableName = name.Text()
 					case "defineSlots":
-						if !c.options.supportsDefineSlots() {
+						// TODO: can there be destructuring
+						if !nameIsIdentifier {
+							break
+						}
+						if !c.options.Version.supportsDefineSlots() {
 							break
 						}
 						if slotsVariableName != "" {
@@ -150,6 +161,45 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 							break
 						}
 						slotsVariableName = name.Text()
+					case "defineModel":
+						if !c.options.Version.supportsDefineModel() {
+							break
+						}
+						// TODO: report duplicate modelValue names
+						// if slotsVariableName != "" {
+						// 	calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+						// 	c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineModel")
+						// 	break
+						// }
+						modelName := c.parseDefineModel(call)
+						callLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, call.AsNode())
+						c.mapText(lastMappedPos, innerStart+callLoc.Pos())
+						modelVariableName := c.newInternalVariable()
+						c.serviceText.WriteString("{} as unknown as typeof ")
+						c.serviceText.WriteString(modelVariableName)
+						c.serviceText.WriteString("\nconst ")
+						c.serviceText.WriteString(modelVariableName)
+						c.serviceText.WriteString(" = ")
+						c.mapText(innerStart+callLoc.Pos(), innerStart+callLoc.End())
+						lastMappedPos = innerStart + callLoc.End()
+						modelPropTypeVariableName := c.newInternalVariable()
+						modelPropsVariableNames = append(modelPropsVariableNames, modelPropTypeVariableName)
+						c.serviceText.WriteString("\ntype ")
+						c.serviceText.WriteString(modelPropTypeVariableName)
+						c.serviceText.WriteString(" = typeof ")
+						c.serviceText.WriteString(modelVariableName)
+						c.serviceText.WriteString(" extends import('vue').ModelRef<infer T, any")
+						if c.options.Version.modelRefHasGetterAndSetter() {
+							c.serviceText.WriteString(", any, any")
+						}
+						c.serviceText.WriteString("> ? undefined extends T ? { '")
+						// TODO: don't use quotes when not needed
+						// TODO: escape
+						c.serviceText.WriteString(modelName)
+						c.serviceText.WriteString("'?: T } : { '")
+						// TODO: escape
+						c.serviceText.WriteString(modelName)
+						c.serviceText.WriteString("': T } : never\n")
 					}
 				}
 			case ast.KindExpressionStatement:
@@ -187,7 +237,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					lastMappedPos = innerStart + statement.End()
 				case "defineSlots":
-					if !c.options.supportsDefineSlots() {
+					if !c.options.Version.supportsDefineSlots() {
 						break
 					}
 					if slotsVariableName != "" {
@@ -234,23 +284,37 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		c.mapText(lastMappedPos, text.Loc.End())
 		c.serviceText.WriteByte('\n')
 
-		c.serviceText.WriteString("type __VLS_SetupExposed = {\n")
-		// TODO: proxy refs
+		c.serviceText.WriteString("type __VLS_SetupExposed = import('vue').ShallowUnwrapRef<{\n")
 		for _, binding := range bindingRanges {
 			c.serviceText.WriteString(c.sourceText[innerStart+binding.Pos() : innerStart+binding.End()])
 			c.serviceText.WriteString(": typeof ")
 			c.serviceText.WriteString(c.sourceText[innerStart+binding.Pos() : innerStart+binding.End()])
 			c.serviceText.WriteRune('\n')
 		}
-		c.serviceText.WriteString("}\n")
+		c.serviceText.WriteString("}>\n")
 
-		c.serviceText.WriteString("const __VLS_Ctx = {\n")
-		c.serviceText.WriteString("...{} as unknown as __VLS_SetupExposed,\n")
-		if propsVariableName != "" {
-			c.serviceText.WriteString("...{} as unknown as typeof ")
-			c.serviceText.WriteString(propsVariableName)
-			c.serviceText.WriteString(",\n")
+		publicPropsStarted := false
+		startPublicProps := func () bool {
+			if publicPropsStarted {
+				return false
+			}
+			c.serviceText.WriteString("type __VLS_PublicProps = ")
+			publicPropsStarted = true
+			return true
 		}
+		if propsVariableName != "" {
+			startPublicProps()
+			c.serviceText.WriteString("typeof ")
+			c.serviceText.WriteString(propsVariableName)
+		}
+		for i, varName := range modelPropsVariableNames {
+			if i > 0 || !startPublicProps() {
+				c.serviceText.WriteString(" & ")
+			}
+			c.serviceText.WriteString(varName)
+		}
+
+		c.serviceText.WriteString("\nconst __VLS_Ctx = {\n")
 		if selfType != "" {
 			c.serviceText.WriteString("...{} as unknown as InstanceType<__VLS_PickNotAny<typeof ")
 			c.serviceText.WriteString(selfType)
@@ -258,11 +322,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		} else {
 			c.serviceText.WriteString("...{} as unknown as import('vue').ComponentPublicInstance,\n")
 		}
-		if propsVariableName != "" {
-			// TODO: model props and emit props
-			c.serviceText.WriteString("...{} as unknown as { $props: typeof ")
-			c.serviceText.WriteString(propsVariableName)
-			c.serviceText.WriteString("},\n")
+		c.serviceText.WriteString("...{} as unknown as __VLS_SetupExposed,\n")
+		if publicPropsStarted {
+			c.serviceText.WriteString("...{} as unknown as __VLS_PublicProps,\n")
+			c.serviceText.WriteString("...{} as unknown as { $props: __VLS_PublicProps },\n")
 		}
 		c.serviceText.WriteString("}\n")
 
@@ -271,19 +334,15 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		c.serviceText.WriteString("\nconst __VLS_Base = __VLS_DefineComponent({\n")
 		// TODO: withDefaults
 		// TODO: defineProps(arg)
-		if propsVariableName != "" {
-			if c.options.supportsTypeProps() {
-				c.serviceText.WriteString("__typeProps: {} as unknown as typeof ")
-				c.serviceText.WriteString(propsVariableName)
-				c.serviceText.WriteString(",\n")
+		if publicPropsStarted {
+			if c.options.Version.supportsTypeProps() {
+				c.serviceText.WriteString("__typeProps: {} as unknown as __VLS_PublicProps,\n")
 			} else {
-				c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<typeof ")
-				c.serviceText.WriteString(propsVariableName)
-				c.serviceText.WriteString(">,\n")
+				c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<__VLS_PublicProps>,\n")
 			}
 		}
 		if emitsVariableName != "" {
-			if c.options.supportsTypeEmits() {
+			if c.options.Version.supportsTypeEmits() {
 				c.serviceText.WriteString("__typeEmits: {} as unknown as typeof ")
 				c.serviceText.WriteString(emitsVariableName)
 				c.serviceText.WriteString(",\n")
@@ -317,4 +376,16 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 	if c.scriptEl == nil && c.scriptSetupEl == nil {
 		generateTemplate(c.codegenCtx, templateEl)
 	}
+}
+
+// TODO: reconcile with vuejs/core/packages/compiler-sfc/src/script/defineModel.ts
+func (c *scriptCodegenCtx) parseDefineModel(expr *ast.CallExpression) (string) {
+	name := "modelValue"
+	if len(expr.Arguments.Nodes) >= 1 {
+		if ast.IsStringLiteral(expr.Arguments.Nodes[0]) {
+			name = expr.Arguments.Nodes[0].AsStringLiteral().Text
+		}
+	}
+
+	return name
 }

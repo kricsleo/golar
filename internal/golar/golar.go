@@ -220,7 +220,7 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	return file
 }
 
-func resolveVueVersion(fs vfs.FS, fileName string) (int, bool) {
+func resolveVueVersion(fs vfs.FS, fileName string) (vue_codegen.VueVersion, bool) {
 	dir := tspath.GetDirectoryPath(fileName)
 	for {
 		pkgPath := tspath.CombinePaths(dir, "node_modules", "vue", "package.json")
@@ -245,7 +245,7 @@ func resolveVueVersion(fs vfs.FS, fileName string) (int, bool) {
 	return 0, false
 }
 
-func parseVueVersion(version string) (int, bool) {
+func parseVueVersion(version string) (vue_codegen.VueVersion, bool) {
 	version = strings.TrimSpace(version)
 	if version == "" {
 		return 0, false
@@ -276,7 +276,7 @@ func parseVueVersion(version string) (int, bool) {
 	if partIdx == 0 && digits == 0 {
 		return 0, false
 	}
-	return parts[0]*1_000_000 + parts[1]*1_000 + parts[2], true
+	return vue_codegen.NewVueVersionFromSemver(parts[0], parts[1], parts[2]), true
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
