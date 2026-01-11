@@ -142,7 +142,7 @@ func TestComponentKebabCasePropTypeMismatch(t *testing.T) {
 	})
 }
 
-func TestProps(t *testing.T) {
+func TestMultilineProps(t *testing.T) {
 	runFourslashTest(t, `// @filename: file.vue
 <script setup lang="ts">
 	import CompFoo from './file-foo.vue'
@@ -159,5 +159,51 @@ func TestProps(t *testing.T) {
 	defineProps<{ foo: string }>()
 </script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
 		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}
+
+func TestRequiredDefineModelProps(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+// @strict: true
+<script setup lang="ts">
+	import CompFoo from './file-foo.vue'
+</script>
+
+<template>
+	<[|CompFoo|]/>
+
+	<CompFoo [|model-value|]="123"/>
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineModel<number>({ required: true })
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		isNotAssignable := &lsproto.Diagnostic{
+			Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+			Message: "Type 'string' is not assignable to type 'number'.",
+		}
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		case vue_3_4:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+				{
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+					Message: `Argument of type '{}' is not assignable to parameter of type 'Partial<{}> & Omit<{ readonly modelValue: number; readonly modelModifiers?: Partial<Record<string, true>> | undefined; "onUpdate:modelValue"?: ((value: number) => any) | undefined; } & ... 5 more ... & { ...; }, never>'.
+  Property ''modelValue'' is missing in type '{}' but required in type 'Omit<{ readonly modelValue: number; readonly modelModifiers?: Partial<Record<string, true>> | undefined; "onUpdate:modelValue"?: ((value: number) => any) | undefined; } & ... 5 more ... & { ...; }, never>'.`,
+				},
+				isNotAssignable,
+			})
+		default:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+				{
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+					Message: `Argument of type '{}' is not assignable to parameter of type '{ readonly modelValue: number; readonly modelModifiers?: Partial<Record<string, true>> | undefined; readonly "onUpdate:modelValue"?: ((value: number) => any) | undefined; } & VNodeProps & AllowedComponentProps & ComponentCustomProps'.
+  Property ''modelValue'' is missing in type '{}' but required in type '{ readonly modelValue: number; readonly modelModifiers?: Partial<Record<string, true>> | undefined; readonly "onUpdate:modelValue"?: ((value: number) => any) | undefined; }'.`,
+				},
+				isNotAssignable,
+			})
+		}
 	})
 }

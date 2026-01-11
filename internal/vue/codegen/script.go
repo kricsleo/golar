@@ -19,6 +19,7 @@ type scriptCodegenCtx struct {
 
 	seenDefineModels        collections.Set[string]
 	modelPropsVariableNames []string
+	modelEmitsVariableNames []string
 }
 
 func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, scriptEl *vue_ast.ElementNode, templateEl *vue_ast.ElementNode) {
@@ -41,17 +42,18 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		// innerStart := c.scriptEl.InnerLoc.Pos()
 		text := c.scriptEl.Children[0].AsText()
 
-		mapStart := text.Loc.Pos()
-		// hasExportDefault := false
-		//
+		c.lastMappedPos = text.Loc.Pos()
+
 		// for _, statement := range c.scriptEl.Ast.Statements.Nodes {
 		// 	if !ast.IsExportAssignment(statement) {
 		// 		continue
 		// 	}
+		// 	if c.scriptSetupEl != nil {
+		// 	}
+		// 	// TODO: report export equals? (export = ...)
 		//
-		// 	hasExportDefault = true
 		// 	export := statement.AsExportAssignment()
-		// 	c.mapText(mapStart, innerStart+export.Expression.Pos())
+		// 	c.mapText(c.lastMappedPos, innerStart+export.Expression.Pos())
 		// 	c.serviceText.WriteString(" {} as unknown as typeof __VLS_Export\n")
 		// 	if c.scriptSetupEl == nil {
 		// 		c.serviceText.WriteString("const __VLS_Export = ")
@@ -60,12 +62,12 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		// 		c.serviceText.WriteString("const __VLS_Self = ")
 		// 		selfType = "__VLS_Self"
 		// 	}
-		// 	mapStart = innerStart + export.Expression.Pos()
+		// 	c.lastMappedPos = innerStart + export.Expression.Pos()
 		//
 		// 	break
 		// }
 
-		c.mapText(mapStart, text.Loc.End())
+		c.mapText(c.lastMappedPos, text.Loc.End())
 		c.serviceText.WriteString("\n\n")
 
 		// if !hasExportDefault {
@@ -280,7 +282,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			if publicPropsStarted {
 				return false
 			}
-			c.serviceText.WriteString("type __VLS_PublicProps = ")
+			c.serviceText.WriteString("\ntype __VLS_PublicProps = ")
 			publicPropsStarted = true
 			return true
 		}
@@ -296,6 +298,28 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString(varName)
 		}
 
+		publicEmitsStarted := false
+		startPublicEmits := func() bool {
+			if publicEmitsStarted {
+				return false
+			}
+			c.serviceText.WriteString("\ntype __VLS_PublicEmits = ")
+			publicEmitsStarted = true
+			return true
+		}
+		if emitsVariableName != "" {
+			startPublicEmits()
+			c.serviceText.WriteString("typeof ")
+			c.serviceText.WriteString(emitsVariableName)
+		}
+		for i, varName := range c.modelEmitsVariableNames {
+			if i > 0 || !startPublicEmits() {
+				c.serviceText.WriteString(" & ")
+			}
+			c.serviceText.WriteString("typeof ")
+			c.serviceText.WriteString(varName)
+		}
+
 		c.serviceText.WriteString("\nconst __VLS_Ctx = {\n")
 		if selfType != "" {
 			c.serviceText.WriteString("...{} as unknown as InstanceType<__VLS_PickNotAny<typeof ")
@@ -307,6 +331,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		c.serviceText.WriteString("...{} as unknown as __VLS_SetupExposed,\n")
 		if publicPropsStarted {
 			c.serviceText.WriteString("...{} as unknown as __VLS_PublicProps,\n")
+			// TODO: $emits and other $s
 			c.serviceText.WriteString("...{} as unknown as { $props: __VLS_PublicProps },\n")
 		}
 		c.serviceText.WriteString("}\n")
@@ -323,15 +348,11 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 				c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<__VLS_PublicProps>,\n")
 			}
 		}
-		if emitsVariableName != "" {
+		if publicEmitsStarted {
 			if c.options.Version.supportsTypeEmits() {
-				c.serviceText.WriteString("__typeEmits: {} as unknown as typeof ")
-				c.serviceText.WriteString(emitsVariableName)
-				c.serviceText.WriteString(",\n")
+				c.serviceText.WriteString("__typeEmits: {} as unknown as __VLS_PublicEmits,\n")
 			} else {
-				c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<typeof ")
-				c.serviceText.WriteString(emitsVariableName)
-				c.serviceText.WriteString(">,\n")
+				c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<__VLS_PublicEmits>,\n")
 			}
 		}
 		c.serviceText.WriteString("})\n")
@@ -379,17 +400,23 @@ func (c *scriptCodegenCtx) processDefineModel(innerStart int, call *ast.CallExpr
 	c.serviceText.WriteString(" = ")
 	c.mapText(innerStart+callLoc.Pos(), innerStart+callLoc.End())
 	c.lastMappedPos = innerStart + callLoc.End()
-	modelPropTypeVariableName := c.newInternalVariable()
-	c.modelPropsVariableNames = append(c.modelPropsVariableNames, modelPropTypeVariableName)
+	modelTypesVariableName := c.newInternalVariable()
 	c.serviceText.WriteString("\ntype ")
-	c.serviceText.WriteString(modelPropTypeVariableName)
+	c.serviceText.WriteString(modelTypesVariableName)
 	c.serviceText.WriteString(" = typeof ")
 	c.serviceText.WriteString(modelVariableName)
 	c.serviceText.WriteString(" extends import('vue').ModelRef<infer T, infer M extends string | number | symbol")
 	if c.options.Version.modelRefHasGetterAndSetter() {
 		c.serviceText.WriteString(", any, any")
 	}
-	c.serviceText.WriteString("> ? (undefined extends T ? { '")
+	c.serviceText.WriteString("> ? [T, M] : never\n")
+	modelPropTypeVariableName := c.newInternalVariable()
+	c.modelPropsVariableNames = append(c.modelPropsVariableNames, modelPropTypeVariableName)
+	c.serviceText.WriteString("type ")
+	c.serviceText.WriteString(modelPropTypeVariableName)
+	c.serviceText.WriteString(" = (undefined extends ")
+	c.serviceText.WriteString(modelTypesVariableName)
+	c.serviceText.WriteString("[0] ? { '")
 	// TODO: don't use quotes when not needed
 	// TODO: escape
 	camelizedModelName := "modelValue"
@@ -400,11 +427,28 @@ func (c *scriptCodegenCtx) processDefineModel(innerStart int, call *ast.CallExpr
 		camelizedModelName = camelize(modelName, &c.serviceText)
 		camelizedModelNameForModifiers = camelizedModelName
 	}
-	c.serviceText.WriteString("'?: T } : { '")
+	c.serviceText.WriteString("'?: ")
+	c.serviceText.WriteString(modelTypesVariableName)
+	c.serviceText.WriteString("[0] } : { '")
 	c.serviceText.WriteString(camelizedModelName)
-	c.serviceText.WriteString("': T }) & { '")
+	c.serviceText.WriteString("': ")
+	c.serviceText.WriteString(modelTypesVariableName)
+	c.serviceText.WriteString("[0] }) & { '")
 	c.serviceText.WriteString(camelizedModelNameForModifiers)
-	c.serviceText.WriteString("Modifiers'?: Partial<Record<M, true>> } : never\n")
+	c.serviceText.WriteString("Modifiers'?: Partial<Record<")
+	c.serviceText.WriteString(modelTypesVariableName)
+	c.serviceText.WriteString("[1], true>> }\n")
+
+	modelEmitTypeVariableName := c.newInternalVariable()
+	c.modelEmitsVariableNames = append(c.modelEmitsVariableNames, modelEmitTypeVariableName)
+	c.serviceText.WriteString("const ")
+	c.serviceText.WriteString(modelEmitTypeVariableName)
+	// TODO: escape?
+	c.serviceText.WriteString(" = defineEmits<{ 'update:")
+	c.serviceText.WriteString(camelizedModelName)
+	c.serviceText.WriteString("': [value: ")
+	c.serviceText.WriteString(modelTypesVariableName)
+	c.serviceText.WriteString("[0]] }>()\n")
 
 	if c.seenDefineModels.Has(camelizedModelName) {
 		callee := call.Expression

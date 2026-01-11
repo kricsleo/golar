@@ -124,3 +124,26 @@ func TestComponentEventEmptyListener(t *testing.T) {
 		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
 	})
 }
+
+func TestDefineModelEvent(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script setup lang="ts">
+	import CompFoo from './file-foo.vue'
+</script>
+
+<template>
+	<CompFoo @update:fooBar="v => v/*1*/"/>
+</template>
+
+// @filename: file-foo.vue
+<script setup lang="ts">
+	defineModel<string>('foo-bar')
+</script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		}
+		f.VerifyQuickInfoAt(t, "1", `(parameter) v: string`, "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}

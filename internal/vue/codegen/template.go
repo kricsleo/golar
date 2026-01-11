@@ -298,7 +298,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString(", typeof ")
 				c.serviceText.WriteString(emitsVar)
 				c.serviceText.WriteString(", '")
-				camelize("on-"+dir.Arg, &c.serviceText) // propName
+				propName := camelize("on-"+dir.Arg, &c.serviceText)
 				c.serviceText.WriteString("', '")
 				emitName := dir.Arg
 				c.serviceText.WriteString(emitName)
@@ -306,9 +306,8 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				camelize(emitName, &c.serviceText) // camelizedEmitName
 				c.serviceText.WriteString("'> = {\n")
 				emitNameStart := c.serviceText.Len()
-				c.serviceText.WriteString("'on")
-				// TODO(perf): no unnecessary allocations
-				camelize(strings.Title(emitName), &c.serviceText)
+				c.serviceText.WriteString("'")
+				c.serviceText.WriteString(propName)
 				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos()+len(dir.RawName), emitNameStart, c.serviceText.Len()+1)
 				c.serviceText.WriteString("': ")
 				if dir.Expression == nil || dir.Expression.Ast == nil {
