@@ -25,6 +25,12 @@ func TestDefineModel(t *testing.T) {
 			return Number.parseInt(v)
 		}
 	})
+
+	defineModel<string, 'trim'>('fourth')
+
+	defineModel<string, 'capitalize'>('foo-bar', { required: true })
+
+	defineModel<'default model', 'mod'>({ required: true })
 </script>
 
 <template>
@@ -33,6 +39,12 @@ func TestDefineModel(t *testing.T) {
 	{{ third/*6*/ }}
 	{{ $props.third/*7*/ }}
 	{{ model3/*8*/ }}
+	{{ thirdModifiers/*9*/ }}
+	{{ fourthModifiers/*10*/ }}
+	{{ fooBar/*11*/ }}
+	{{ fooBarModifiers/*12*/ }}
+	{{ modelValue/*13*/ }}
+	{{ modelModifiers/*14*/ }}
 </template>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
 		switch version {
 		case vue_3_2, vue_3_3:
@@ -52,7 +64,61 @@ func TestDefineModel(t *testing.T) {
 		f.VerifyQuickInfoAt(t, "4", `(property) 'second': string`, "")
 		f.VerifyQuickInfoAt(t, "6", `(property) 'third': string`, "")
 		f.VerifyQuickInfoAt(t, "7", `(property) 'third': string`, "")
+		f.VerifyQuickInfoAt(t, "9", `(property) 'thirdModifiers': Partial<Record<string, true>> | undefined`, "")
+		f.VerifyQuickInfoAt(t, "10", `(property) 'fourthModifiers': Partial<Record<"trim", true>> | undefined`, "")
+		f.VerifyQuickInfoAt(t, "11", `(property) 'fooBar': string`, "")
+		f.VerifyQuickInfoAt(t, "12", `(property) 'fooBarModifiers': Partial<Record<"capitalize", true>> | undefined`, "")
+		f.VerifyQuickInfoAt(t, "13", `(property) 'modelValue': "default model"`, "")
+		f.VerifyQuickInfoAt(t, "14", `(property) 'modelModifiers': Partial<Record<"mod", true>> | undefined`, "")
 
 		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}
+
+func TestDuplicateDefineModelExplicitName(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script lang="ts" setup>
+	defineModel('foo-bar')
+
+	const model = [|defineModel|]('fooBar')
+</script>
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		}
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_009)},
+				Message: `Duplicate model name "fooBar".`,
+			},
+		})
+	})
+}
+
+func TestDuplicateDefineModelDefaultName(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script lang="ts" setup>
+	const model = defineModel()
+
+	[|defineModel|]()
+
+	const anotherModel = [|defineModel|]('model-value')
+</script>
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		}
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_009)},
+				Message: `Duplicate model name "modelValue".`,
+			},
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_009)},
+				Message: `Duplicate model name "modelValue".`,
+			},
+		})
 	})
 }

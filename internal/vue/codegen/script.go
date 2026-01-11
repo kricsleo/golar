@@ -1,6 +1,7 @@
 package vue_codegen
 
 import (
+	"github.com/auvred/golar/internal/collections"
 	"github.com/auvred/golar/internal/utils"
 	"github.com/auvred/golar/internal/vue/ast"
 	"github.com/auvred/golar/internal/vue/diagnostics"
@@ -14,6 +15,10 @@ type scriptCodegenCtx struct {
 	*codegenCtx
 	scriptSetupEl *vue_ast.ElementNode
 	scriptEl      *vue_ast.ElementNode
+	lastMappedPos int
+
+	seenDefineModels        collections.Set[string]
+	modelPropsVariableNames []string
 }
 
 func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, scriptEl *vue_ast.ElementNode, templateEl *vue_ast.ElementNode) {
@@ -81,13 +86,12 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		c.serviceText.WriteString("const __VLS_Export = (async () => {\n")
 		innerStart := c.scriptSetupEl.InnerLoc.Pos()
 
-		lastMappedPos := text.Loc.Pos()
+		c.lastMappedPos = text.Loc.Pos()
 
 		var (
 			propsVariableName string
 			emitsVariableName string
 			slotsVariableName string
-			modelPropsVariableNames []string
 		)
 
 		// TODO: report nested compiler macros (vue compiler errors on them)
@@ -165,41 +169,13 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						if !c.options.Version.supportsDefineModel() {
 							break
 						}
-						// TODO: report duplicate modelValue names
-						// if slotsVariableName != "" {
-						// 	calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
-						// 	c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_X_0_call, "defineModel")
-						// 	break
-						// }
-						modelName := c.parseDefineModel(call)
-						callLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, call.AsNode())
-						c.mapText(lastMappedPos, innerStart+callLoc.Pos())
 						modelVariableName := c.newInternalVariable()
+						callLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, call.AsNode())
+						c.mapText(c.lastMappedPos, innerStart+callLoc.Pos())
+						c.lastMappedPos = innerStart + callLoc.Pos()
 						c.serviceText.WriteString("{} as unknown as typeof ")
 						c.serviceText.WriteString(modelVariableName)
-						c.serviceText.WriteString("\nconst ")
-						c.serviceText.WriteString(modelVariableName)
-						c.serviceText.WriteString(" = ")
-						c.mapText(innerStart+callLoc.Pos(), innerStart+callLoc.End())
-						lastMappedPos = innerStart + callLoc.End()
-						modelPropTypeVariableName := c.newInternalVariable()
-						modelPropsVariableNames = append(modelPropsVariableNames, modelPropTypeVariableName)
-						c.serviceText.WriteString("\ntype ")
-						c.serviceText.WriteString(modelPropTypeVariableName)
-						c.serviceText.WriteString(" = typeof ")
-						c.serviceText.WriteString(modelVariableName)
-						c.serviceText.WriteString(" extends import('vue').ModelRef<infer T, any")
-						if c.options.Version.modelRefHasGetterAndSetter() {
-							c.serviceText.WriteString(", any, any")
-						}
-						c.serviceText.WriteString("> ? undefined extends T ? { '")
-						// TODO: don't use quotes when not needed
-						// TODO: escape
-						c.serviceText.WriteString(modelName)
-						c.serviceText.WriteString("'?: T } : { '")
-						// TODO: escape
-						c.serviceText.WriteString(modelName)
-						c.serviceText.WriteString("': T } : never\n")
+						c.processDefineModel(innerStart, call, callLoc, modelVariableName)
 					}
 				}
 			case ast.KindExpressionStatement:
@@ -221,10 +197,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						break
 					}
 					propsVariableName = "__VLS_Props"
-					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.mapText(c.lastMappedPos, innerStart+statement.Pos())
 					c.serviceText.WriteString("\nconst __VLS_Props = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
-					lastMappedPos = innerStart + statement.End()
+					c.lastMappedPos = innerStart + statement.End()
 				case "defineEmits":
 					if emitsVariableName != "" {
 						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
@@ -232,10 +208,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						break
 					}
 					emitsVariableName = "__VLS_Emits"
-					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.mapText(c.lastMappedPos, innerStart+statement.Pos())
 					c.serviceText.WriteString("\nconst __VLS_Emits = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
-					lastMappedPos = innerStart + statement.End()
+					c.lastMappedPos = innerStart + statement.End()
 				case "defineSlots":
 					if !c.options.Version.supportsDefineSlots() {
 						break
@@ -246,10 +222,16 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 						break
 					}
 					slotsVariableName = "__VLS_Slots"
-					c.mapText(lastMappedPos, innerStart+statement.Pos())
+					c.mapText(c.lastMappedPos, innerStart+statement.Pos())
 					c.serviceText.WriteString("\nconst __VLS_Slots = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
-					lastMappedPos = innerStart + statement.End()
+					c.lastMappedPos = innerStart + statement.End()
+				case "defineModel":
+					modelVariableName := c.newInternalVariable()
+					callLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, call.AsNode())
+					c.mapText(c.lastMappedPos, innerStart+callLoc.Pos())
+					c.lastMappedPos = innerStart + callLoc.Pos()
+					c.processDefineModel(innerStart, call, callLoc, modelVariableName)
 				}
 			case ast.KindFunctionDeclaration, ast.KindClassDeclaration, ast.KindEnumDeclaration:
 				if name := statement.Name(); name != nil {
@@ -257,10 +239,10 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 				}
 			case ast.KindImportDeclaration:
 				importRanges = append(importRanges, core.NewTextRange(innerStart+statement.Loc.Pos(), innerStart+statement.Loc.End()))
-				if lastMappedPos != statement.Pos() {
-					c.mapText(lastMappedPos, innerStart+statement.Pos())
+				if c.lastMappedPos != statement.Pos() {
+					c.mapText(c.lastMappedPos, innerStart+statement.Pos())
 				}
-				lastMappedPos = innerStart + statement.End()
+				c.lastMappedPos = innerStart + statement.End()
 
 				importClause := statement.AsImportDeclaration().ImportClause
 				if importClause != nil {
@@ -281,7 +263,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 				}
 			}
 		}
-		c.mapText(lastMappedPos, text.Loc.End())
+		c.mapText(c.lastMappedPos, text.Loc.End())
 		c.serviceText.WriteByte('\n')
 
 		c.serviceText.WriteString("type __VLS_SetupExposed = import('vue').ShallowUnwrapRef<{\n")
@@ -294,7 +276,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		c.serviceText.WriteString("}>\n")
 
 		publicPropsStarted := false
-		startPublicProps := func () bool {
+		startPublicProps := func() bool {
 			if publicPropsStarted {
 				return false
 			}
@@ -307,7 +289,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString("typeof ")
 			c.serviceText.WriteString(propsVariableName)
 		}
-		for i, varName := range modelPropsVariableNames {
+		for i, varName := range c.modelPropsVariableNames {
 			if i > 0 || !startPublicProps() {
 				c.serviceText.WriteString(" & ")
 			}
@@ -379,8 +361,8 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 }
 
 // TODO: reconcile with vuejs/core/packages/compiler-sfc/src/script/defineModel.ts
-func (c *scriptCodegenCtx) parseDefineModel(expr *ast.CallExpression) (string) {
-	name := "modelValue"
+func (c *scriptCodegenCtx) parseDefineModel(expr *ast.CallExpression) string {
+	var name string
 	if len(expr.Arguments.Nodes) >= 1 {
 		if ast.IsStringLiteral(expr.Arguments.Nodes[0]) {
 			name = expr.Arguments.Nodes[0].AsStringLiteral().Text
@@ -388,4 +370,47 @@ func (c *scriptCodegenCtx) parseDefineModel(expr *ast.CallExpression) (string) {
 	}
 
 	return name
+}
+
+func (c *scriptCodegenCtx) processDefineModel(innerStart int, call *ast.CallExpression, callLoc core.TextRange, modelVariableName string) {
+	modelName := c.parseDefineModel(call)
+	c.serviceText.WriteString("\nconst ")
+	c.serviceText.WriteString(modelVariableName)
+	c.serviceText.WriteString(" = ")
+	c.mapText(innerStart+callLoc.Pos(), innerStart+callLoc.End())
+	c.lastMappedPos = innerStart + callLoc.End()
+	modelPropTypeVariableName := c.newInternalVariable()
+	c.modelPropsVariableNames = append(c.modelPropsVariableNames, modelPropTypeVariableName)
+	c.serviceText.WriteString("\ntype ")
+	c.serviceText.WriteString(modelPropTypeVariableName)
+	c.serviceText.WriteString(" = typeof ")
+	c.serviceText.WriteString(modelVariableName)
+	c.serviceText.WriteString(" extends import('vue').ModelRef<infer T, infer M extends string | number | symbol")
+	if c.options.Version.modelRefHasGetterAndSetter() {
+		c.serviceText.WriteString(", any, any")
+	}
+	c.serviceText.WriteString("> ? (undefined extends T ? { '")
+	// TODO: don't use quotes when not needed
+	// TODO: escape
+	camelizedModelName := "modelValue"
+	camelizedModelNameForModifiers := "model"
+	if modelName == "" {
+		c.serviceText.WriteString(camelizedModelName)
+	} else {
+		camelizedModelName = camelize(modelName, &c.serviceText)
+		camelizedModelNameForModifiers = camelizedModelName
+	}
+	c.serviceText.WriteString("'?: T } : { '")
+	c.serviceText.WriteString(camelizedModelName)
+	c.serviceText.WriteString("': T }) & { '")
+	c.serviceText.WriteString(camelizedModelNameForModifiers)
+	c.serviceText.WriteString("Modifiers'?: Partial<Record<M, true>> } : never\n")
+
+	if c.seenDefineModels.Has(camelizedModelName) {
+		callee := call.Expression
+		calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+		c.reportDiagnostic(core.NewTextRange(innerStart+calleeLoc.Pos(), innerStart+calleeLoc.End()), vue_diagnostics.Duplicate_model_name_X_0, camelizedModelName)
+	} else {
+		c.seenDefineModels.Add(camelizedModelName)
+	}
 }

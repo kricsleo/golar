@@ -1,0 +1,6 @@
+{
+	"packageManager": "pnpm@10.28.0",
+	"scripts": {
+		"postinstall": "pnpm i -C internal/vue/tests/vue-3.2 && pnpm i -C internal/vue/tests/vue-3.3 && pnpm i -C internal/vue/tests/vue-3.4 && pnpm i -C internal/vue/tests/vue-3.5 && pnpm i -C internal/vue/tests/vue-3.6"
+	}
+}

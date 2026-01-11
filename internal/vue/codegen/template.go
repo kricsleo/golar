@@ -654,7 +654,8 @@ func (m *expressionMapper) mapInNonBindingPosition(node *ast.Node) bool {
 	return node.ForEachChild(m.mapInNonBindingPosition)
 }
 
-func camelize(str string, buf *strings.Builder) {
+func camelize(str string, buf *strings.Builder) string {
+	oldLen := buf.Len()
 	hadDash := false
 	lastWritten := 0
 	for i, r := range str {
@@ -673,6 +674,8 @@ func camelize(str string, buf *strings.Builder) {
 		}
 	}
 	buf.WriteString(str[lastWritten:])
+	// TODO(perf): double check that this doesn't allocate
+	return buf.String()[oldLen:buf.Len()]
 }
 
 func isBuiltInComponent(name string) bool {

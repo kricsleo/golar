@@ -2,6 +2,8 @@ package vue_diagnostics
 
 import "github.com/microsoft/typescript-go/shim/diagnostics"
 
+// TODO: generate automatically
+
 var Single_file_component_can_contain_only_one_script_setup_element = &diagnostics.Message{}
 var Single_file_component_can_contain_only_one_template_element = &diagnostics.Message{}
 var Single_file_component_can_contain_only_one_script_element = &diagnostics.Message{}
@@ -11,6 +13,7 @@ var Multiple_conditional_directives_cannot_coexist_on_the_same_element = &diagno
 var X_0_is_missing_expression = &diagnostics.Message{}
 var Duplicate_X_0_call = &diagnostics.Message{}
 var Slot_does_not_belong_to_the_parent_component = &diagnostics.Message{}
+var Duplicate_model_name_X_0 = &diagnostics.Message{}
 
 func init() {
 	diagnostics.Message_Set_code(Single_file_component_can_contain_only_one_script_setup_element, 1_000_000)
@@ -57,4 +60,9 @@ func init() {
 	diagnostics.Message_Set_category(Slot_does_not_belong_to_the_parent_component, diagnostics.CategoryError)
 	diagnostics.Message_Set_key(Slot_does_not_belong_to_the_parent_component, "Slot_does_not_belong_to_the_parent_component")
 	diagnostics.Message_Set_text(Slot_does_not_belong_to_the_parent_component, "Slot does not belong to the parent component.")
+
+	diagnostics.Message_Set_code(Duplicate_model_name_X_0, 1_000_009)
+	diagnostics.Message_Set_category(Duplicate_model_name_X_0, diagnostics.CategoryError)
+	diagnostics.Message_Set_key(Duplicate_model_name_X_0, "Duplicate_model_name_X_0")
+	diagnostics.Message_Set_text(Duplicate_model_name_X_0, `Duplicate model name "{0}".`)
 }
