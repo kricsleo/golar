@@ -23,6 +23,15 @@ import (
 	"github.com/microsoft/typescript-go/shim/vfs"
 )
 
+var unused_directive = &diagnostics.Message{}
+
+func init() {
+	diagnostics.Message_Set_code(unused_directive, 1_000_000)
+	diagnostics.Message_Set_category(unused_directive, diagnostics.CategoryError)
+	diagnostics.Message_Set_key(unused_directive, "Unused_directive")
+	diagnostics.Message_Set_text(unused_directive, "Unused_directive")
+}
+
 type compilerHostProxy struct {
 	compiler.CompilerHost
 }
@@ -30,6 +39,8 @@ type compilerHostProxy struct {
 type languageData struct {
 	sourceText string
 	sourceMap  *mapping.SourceMap
+	ignoreDirectives []mapping.IgnoreDirectiveMapping
+	expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
 }
 
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
@@ -178,6 +189,8 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	vueAst, parsingErrors := vue_parser.Parse(sourceText)
 	var serviceText string
 	var mappings []mapping.Mapping
+	var ignoreDirectives []mapping.IgnoreDirectiveMapping
+	var expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
 	var fileDiagnostics []*ast.Diagnostic
 	if len(parsingErrors) > 0 {
 		// TODO: error recovery?
@@ -195,7 +208,7 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 		options := vue_codegen.VueOptions{
 			Version: vueVersion,
 		}
-		serviceText, mappings, fileDiagnostics = vue_codegen.Codegen(sourceText, vueAst, options)
+		serviceText, mappings, ignoreDirectives, expectErrorDirectives, fileDiagnostics = vue_codegen.Codegen(sourceText, vueAst, options)
 	} else {
 		msg := &diagnostics.Message{}
 		diagnostics.Message_Set_code(msg, 1_000_999)
@@ -215,6 +228,8 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	file.GolarLanguageData = languageData{
 		sourceText: sourceText,
 		sourceMap:  mapping.NewSourceMap(mappings),
+		ignoreDirectives: ignoreDirectives,
+		expectErrorDirectives: expectErrorDirectives,
 	}
 
 	return file
@@ -292,6 +307,32 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 	return diagnostic
 }
 
+func getDirectiveDiagnostics(file *ast.SourceFile, diagnostics [][]*ast.Diagnostic) []*ast.Diagnostic {
+	if file.GolarLanguageData == nil {
+		return nil
+	}
+	langData := file.GolarLanguageData.(languageData)
+	directiveMap := mapping.NewDirectiveMap(langData.ignoreDirectives, langData.expectErrorDirectives)
+	for _, diagSlice := range diagnostics {
+		for i, diag := range diagSlice {
+			if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
+				diagSlice[i] = nil
+				continue
+			}
+			adjustDiagnostic(file, diag)
+		}
+	}
+	unused := directiveMap.CollectUnused()
+	if len(unused) == 0 {
+		return nil
+	}
+	res := make([]*ast.Diagnostic, len(unused))
+	for i, e := range unused {
+		res[i] = ast.NewDiagnostic(nil, core.NewTextRange(e.SourceOffset, e.SourceOffset + e.SourceLength), unused_directive)
+	}
+	return res
+}
+
 // TODO: for hover and other LS methods we should analyze multiple mappings
 // instead of returning the first mapping
 func positionToService(file *ast.SourceFile, pos int) int {
@@ -308,6 +349,7 @@ func positionToService(file *ast.SourceFile, pos int) int {
 
 var GolarExtCallbacks = &golarext.GolarCallbacks{
 	AdjustDiagnostic:  adjustDiagnostic,
+	GetDirectiveDiagnostics: getDirectiveDiagnostics,
 	PositionToService: positionToService,
 	WrapCompilerHost:  wrapCompilerHost,
 	WrapASTDiagnostic: wrapASTDiagnostic,

@@ -1,6 +1,8 @@
 package vue_codegen
 
 import (
+	"strings"
+
 	"github.com/auvred/golar/internal/collections"
 	"github.com/auvred/golar/internal/utils"
 	"github.com/auvred/golar/internal/vue/ast"
@@ -30,6 +32,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		scriptSetupEl: scriptSetupEl,
 		scriptEl:      scriptEl,
 	}
+
+	// TODO: without "ts" lang
+	// TODO: tsx
 
 	// we don't import define* macros because they're globally available
 	// https://github.com/vuejs/core/blob/aac7e1898907445c8f89b22047a9bfcf0a6e91b8/packages/runtime-core/types/scriptSetupHelpers.d.ts
@@ -92,15 +97,43 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		// TODO: options wrapper - wrap export default |defineComponent(|{}|)|
 	}
 
-	// TODO: generic support
 	if c.scriptSetupEl != nil {
 		if len(c.scriptSetupEl.Children) != 1 {
 			panic("TODO: len of <script setup> children != 1")
 		}
 
+		c.serviceText.WriteString("const __VLS_Export = ")
+
+		hasGeneric := false
+		for _, prop := range c.scriptSetupEl.Props {
+			if prop.Kind != vue_ast.KindAttribute {
+				continue
+			}
+
+			attr := prop.AsAttribute()
+			switch attr.Name {
+			case "generic":
+				if attr.Value == nil {
+					break
+				}
+				hasGeneric = true
+
+				c.serviceText.WriteByte('<')
+				c.mapText(attr.Value.Loc.Pos(), attr.Value.Loc.End())
+				if !strings.HasSuffix(attr.Value.Content, ",") {
+					c.serviceText.WriteByte(',')
+				}
+				c.serviceText.WriteString(`>(
+__VLS_GenericProps: NonNullable<Awaited<typeof __VLS_GenericSetup>>['props'],
+__VLS_GenericCtx?: __VLS_PrettifyGlobal<Pick<NonNullable<Awaited<typeof __VLS_GenericSetup>>, 'attrs' | 'emit' | 'slots'>>,
+__VLS_GenericExposed?: NonNullable<Awaited<typeof __VLS_GenericSetup>>['expose'],
+__VLS_GenericSetup = `)
+			}
+		}
+
 		text := c.scriptSetupEl.Children[0].AsText()
 
-		c.serviceText.WriteString("const __VLS_Export = (async () => {\n")
+		c.serviceText.WriteString("(async () => {\n")
 		innerStart := c.scriptSetupEl.InnerLoc.Pos()
 
 		c.lastMappedPos = text.Loc.Pos()
@@ -260,13 +293,13 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 		}
 		c.serviceText.WriteString("}>\n")
 
-		publicPropsStarted := false
+		hasPublicProps := false
 		startPublicProps := func() bool {
-			if publicPropsStarted {
+			if hasPublicProps {
 				return false
 			}
 			c.serviceText.WriteString("\ntype __VLS_PublicProps = ")
-			publicPropsStarted = true
+			hasPublicProps = true
 			return true
 		}
 		if propsVariableName != "" {
@@ -281,13 +314,13 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString(varName)
 		}
 
-		publicEmitsStarted := false
+		hasPublicEmits := false
 		startPublicEmits := func() bool {
-			if publicEmitsStarted {
+			if hasPublicEmits {
 				return false
 			}
 			c.serviceText.WriteString("\ntype __VLS_PublicEmits = ")
-			publicEmitsStarted = true
+			hasPublicEmits = true
 			return true
 		}
 		if emitsVariableName != "" {
@@ -302,6 +335,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString("typeof ")
 			c.serviceText.WriteString(varName)
 		}
+		if hasPublicEmits {
+			c.serviceText.WriteString("\ntype __VLS_EmitProps = __VLS_EmitsToProps<__VLS_NormalizeEmits<__VLS_PublicEmits>>")
+		}
 
 		c.serviceText.WriteString("\nconst __VLS_Ctx = {\n")
 		if selfType != "" {
@@ -314,7 +350,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 			c.serviceText.WriteString("...{} as unknown as import('vue').ComponentPublicInstance,\n")
 		}
 		c.serviceText.WriteString("...{} as unknown as __VLS_SetupExposed,\n")
-		if publicPropsStarted {
+		if hasPublicProps {
 			c.serviceText.WriteString("...{} as unknown as __VLS_PublicProps,\n")
 			// TODO: $emits and other $s
 			c.serviceText.WriteString("...{} as unknown as { $props: __VLS_PublicProps },\n")
@@ -323,40 +359,73 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 
 		generateTemplate(c.codegenCtx, templateEl)
 
-		c.serviceText.WriteString("\nconst __VLS_Base = __VLS_DefineComponent({\n")
-		// TODO: withDefaults
-		// TODO: defineProps(arg)
-		if publicPropsStarted {
-			if c.options.Version.supportsTypeProps() {
-				c.serviceText.WriteString("__typeProps: {} as unknown as __VLS_PublicProps,\n")
+		if hasGeneric {
+			c.serviceText.WriteString("return {} as unknown as {\nprops: ")
+			// TODO: defineProps arg
+			if c.options.Version.hasPublicPropsType() {
+				c.serviceText.WriteString("import('vue').PublicProps")
 			} else {
-				c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<__VLS_PublicProps>,\n")
+				c.serviceText.WriteString("import('vue').VNodeProps & import('vue').AllowedComponentProps & import('vue').ComponentCustomProps")
 			}
-		}
-		if publicEmitsStarted {
-			if c.options.Version.supportsTypeEmits() {
-				c.serviceText.WriteString("__typeEmits: {} as unknown as __VLS_PublicEmits,\n")
+			if hasPublicProps {
+				c.serviceText.WriteString(" & __VLS_PublicProps")
+			}
+			if hasPublicEmits {
+				c.serviceText.WriteString(" & __VLS_EmitProps")
+			}
+			// TODO: defineExpose
+			c.serviceText.WriteString("\nexpose: (exposed: {}) => void")
+			c.serviceText.WriteString("\nattrs: any")
+			c.serviceText.WriteString("\nslots: ")
+			if slotsVariableName == "" {
+				c.serviceText.WriteString("{}")
 			} else {
-				c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<__VLS_PublicEmits>,\n")
+				c.serviceText.WriteString(slotsVariableName)
 			}
-		}
-		c.serviceText.WriteString("})\n")
-
-		if slotsVariableName == "" {
-			c.serviceText.WriteString("return __VLS_Base\n")
+			c.serviceText.WriteString("\nemit: ")
+			if hasPublicEmits {
+				c.serviceText.WriteString("__VLS_PublicEmits")
+			} else {
+				c.serviceText.WriteString("{}")
+			}
+			c.serviceText.WriteString("\n}\n})()\n) => ({} as unknown as import('vue').VNode & { __ctx?: Awaited<typeof __VLS_GenericSetup> })\n")
 		} else {
-			c.serviceText.WriteString("return {} as unknown as __VLS_WithSlots<typeof __VLS_Base, typeof ")
-			c.serviceText.WriteString(slotsVariableName)
-			c.serviceText.WriteString(">\n")
+			c.serviceText.WriteString("\nconst __VLS_Base = __VLS_DefineComponent({\n")
+			// TODO: withDefaults
+			// TODO: defineProps(arg)
+			if hasPublicProps {
+				if c.options.Version.supportsTypeProps() {
+					c.serviceText.WriteString("__typeProps: {} as unknown as __VLS_PublicProps,\n")
+				} else {
+					c.serviceText.WriteString("props: {} as unknown as __VLS_TypePropsToOption<__VLS_PublicProps>,\n")
+				}
+			}
+			if hasPublicEmits {
+				if c.options.Version.supportsTypeEmits() {
+					c.serviceText.WriteString("__typeEmits: {} as unknown as __VLS_PublicEmits,\n")
+				} else {
+					c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<__VLS_PublicEmits>,\n")
+				}
+			}
+			c.serviceText.WriteString("})\n")
+
+			if slotsVariableName == "" {
+				c.serviceText.WriteString("return __VLS_Base\n")
+			} else {
+				c.serviceText.WriteString("return {} as unknown as __VLS_WithSlots<typeof __VLS_Base, typeof ")
+				c.serviceText.WriteString(slotsVariableName)
+				c.serviceText.WriteString(">\n")
+			}
+
+			c.serviceText.WriteString("\n})()\n")
 		}
 
-		c.serviceText.WriteString("\n})()\n")
 		for _, loc := range importRanges {
 			c.mapText(loc.Pos(), loc.End())
 			c.serviceText.WriteString("\n")
 		}
 
-		c.serviceText.WriteString("export default {} as unknown as Awaited<typeof __VLS_Export>\n")
+		c.serviceText.WriteString("\nexport default {} as unknown as Awaited<typeof __VLS_Export>\n")
 	} else {
 		c.serviceText.WriteString("\nconst __VLS_Ctx = {\n")
 		if selfType != "" {

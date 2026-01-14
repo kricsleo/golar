@@ -16,7 +16,7 @@ const (
 type Mapping struct {
 	SourceOffsets  []int
 	ServiceOffsets []int
-	Lengths        []int
+	SourceLengths        []int
 	ServiceLengths []int
 }
 
@@ -234,12 +234,12 @@ func getOffsets(mapping *Mapping, key CodeRangeKey) []int {
 
 func getLengths(mapping *Mapping, key CodeRangeKey) []int {
 	if key == SourceOffsets {
-		return mapping.Lengths
+		return mapping.SourceLengths
 	}
 	if len(mapping.ServiceLengths) > 0 {
 		return mapping.ServiceLengths
 	}
-	return mapping.Lengths
+	return mapping.SourceLengths
 }
 
 func TranslateOffset(

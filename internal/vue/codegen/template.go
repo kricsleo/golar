@@ -257,15 +257,17 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
 
 			// TODO: generic support
+			functionalStart := c.serviceText.Len()
 			c.serviceText.WriteString("const ")
 			c.serviceText.WriteString(functionalVar)
 			c.serviceText.WriteString(" = __VLS_AsFunctionalComponent(")
 			c.serviceText.WriteString(componentVar)
 			c.serviceText.WriteString(", new ")
 			c.serviceText.WriteString(componentVar)
-			c.serviceText.WriteString("({\n")
-			// TODO: props here
-			c.serviceText.WriteString("}))\n")
+			c.serviceText.WriteString(c.serviceText.String()[propsStart-1:propsEnd+1])
+			c.serviceText.WriteString(")\n")
+
+			c.mapIgnoreDirective(functionalStart, c.serviceText.Len())
 
 			// TODO: emits type mismatch mapping locations
 			for _, prop := range elem.Props {
@@ -291,7 +293,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				}
 
 				// TODO: model & vue:
-				c.serviceText.WriteString("const ")
+				c.serviceText.WriteString("// @ts-ignore\nconst ")
 				c.serviceText.WriteString(c.newInternalVariable())
 				c.serviceText.WriteString(": __VLS_NormalizeComponentEvent<typeof ")
 				c.serviceText.WriteString(propsVar)
@@ -304,7 +306,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString(emitName)
 				c.serviceText.WriteString("', '")
 				camelize(emitName, &c.serviceText) // camelizedEmitName
-				c.serviceText.WriteString("'> = {\n")
+				c.serviceText.WriteString("'> = \n{\n")
 				emitNameStart := c.serviceText.Len()
 				c.serviceText.WriteString("'")
 				c.serviceText.WriteString(propName)

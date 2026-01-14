@@ -180,6 +180,14 @@ declare global {
 			? { type: import('vue').PropType<Required<T>[K]> }
 			: { type: import('vue').PropType<T[K]>, required: true }
 	};
+
+	type __VLS_EmitsToProps<T> = __VLS_PrettifyGlobal<
+		{
+			[K in string & keyof T as ` + "`" + `on${Capitalize<K>}` + "`" + `]?: (
+				...args: T[K] extends (...args: infer P) => any ? P : T[K] extends null ? any[] : never
+			) => any;
+		}
+	>;
 }
 
 // pre 3.5 shims
@@ -190,7 +198,7 @@ declare module 'vue' {
 }
 `
 
-func Codegen(sourceText string, root *vue_ast.RootNode, options VueOptions) (string, []mapping.Mapping, []*ast.Diagnostic) {
+func Codegen(sourceText string, root *vue_ast.RootNode, options VueOptions) (string, []mapping.Mapping, []mapping.IgnoreDirectiveMapping, []mapping.ExpectErrorDirectiveMapping, []*ast.Diagnostic) {
 	ctx := newCodegenCtx(root, sourceText, options)
 	ctx.serviceText.WriteString(globalTypesReference)
 
@@ -270,7 +278,7 @@ RootChild:
 	// }
 	generateScript(&ctx, scriptSetupEl, scriptEl, templateEl)
 
-	return ctx.serviceText.String(), ctx.mappings, ctx.diagnostics
+	return ctx.serviceText.String(), ctx.mappings, ctx.ignoreDirectives, ctx.expectErrorDirectives, ctx.diagnostics
 }
 
 type codegenCtx struct {
@@ -278,6 +286,8 @@ type codegenCtx struct {
 	sourceText              string
 	serviceText             strings.Builder
 	mappings                []mapping.Mapping
+	ignoreDirectives []mapping.IgnoreDirectiveMapping
+	expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
 	diagnostics             []*ast.Diagnostic
 	internalVariableCounter int
 	options                 VueOptions
@@ -314,6 +324,10 @@ func (v VueVersion) modelRefHasGetterAndSetter() bool {
 	return v >= NewVueVersionFromSemver(3, 5, 0)
 }
 
+func (v VueVersion) hasPublicPropsType() bool {
+	return v >= NewVueVersionFromSemver(3, 4, 0)
+}
+
 func newCodegenCtx(root *vue_ast.RootNode, sourceText string, options VueOptions) codegenCtx {
 	return codegenCtx{
 		ast:         root,
@@ -335,7 +349,7 @@ func (c *codegenCtx) mapText(from, to int) {
 	c.mappings = append(c.mappings, mapping.Mapping{
 		SourceOffsets:  []int{from},
 		ServiceOffsets: []int{serviceOffset},
-		Lengths:        []int{to - from},
+		SourceLengths:        []int{to - from},
 	})
 }
 
@@ -343,7 +357,23 @@ func (c *codegenCtx) mapRange(sourceStart, sourceEnd, serviceStart, serviceEnd i
 	c.mappings = append(c.mappings, mapping.Mapping{
 		SourceOffsets:  []int{sourceStart, sourceEnd},
 		ServiceOffsets: []int{serviceStart, serviceEnd},
-		Lengths:        []int{0, 0},
+		SourceLengths:        []int{0, 0},
+	})
+}
+
+func (c *codegenCtx) mapIgnoreDirective(serviceStart, serviceEnd int) {
+	c.ignoreDirectives = append(c.ignoreDirectives, mapping.IgnoreDirectiveMapping{
+		ServiceOffset: serviceStart,
+		ServiceLength: serviceEnd - serviceStart,
+	})
+}
+
+func (c *codegenCtx) mapExpectErrorDirective(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
+	c.expectErrorDirectives = append(c.expectErrorDirectives, mapping.ExpectErrorDirectiveMapping{
+		SourceOffset: sourceStart,
+		ServiceOffset: serviceStart,
+		SourceLength: sourceEnd - sourceStart,
+		ServiceLength: serviceEnd - serviceStart,
 	})
 }
 
