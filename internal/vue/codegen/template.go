@@ -1,6 +1,7 @@
 package vue_codegen
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -11,13 +12,20 @@ import (
 	"github.com/auvred/golar/internal/vue/diagnostics"
 	"github.com/auvred/golar/internal/vue/parser"
 	"github.com/microsoft/typescript-go/shim/ast"
+	"github.com/microsoft/typescript-go/shim/core"
 )
+
+var commentDirectiveRe = regexp.MustCompile(`^\s*@vue-([-a-z]+)(.*)$`)
 
 type templateCodegenCtx struct {
 	*codegenCtx
 	scopes             []collections.Set[string]
 	parentComponentVar string
 	condChain          conditionalChain
+
+	ignoreError    bool
+	expectError    bool
+	expectErrorLoc core.TextRange
 }
 
 func newTemplateCodegenCtx(base *codegenCtx) templateCodegenCtx {
@@ -76,7 +84,35 @@ const (
 
 func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 	switch el.Kind {
+	case vue_ast.KindComment:
+		if c.expectError {
+			c.mapExpectErrorDirective(c.expectErrorLoc.Pos(), c.expectErrorLoc.End(), 0, 0)
+		}
+		c.ignoreError = false
+		c.expectError = false
+		comm := el.AsComment()
+		m := commentDirectiveRe.FindStringSubmatch(comm.Content)
+		if m == nil {
+			return
+		}
+		switch m[1] {
+		case "ignore":
+			c.ignoreError = true
+		case "expect-error":
+			c.expectError = true
+			c.expectErrorLoc = comm.Loc
+		}
+		return
+	case vue_ast.KindText:
+		text := el.AsText()
+		if strings.TrimSpace(text.Content) == "" {
+			return
+		}
+		if c.expectError {
+			c.mapExpectErrorDirective(c.expectErrorLoc.Pos(), c.expectErrorLoc.End(), 0, 0)
+		}
 	case vue_ast.KindElement:
+		elementServiceTextStart := c.serviceText.Len()
 		elem := el.AsElement()
 
 		var conditionalDirective *vue_ast.DirectiveNode
@@ -397,6 +433,11 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 		c.condChain = conditionalChainNone
 		currParentComponentVar := c.parentComponentVar
 		c.parentComponentVar = ctxVar
+		if c.ignoreError {
+			c.mapIgnoreDirective(elementServiceTextStart, c.serviceText.Len())
+		} else if c.expectError {
+			c.mapExpectErrorDirective(c.expectErrorLoc.Pos(), c.expectErrorLoc.End(), elementServiceTextStart, c.serviceText.Len())
+		}
 		for _, child := range elem.Children {
 			c.visit(child)
 		}
@@ -416,10 +457,18 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 		}
 	case vue_ast.KindInterpolation:
 		interpolation := el.AsInterpolation()
+		interpolationServiceTextStart := c.serviceText.Len()
 		c.serviceText.WriteString(";( ")
 		c.mapExpressionInNonBindingPosition(interpolation.Content)
 		c.serviceText.WriteString(" )\n")
+		if c.ignoreError {
+			c.mapIgnoreDirective(interpolationServiceTextStart, c.serviceText.Len())
+		} else if c.expectError {
+			c.mapExpectErrorDirective(c.expectErrorLoc.Pos(), c.expectErrorLoc.End(), interpolationServiceTextStart, c.serviceText.Len())
+		}
 	}
+	c.ignoreError = false
+	c.expectError = false
 }
 
 type expressionMapper struct {
