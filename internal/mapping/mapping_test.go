@@ -200,12 +200,12 @@ func TestSourceMapLocations(t *testing.T) {
 	mapping := Mapping{
 		SourceOffsets:  []int{0, 10},
 		ServiceOffsets: []int{100, 110},
-		SourceLengths:        []int{5, 5},
+		SourceLengths:  []int{5, 5},
 	}
 	overlapMapping := Mapping{
 		SourceOffsets:  []int{0},
 		ServiceOffsets: []int{100},
-		SourceLengths:        []int{10},
+		SourceLengths:  []int{10},
 	}
 
 	cases := []struct {
@@ -278,38 +278,38 @@ func TestSourceMapRanges(t *testing.T) {
 	basicMapping := Mapping{
 		SourceOffsets:  []int{0},
 		ServiceOffsets: []int{100},
-		SourceLengths:        []int{5},
+		SourceLengths:  []int{5},
 	}
 	multiSegment := Mapping{
 		SourceOffsets:  []int{0, 20},
 		ServiceOffsets: []int{100, 200},
-		SourceLengths:        []int{5, 5},
+		SourceLengths:  []int{5, 5},
 	}
 	serviceLengthMapping := Mapping{
 		SourceOffsets:  []int{0},
 		ServiceOffsets: []int{100},
-		SourceLengths:        []int{10},
+		SourceLengths:  []int{10},
 		ServiceLengths: []int{5},
 	}
 	mappingA := Mapping{
 		SourceOffsets:  []int{0},
 		ServiceOffsets: []int{100},
-		SourceLengths:        []int{5},
+		SourceLengths:  []int{5},
 	}
 	mappingB := Mapping{
 		SourceOffsets:  []int{10},
 		ServiceOffsets: []int{200},
-		SourceLengths:        []int{5},
+		SourceLengths:  []int{5},
 	}
 	reversedStart := Mapping{
 		SourceOffsets:  []int{0},
 		ServiceOffsets: []int{200},
-		SourceLengths:        []int{5},
+		SourceLengths:  []int{5},
 	}
 	reversedEnd := Mapping{
 		SourceOffsets:  []int{10},
 		ServiceOffsets: []int{100},
-		SourceLengths:        []int{5},
+		SourceLengths:  []int{5},
 	}
 
 	cases := []struct {

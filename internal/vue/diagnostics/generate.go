@@ -20,7 +20,7 @@ var diagnosticMessages = []string{
 	`{0} is missing expression.`,
 	`Duplicate {0} call.`,
 	`Slot does not belong to the parent component.`,
-  `Duplicate model name "{0}".`,
+	`Duplicate model name "{0}".`,
 }
 
 func main() {
@@ -44,7 +44,7 @@ import "github.com/microsoft/typescript-go/shim/diagnostics"
 		prevUnderscore := false
 		for i := 0; i < len(msg); {
 			r, size := utf8.DecodeRuneInString(msg[i:])
-			if r == '{' && i + 2 < len(msg) && '0' <= msg[i+1] && msg[i+1] <= '9' && msg[i+2] == '}' {
+			if r == '{' && i+2 < len(msg) && '0' <= msg[i+1] && msg[i+1] <= '9' && msg[i+2] == '}' {
 				if prevUnderscore {
 					b.WriteByte('_')
 					prevUnderscore = false
@@ -60,7 +60,7 @@ import "github.com/microsoft/typescript-go/shim/diagnostics"
 					prevUnderscore = false
 				}
 				b.WriteRune(r)
-			} else  {
+			} else {
 				prevUnderscore = true
 			}
 			i += size
@@ -74,7 +74,7 @@ import "github.com/microsoft/typescript-go/shim/diagnostics"
 	diagnostics.Message_Set_code(%[1]s, %[2]d)
 	diagnostics.Message_Set_category(%[1]s, diagnostics.CategoryError)
 	diagnostics.Message_Set_key(%[1]s, %[1]q)
-	diagnostics.Message_Set_text(%[1]s, %[3]q)`, identifier, 1_000_000 + i, msg))
+	diagnostics.Message_Set_text(%[1]s, %[3]q)`, identifier, 1_000_000+i, msg))
 	}
 
 	b.WriteString("func init() {\n")

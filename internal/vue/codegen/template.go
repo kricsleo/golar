@@ -264,7 +264,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.serviceText.WriteString(componentVar)
 			c.serviceText.WriteString(", new ")
 			c.serviceText.WriteString(componentVar)
-			c.serviceText.WriteString(c.serviceText.String()[propsStart-1:propsEnd+1])
+			c.serviceText.WriteString(c.serviceText.String()[propsStart-1 : propsEnd+1])
 			c.serviceText.WriteString(")\n")
 
 			c.mapIgnoreDirective(functionalStart, c.serviceText.Len())

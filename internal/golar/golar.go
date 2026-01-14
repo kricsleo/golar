@@ -37,9 +37,9 @@ type compilerHostProxy struct {
 }
 
 type languageData struct {
-	sourceText string
-	sourceMap  *mapping.SourceMap
-	ignoreDirectives []mapping.IgnoreDirectiveMapping
+	sourceText            string
+	sourceMap             *mapping.SourceMap
+	ignoreDirectives      []mapping.IgnoreDirectiveMapping
 	expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
 }
 
@@ -226,9 +226,9 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	}
 	file.SetDiagnostics(append(file.Diagnostics(), fileDiagnostics...))
 	file.GolarLanguageData = languageData{
-		sourceText: sourceText,
-		sourceMap:  mapping.NewSourceMap(mappings),
-		ignoreDirectives: ignoreDirectives,
+		sourceText:            sourceText,
+		sourceMap:             mapping.NewSourceMap(mappings),
+		ignoreDirectives:      ignoreDirectives,
 		expectErrorDirectives: expectErrorDirectives,
 	}
 
@@ -328,7 +328,7 @@ func getDirectiveDiagnostics(file *ast.SourceFile, diagnostics [][]*ast.Diagnost
 	}
 	res := make([]*ast.Diagnostic, len(unused))
 	for i, e := range unused {
-		res[i] = ast.NewDiagnostic(nil, core.NewTextRange(e.SourceOffset, e.SourceOffset + e.SourceLength), unused_directive)
+		res[i] = ast.NewDiagnostic(nil, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive)
 	}
 	return res
 }
@@ -348,12 +348,12 @@ func positionToService(file *ast.SourceFile, pos int) int {
 }
 
 var GolarExtCallbacks = &golarext.GolarCallbacks{
-	AdjustDiagnostic:  adjustDiagnostic,
+	AdjustDiagnostic:        adjustDiagnostic,
 	GetDirectiveDiagnostics: getDirectiveDiagnostics,
-	PositionToService: positionToService,
-	WrapCompilerHost:  wrapCompilerHost,
-	WrapASTDiagnostic: wrapASTDiagnostic,
-	ParseSourceFile:   parseFile,
+	PositionToService:       positionToService,
+	WrapCompilerHost:        wrapCompilerHost,
+	WrapASTDiagnostic:       wrapASTDiagnostic,
+	ParseSourceFile:         parseFile,
 }
 
 func WrapFS(fs vfs.FS) vfs.FS {

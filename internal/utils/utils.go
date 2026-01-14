@@ -55,5 +55,5 @@ func TrimNodeTextRange(sourceFile *ast.SourceFile, node *ast.Node) core.TextRang
 }
 
 func MoveTextRange(loc core.TextRange, number int) core.TextRange {
-	return core.NewTextRange(number + loc.Pos(), number + loc.End())
+	return core.NewTextRange(number+loc.Pos(), number+loc.End())
 }

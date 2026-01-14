@@ -35,12 +35,12 @@ func TestSetupGeneric(t *testing.T) {
 	}>()
 </script>
 `, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
-	switch version {
-	case vue_3_2:
-		f.VerifyQuickInfoAt(t, "1", `(parameter) e: string | number`, "")
-	default:
-		f.VerifyQuickInfoAt(t, "1", `(parameter) e: string`, "")
-	}
+		switch version {
+		case vue_3_2:
+			f.VerifyQuickInfoAt(t, "1", `(parameter) e: string | number`, "")
+		default:
+			f.VerifyQuickInfoAt(t, "1", `(parameter) e: string`, "")
+		}
 		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 			{
 				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},

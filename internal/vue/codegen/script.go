@@ -72,7 +72,7 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 				}
 				if ast.IsObjectLiteralExpression(expr) {
 					exportLoc := utils.TrimNodeTextRange(c.scriptEl.Ast, export.AsNode())
-					c.mapRange(innerStart + exportLoc.Pos(), innerStart + export.Expression.Pos(), c.serviceText.Len(), c.serviceText.Len() + len("__VLS_DefineComponent"))
+					c.mapRange(innerStart+exportLoc.Pos(), innerStart+export.Expression.Pos(), c.serviceText.Len(), c.serviceText.Len()+len("__VLS_DefineComponent"))
 					c.serviceText.WriteString("__VLS_DefineComponent(")
 				}
 				c.mapText(innerStart+export.Expression.Pos(), innerStart+export.Expression.End())
@@ -81,9 +81,9 @@ func generateScript(base *codegenCtx, scriptSetupEl *vue_ast.ElementNode, script
 					c.serviceText.WriteString(")")
 				}
 			} else {
-				c.mapText(c.lastMappedPos, innerStart + export.Pos())
+				c.mapText(c.lastMappedPos, innerStart+export.Pos())
 				c.serviceText.WriteString(";(")
-				c.mapText(innerStart + export.Expression.Pos(), innerStart + export.Expression.End())
+				c.mapText(innerStart+export.Expression.Pos(), innerStart+export.Expression.End())
 				c.serviceText.WriteString(")\n")
 				c.lastMappedPos = innerStart + export.Expression.End()
 			}
@@ -286,9 +286,9 @@ __VLS_GenericSetup = `)
 
 		c.serviceText.WriteString("type __VLS_SetupExposed = import('vue').ShallowUnwrapRef<{\n")
 		for _, binding := range c.bindingRanges {
-			c.serviceText.WriteString(c.sourceText[binding.Pos() : binding.End()])
+			c.serviceText.WriteString(c.sourceText[binding.Pos():binding.End()])
 			c.serviceText.WriteString(": typeof ")
-			c.serviceText.WriteString(c.sourceText[binding.Pos() : binding.End()])
+			c.serviceText.WriteString(c.sourceText[binding.Pos():binding.End()])
 			c.serviceText.WriteRune('\n')
 		}
 		c.serviceText.WriteString("}>\n")

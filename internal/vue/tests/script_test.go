@@ -107,25 +107,25 @@ func TestScriptWithoutDefineComponentError(t *testing.T) {
 		}
 	}
 </script>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
-	switch version {
-	case vue_3_2, vue_3_3, vue_3_4:
-		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+		switch version {
+		case vue_3_2, vue_3_3, vue_3_4:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 				{
-					Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2769)},
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2769)},
 					Message: `No overload matches this call.
   The last overload gave the following error.
     Type 'number' is not assignable to type 'ComputedGetter<any> | WritableComputedOptions<any>'.`,
 				},
-		})
-	default:
-		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			})
+		default:
+			f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
 				{
-					Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2769)},
+					Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2769)},
 					Message: `No overload matches this call.
   The last overload gave the following error.
     Type 'number' is not assignable to type 'ComputedGetter<any> | WritableComputedOptions<any, any>'.`,
 				},
-		})
-	}
+			})
+		}
 	})
 }

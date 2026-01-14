@@ -286,8 +286,8 @@ type codegenCtx struct {
 	sourceText              string
 	serviceText             strings.Builder
 	mappings                []mapping.Mapping
-	ignoreDirectives []mapping.IgnoreDirectiveMapping
-	expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
+	ignoreDirectives        []mapping.IgnoreDirectiveMapping
+	expectErrorDirectives   []mapping.ExpectErrorDirectiveMapping
 	diagnostics             []*ast.Diagnostic
 	internalVariableCounter int
 	options                 VueOptions
@@ -349,7 +349,7 @@ func (c *codegenCtx) mapText(from, to int) {
 	c.mappings = append(c.mappings, mapping.Mapping{
 		SourceOffsets:  []int{from},
 		ServiceOffsets: []int{serviceOffset},
-		SourceLengths:        []int{to - from},
+		SourceLengths:  []int{to - from},
 	})
 }
 
@@ -357,7 +357,7 @@ func (c *codegenCtx) mapRange(sourceStart, sourceEnd, serviceStart, serviceEnd i
 	c.mappings = append(c.mappings, mapping.Mapping{
 		SourceOffsets:  []int{sourceStart, sourceEnd},
 		ServiceOffsets: []int{serviceStart, serviceEnd},
-		SourceLengths:        []int{0, 0},
+		SourceLengths:  []int{0, 0},
 	})
 }
 
@@ -370,9 +370,9 @@ func (c *codegenCtx) mapIgnoreDirective(serviceStart, serviceEnd int) {
 
 func (c *codegenCtx) mapExpectErrorDirective(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
 	c.expectErrorDirectives = append(c.expectErrorDirectives, mapping.ExpectErrorDirectiveMapping{
-		SourceOffset: sourceStart,
+		SourceOffset:  sourceStart,
 		ServiceOffset: serviceStart,
-		SourceLength: sourceEnd - sourceStart,
+		SourceLength:  sourceEnd - sourceStart,
 		ServiceLength: serviceEnd - serviceStart,
 	})
 }

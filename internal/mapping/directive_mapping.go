@@ -22,7 +22,7 @@ type ExpectErrorDirectiveMappingWithUsed struct {
 type DirectiveMap struct {
 	IgnoreMappings      []IgnoreDirectiveMapping
 	ExpectErrorMappings []ExpectErrorDirectiveMappingWithUsed
-	Used int
+	Used                int
 }
 
 func NewDirectiveMap(ignore []IgnoreDirectiveMapping, expectError []ExpectErrorDirectiveMapping) DirectiveMap {
@@ -72,7 +72,7 @@ func (d *DirectiveMap) CollectUnused() []ExpectErrorDirectiveMapping {
 	if d.Used == len(d.ExpectErrorMappings) {
 		return nil
 	}
-	res := make([]ExpectErrorDirectiveMapping, 0, len(d.ExpectErrorMappings) - d.Used)
+	res := make([]ExpectErrorDirectiveMapping, 0, len(d.ExpectErrorMappings)-d.Used)
 	for _, e := range d.ExpectErrorMappings {
 		if !e.Used {
 			res = append(res, e.ExpectErrorDirectiveMapping)

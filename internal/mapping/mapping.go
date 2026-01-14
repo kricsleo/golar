@@ -16,7 +16,7 @@ const (
 type Mapping struct {
 	SourceOffsets  []int
 	ServiceOffsets []int
-	SourceLengths        []int
+	SourceLengths  []int
 	ServiceLengths []int
 }
 
