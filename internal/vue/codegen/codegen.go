@@ -165,11 +165,13 @@ declare global {
 			: never,
 	> = __VLS_SpreadMerge<NormalizedEmits, TypeEmits>;
 
-	type __VLS_WithSlots<T extends abstract new (...args: any) => any, S> = T & {
-		new(...args: ConstructorParameters<T>): {
-			$slots: S;
-		}
-	};
+	type __VLS_WithSlots<T, S> = T extends abstract new (...args: any) => any
+		? T & {
+				new(...args: ConstructorParameters<T>): {
+					$slots: S;
+				}
+			}
+		: any;
 
 	function __VLS_vSlot<S, D extends S>(slot: S, decl?: D): D extends (...args: infer P) => any ? P : any[];
 

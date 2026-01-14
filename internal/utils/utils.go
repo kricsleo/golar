@@ -53,3 +53,7 @@ func TrimNodeTextRange(sourceFile *ast.SourceFile, node *ast.Node) core.TextRang
 	return core.NewTextRange(pos, max(pos, node.End()))
 	// return scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos()).WithEnd(node.End())
 }
+
+func MoveTextRange(loc core.TextRange, number int) core.TextRange {
+	return core.NewTextRange(number + loc.Pos(), number + loc.End())
+}
