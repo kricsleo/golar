@@ -29,7 +29,7 @@ func init() {
 	diagnostics.Message_Set_code(unused_directive, 1_000_000)
 	diagnostics.Message_Set_category(unused_directive, diagnostics.CategoryError)
 	diagnostics.Message_Set_key(unused_directive, "Unused_directive")
-	diagnostics.Message_Set_text(unused_directive, "Unused_directive")
+	diagnostics.Message_Set_text(unused_directive, "Unused directive.")
 }
 
 type compilerHostProxy struct {
@@ -328,7 +328,7 @@ func getDirectiveDiagnostics(file *ast.SourceFile, diagnostics [][]*ast.Diagnost
 	}
 	res := make([]*ast.Diagnostic, len(unused))
 	for i, e := range unused {
-		res[i] = ast.NewDiagnostic(nil, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive)
+		res[i] = ast.NewDiagnostic(file, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive)
 	}
 	return res
 }

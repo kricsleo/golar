@@ -49,3 +49,32 @@ func TestSetupGeneric(t *testing.T) {
 		})
 	})
 }
+
+func TestSetupGenericDefineModel(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+// @strict: true
+<script lang="ts" setup>
+	import Comp from './file-foo.vue'
+</script>
+
+<template>
+	<Comp
+		model-value="123"
+		@update:model-value="e => e/*1*/"
+	/>
+</template>
+
+// @filename: file-foo.vue
+<script lang="ts" setup generic="T extends string | number">
+	defineModel<T>()
+</script>
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		default:
+			f.VerifyQuickInfoAt(t, "1", `(parameter) e: "123" | undefined`, "")
+		}
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}

@@ -129,3 +129,31 @@ func TestScriptWithoutDefineComponentError(t *testing.T) {
 		}
 	})
 }
+
+func TestScriptProps(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script setup lang="ts">
+	import Comp from './file-foo.vue'
+</script>
+
+<template>
+	<Comp [|foo|]="123"/>
+</template>
+
+// @filename: file-foo.vue
+<script lang="ts">
+	export default {
+		props: {
+			foo: Number
+		}
+	}
+</script>
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
+				Message: "Type 'string' is not assignable to type 'number'.",
+			},
+		})
+	})
+}

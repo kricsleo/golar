@@ -188,6 +188,8 @@ declare global {
 			) => any;
 		}
 	>;
+
+	function __VLS_DefineExpose<Exposed extends Record<string, any> = Record<string, any>>(exposed?: Exposed): Exposed
 }
 
 // pre 3.5 shims

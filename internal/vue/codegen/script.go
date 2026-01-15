@@ -142,6 +142,7 @@ __VLS_GenericSetup = `)
 			propsVariableName string
 			emitsVariableName string
 			slotsVariableName string
+			hasExpose bool
 		)
 
 		// TODO: report nested compiler macros (vue compiler errors on them)
@@ -266,6 +267,18 @@ __VLS_GenericSetup = `)
 					c.serviceText.WriteString("\nconst __VLS_Slots = ")
 					c.mapText(innerStart+statement.Pos(), innerStart+statement.End())
 					c.lastMappedPos = innerStart + statement.End()
+				case "defineExpose":
+					if hasExpose {
+						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
+						c.reportDiagnostic(utils.MoveTextRange(calleeLoc, innerStart), vue_diagnostics.Duplicate_X_0_call, "defineExpose")
+						break
+					}
+					hasExpose = true
+					c.mapText(c.lastMappedPos, innerStart+statement.End())
+					c.lastMappedPos = innerStart + statement.End()
+					c.serviceText.WriteString("\nconst __VLS_Expose = __VLS_DefineExpose")
+					c.serviceText.WriteString(c.sourceText[innerStart + callee.End():innerStart+statement.End()])
+					c.serviceText.WriteString("\n")
 				case "defineModel":
 					modelVariableName := c.newInternalVariable()
 					callLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, call.AsNode())
@@ -406,6 +419,9 @@ __VLS_GenericSetup = `)
 				} else {
 					c.serviceText.WriteString("emits: {} as unknown as __VLS_NormalizeEmits<__VLS_PublicEmits>,\n")
 				}
+			}
+			if hasExpose {
+				c.serviceText.WriteString("setup: () => __VLS_Expose,\n")
 			}
 			c.serviceText.WriteString("})\n")
 
