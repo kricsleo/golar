@@ -189,7 +189,9 @@ declare global {
 		}
 	>;
 
-	function __VLS_DefineExpose<Exposed extends Record<string, any> = Record<string, any>>(exposed?: Exposed): Exposed
+	function __VLS_DefineExpose<Exposed extends Record<string, any> = Record<string, any>>(exposed?: Exposed): Exposed;
+
+	function __VLS_AsFunctionalElement<T>(tag: T, endTag?: T): (attrs: T) => void;
 }
 
 // pre 3.5 shims
@@ -203,6 +205,12 @@ declare module 'vue' {
 func Codegen(sourceText string, root *vue_ast.RootNode, options VueOptions) (string, []mapping.Mapping, []mapping.IgnoreDirectiveMapping, []mapping.ExpectErrorDirectiveMapping, []*ast.Diagnostic) {
 	ctx := newCodegenCtx(root, sourceText, options)
 	ctx.serviceText.WriteString(globalTypesReference)
+	ctx.serviceText.WriteString("declare const __VLS_Intrinsics: ")
+	if options.Version.hasJsxRuntimeTypes() {
+		ctx.serviceText.WriteString("import('vue/jsx-runtime').JSX.IntrinsicElements\n")
+	} else {
+		ctx.serviceText.WriteString("globalThis.JSX.IntrinsicElements")
+	}
 
 	var scriptEl *vue_ast.ElementNode
 	var scriptSetupEl *vue_ast.ElementNode
@@ -328,6 +336,10 @@ func (v VueVersion) modelRefHasGetterAndSetter() bool {
 
 func (v VueVersion) hasPublicPropsType() bool {
 	return v >= NewVueVersionFromSemver(3, 4, 0)
+}
+
+func (v VueVersion) hasJsxRuntimeTypes() bool {
+	return v >= NewVueVersionFromSemver(3, 3, 0)
 }
 
 func newCodegenCtx(root *vue_ast.RootNode, sourceText string, options VueOptions) codegenCtx {

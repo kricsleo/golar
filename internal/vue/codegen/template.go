@@ -229,7 +229,22 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 		// TODO: self component
 		// TODO: component name casing
 		// TODO: native elements
-		if isComponent {
+		if isNativeElement(elem.Tag) {
+			c.serviceText.WriteString("\n__VLS_AsFunctionalElement(")
+			intrinsicStart := c.serviceText.Len()
+			c.serviceText.WriteString("__VLS_Intrinsics['")
+			c.escapeString(elem.Tag)
+			c.serviceText.WriteString("'], ")
+			c.serviceText.WriteString(c.serviceText.String()[intrinsicStart:])
+			c.serviceText.WriteString(")({\n")
+			propsStart := c.serviceText.Len() - 2
+			c.generateElementProps(elem)
+			propsEnd := c.serviceText.Len() + 1
+			c.serviceText.WriteString("})\n")
+			// TODO: is this valid?
+			tagStart := elem.Loc.Pos() + 1
+			c.mapRange(tagStart, tagStart+len(elem.Tag), propsStart, propsEnd)
+		} else if isComponent {
 			ctxVar = c.newInternalVariable()
 			propsVar := c.newInternalVariable()
 			componentVar := c.newInternalVariable()
@@ -255,37 +270,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.serviceText.WriteString(")")
 			propsStart := c.serviceText.Len() + 1
 			c.serviceText.WriteString("({\n")
-			for _, prop := range elem.Props {
-				switch prop.Kind {
-				case vue_ast.KindAttribute:
-					attr := prop.AsAttribute()
-					propNameStart := c.serviceText.Len()
-					c.serviceText.WriteByte('\'')
-					camelize(attr.Name, &c.serviceText)
-					propNameEnd := c.serviceText.Len() + 1
-					c.mapRange(attr.Loc.Pos(), attr.Loc.Pos()+len(attr.Name), propNameStart, propNameEnd)
-					if attr.Value == nil {
-						c.serviceText.WriteString("': true,\n")
-					} else {
-						c.serviceText.WriteString("': '")
-						// TODO: perf
-						// TODO: escape
-						for _, r := range attr.Value.Content {
-							switch r {
-							case '\\':
-								c.serviceText.WriteString("\\x5c")
-							case '\n':
-								c.serviceText.WriteString("\\x0a")
-							case '\'':
-								c.serviceText.WriteString("\\x27")
-							default:
-								c.serviceText.WriteRune(r)
-							}
-						}
-						c.serviceText.WriteString("',\n")
-					}
-				}
-			}
+			c.generateElementProps(elem)
 			c.serviceText.WriteString("})\n")
 			propsEnd := c.serviceText.Len() - 2
 			// TODO: is this valid?
@@ -751,4 +736,83 @@ func isBuiltInComponent(name string) bool {
 func isNativeElement(name string) bool {
 	_, ok := vue_parser.NativeTags[name]
 	return ok
+}
+
+func (c *templateCodegenCtx) escapeString(str string) {
+	for _, r := range str {
+		switch r {
+		case '\\':
+			c.serviceText.WriteString("\\x5c")
+		case '\n':
+			c.serviceText.WriteString("\\x0a")
+		case '\'':
+			c.serviceText.WriteString("\\x27")
+		default:
+			c.serviceText.WriteRune(r)
+		}
+	}
+}
+
+func (c *templateCodegenCtx) generateElementProps(elem *vue_ast.ElementNode) {
+	for _, prop := range elem.Props {
+		switch prop.Kind {
+		case vue_ast.KindAttribute:
+			attr := prop.AsAttribute()
+			propNameStart := c.serviceText.Len()
+			c.serviceText.WriteByte('\'')
+			camelize(attr.Name, &c.serviceText)
+			propNameEnd := c.serviceText.Len() + 1
+			c.mapRange(attr.Loc.Pos(), attr.Loc.Pos()+len(attr.Name), propNameStart, propNameEnd)
+			if attr.Value == nil {
+				c.serviceText.WriteString("': true,\n")
+			} else {
+				c.serviceText.WriteString("': '")
+				c.escapeString(attr.Value.Content)
+				c.serviceText.WriteString("',\n")
+			}
+		case vue_ast.KindDirective:
+			dir := prop.AsDirective()
+			isBind := dir.Name == "bind"
+			isModel := dir.Name == "model"
+			if !isBind && !isModel {
+				break
+			}
+			// TODO: class & style
+			// TODO: .prop etc.
+			// TODO: don't camelize when not needed: aria-*
+			propNameStart := c.serviceText.Len()
+			if isBind && dir.Arg == "" {
+				c.serviceText.WriteString("...(")
+				c.mapExpressionInNonBindingPosition(dir.Expression)
+				c.serviceText.WriteString("),\n")
+				break
+			}
+			c.serviceText.WriteByte('\'')
+			if isBind {
+				camelize(dir.Arg, &c.serviceText)
+			} else {
+				if (dir.Arg == "" || dir.Arg == "value") && (elem.Tag == "input" || elem.Tag == "textarea" || elem.Tag == "select") {
+					c.serviceText.WriteString("value")
+				} else if dir.Arg == "" {
+					c.serviceText.WriteString("modelValue")
+				} else {
+					c.serviceText.WriteString(dir.Arg)
+				}
+			}
+			propNameEnd := c.serviceText.Len() + 1
+			// TODO: more accurate range
+			c.mapRange(dir.Loc.Pos(), dir.Loc.End(), propNameStart, propNameEnd)
+
+			c.serviceText.WriteString("': (")
+			if dir.Expression == nil {
+				c.serviceText.WriteString("__VLS_Ctx.")
+				accessStart := c.serviceText.Len()
+				c.serviceText.WriteString(c.serviceText.String()[propNameStart+1:propNameEnd-1])
+				c.mapRange(dir.Loc.Pos(), dir.Loc.End(), accessStart, c.serviceText.Len())
+			} else {
+				c.mapExpressionInNonBindingPosition(dir.Expression)
+			}
+			c.serviceText.WriteString("),\n")
+		}
+	}
 }
