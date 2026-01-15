@@ -170,6 +170,19 @@ __VLS_GenericSetup = `)
 					}
 					calleeName := callee.Text()
 					switch calleeName {
+					case "withDefaults":
+						// TODO: report props destructuring?
+						if !nameIsIdentifier {
+							break
+						}
+						// TODO: align reporting with vue compiler
+						if len(call.Arguments.Nodes) != 2 || !ast.IsCallExpression(call.Arguments.Nodes[0]) || !ast.IsIdentifier(call.Arguments.Nodes[0].Expression()) || call.Arguments.Nodes[0].Expression().Text() != "defineProps" {
+							break
+						}
+						call = call.Arguments.Nodes[0].AsCallExpression()
+						callee = call.Expression
+						calleeName = callee.Text()
+						fallthrough
 					case "defineProps":
 						// TODO: report props destructuring?
 						if !nameIsIdentifier {
@@ -231,7 +244,7 @@ __VLS_GenericSetup = `)
 				}
 				calleeName := callee.Text()
 				switch calleeName {
-				case "defineProps":
+				case "withDefaults", "defineProps":
 					if propsVariableName != "" {
 						calleeLoc := utils.TrimNodeTextRange(c.scriptSetupEl.Ast, callee)
 						c.reportDiagnostic(utils.MoveTextRange(calleeLoc, innerStart), vue_diagnostics.Duplicate_X_0_call, "defineProps")

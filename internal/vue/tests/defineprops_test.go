@@ -82,3 +82,35 @@ func TestDuplicateDefinePropsVariableDecl(t *testing.T) {
 		})
 	})
 }
+
+func TestDefinePropsWithDefaults(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script lang="ts" setup>
+	const p = withDefaults(defineProps<{ foo?: string }>(), { foo: 'bar' })
+	p.foo/*1*/
+</script>
+
+<template>
+	{{ foo/*2*/ }}
+</template>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+
+		f.VerifyQuickInfoAt(t, "1", "(property) foo: string", "")
+		f.VerifyQuickInfoAt(t, "2", "(property) foo: string", "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}
+
+func TestDefinePropsWithDefaultsCallExpr(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script lang="ts" setup>
+	withDefaults(defineProps<{ foo?: string }>(), { foo: 'bar' })
+</script>
+
+<template>
+	{{ foo/*1*/ }}
+</template>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+
+		f.VerifyQuickInfoAt(t, "1", "(property) foo: string", "")
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{})
+	})
+}
