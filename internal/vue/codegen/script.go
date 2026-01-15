@@ -365,8 +365,11 @@ __VLS_GenericSetup = `)
 		c.serviceText.WriteString("...{} as unknown as __VLS_SetupExposed,\n")
 		if hasPublicProps {
 			c.serviceText.WriteString("...{} as unknown as __VLS_PublicProps,\n")
-			// TODO: $emits and other $s
+			// TODO: other $s
 			c.serviceText.WriteString("...{} as unknown as { $props: __VLS_PublicProps },\n")
+		}
+		if hasPublicEmits {
+			c.serviceText.WriteString("...{} as unknown as { $emit: __VLS_PublicEmits },\n")
 		}
 		c.serviceText.WriteString("}\n")
 

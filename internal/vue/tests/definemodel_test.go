@@ -122,3 +122,27 @@ func TestDuplicateDefineModelDefaultName(t *testing.T) {
 		})
 	})
 }
+
+func TestDefineModelEmitsDollar(t *testing.T) {
+	runFourslashTest(t, `// @filename: file.vue
+<script lang="ts" setup>
+	const model = defineModel<string>('foo')
+
+</script>
+
+<template>
+	{{ $emit('update:foo', [|123|]) }}
+</template>
+`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+		switch version {
+		case vue_3_2, vue_3_3:
+			return
+		}
+		f.VerifyNonSuggestionDiagnostics(t, []*lsproto.Diagnostic{
+			{
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2345)},
+				Message: `Argument of type 'number' is not assignable to parameter of type 'string'.`,
+			},
+		})
+	})
+}
