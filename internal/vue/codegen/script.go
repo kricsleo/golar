@@ -559,13 +559,21 @@ func (c *scriptCodegenCtx) collectBindingRanges(innerStart int, node *ast.Node) 
 			decl := d.AsVariableDeclaration()
 			name := decl.Name()
 			var visitor ast.Visitor
-			// TODO: binding pattern?
+			// TODO: types, etc
 			// TODO: declare const?
 			visitor = func(n *ast.Node) bool {
 				if ast.IsIdentifier(n) {
-					c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(name.Loc, innerStart))
+					c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(n.Loc, innerStart))
+				} else if ast.IsBindingPattern(n) {
+					for _, el := range n.AsBindingPattern().Elements.Nodes {
+						if ast.IsBindingElement(el) {
+							visitor(el.Name())
+						}
+					}
+				} else {
+					n.ForEachChild(visitor)
 				}
-				return n.ForEachChild(visitor)
+				return false
 			}
 			visitor(name)
 		}
@@ -575,21 +583,26 @@ func (c *scriptCodegenCtx) collectBindingRanges(innerStart int, node *ast.Node) 
 		}
 	case ast.KindImportDeclaration:
 		importClause := node.AsImportDeclaration().ImportClause
-		if importClause != nil {
-			if importClause.Name() != nil {
-				c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(importClause.Name().Loc, innerStart))
-			}
+		if importClause == nil || importClause.IsTypeOnly() {
+			return
+		}
 
-			namedBindings := importClause.AsImportClause().NamedBindings
-			if namedBindings != nil {
-				if ast.IsNamespaceImport(namedBindings) {
-					c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(namedBindings.Name().Loc, innerStart))
-				} else {
-					for _, element := range namedBindings.Elements() {
+		if importClause.Name() != nil {
+			c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(importClause.Name().Loc, innerStart))
+		}
+
+		namedBindings := importClause.AsImportClause().NamedBindings
+		if namedBindings != nil {
+			if ast.IsNamespaceImport(namedBindings) {
+				c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(namedBindings.Name().Loc, innerStart))
+			} else {
+				for _, element := range namedBindings.Elements() {
+					if !element.IsTypeOnly() {
 						c.bindingRanges = append(c.bindingRanges, utils.MoveTextRange(element.Name().Loc, innerStart))
 					}
 				}
 			}
 		}
+
 	}
 }

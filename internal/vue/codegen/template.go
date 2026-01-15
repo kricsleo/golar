@@ -238,7 +238,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.serviceText.WriteString(c.serviceText.String()[intrinsicStart:])
 			c.serviceText.WriteString(")({\n")
 			propsStart := c.serviceText.Len() - 2
-			c.generateElementProps(elem)
+			c.generateElementProps(elem, false)
 			propsEnd := c.serviceText.Len() + 1
 			c.serviceText.WriteString("})\n")
 			// TODO: is this valid?
@@ -270,7 +270,7 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 			c.serviceText.WriteString(")")
 			propsStart := c.serviceText.Len() + 1
 			c.serviceText.WriteString("({\n")
-			c.generateElementProps(elem)
+			c.generateElementProps(elem, true)
 			c.serviceText.WriteString("})\n")
 			propsEnd := c.serviceText.Len() - 2
 			// TODO: is this valid?
@@ -297,7 +297,6 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				}
 
 				dir := prop.AsDirective()
-				// TODO: model
 				// TODO: dynamic event name
 				if dir.Name != "on" || !dir.IsStatic {
 					continue
@@ -321,46 +320,16 @@ func (c *templateCodegenCtx) visit(el *vue_ast.Node) {
 				c.serviceText.WriteString(", typeof ")
 				c.serviceText.WriteString(emitsVar)
 				c.serviceText.WriteString(", '")
-				propName := camelize("on-"+dir.Arg, &c.serviceText)
+				camelize("on-"+dir.Arg, &c.serviceText)
 				c.serviceText.WriteString("', '")
 				emitName := dir.Arg
 				c.serviceText.WriteString(emitName)
 				c.serviceText.WriteString("', '")
 				camelize(emitName, &c.serviceText) // camelizedEmitName
 				c.serviceText.WriteString("'> = \n{\n")
-				emitNameStart := c.serviceText.Len()
-				c.serviceText.WriteString("'")
-				c.serviceText.WriteString(propName)
-				c.mapRange(dir.Loc.Pos(), dir.Loc.Pos()+len(dir.RawName), emitNameStart, c.serviceText.Len()+1)
-				c.serviceText.WriteString("': ")
-				if dir.Expression == nil || dir.Expression.Ast == nil {
-					c.serviceText.WriteString("() => {}")
-				} else {
-					isCompound := true
-					if len(dir.Expression.Ast.Statements.Nodes) == 0 {
-						panic("Expected event listener AST to have at least one statement")
-					}
-					if len(dir.Expression.Ast.Statements.Nodes) == 1 {
-						if ast.IsExpressionStatement(dir.Expression.Ast.Statements.Nodes[0]) {
-							expr := ast.SkipParentheses(dir.Expression.Ast.Statements.Nodes[0].AsExpressionStatement().Expression)
-							if ast.IsArrowFunction(expr) || ast.IsIdentifier(expr) || ast.IsPropertyAccessExpression(expr) || ast.IsFunctionExpression(expr) {
-								isCompound = false
-							}
-						}
-					}
-
-					if isCompound {
-						c.serviceText.WriteString("(...[$event]) => {\n")
-						c.enterScope()
-						c.declareScopeVar("$event")
-						c.mapExpressionInNonBindingPosition(dir.Expression)
-						c.exitScope()
-						c.serviceText.WriteString("}\n")
-						// TODO: condition guards
-					} else {
-						c.mapExpressionInNonBindingPosition(dir.Expression)
-					}
-				}
+				c.generateEventName(dir)
+				c.serviceText.WriteString(": ")
+				c.generateEventExpression(dir)
 				c.serviceText.WriteString("\n}\n")
 			}
 
@@ -753,7 +722,7 @@ func (c *templateCodegenCtx) escapeString(str string) {
 	}
 }
 
-func (c *templateCodegenCtx) generateElementProps(elem *vue_ast.ElementNode) {
+func (c *templateCodegenCtx) generateElementProps(elem *vue_ast.ElementNode, isComponent bool) {
 	for _, prop := range elem.Props {
 		switch prop.Kind {
 		case vue_ast.KindAttribute:
@@ -772,6 +741,22 @@ func (c *templateCodegenCtx) generateElementProps(elem *vue_ast.ElementNode) {
 			}
 		case vue_ast.KindDirective:
 			dir := prop.AsDirective()
+			if dir.Name == "on" {
+				// TODO: dynamic event handling
+				if !dir.IsStatic {
+					break
+				}
+
+				c.generateEventName(dir)
+				c.serviceText.WriteString(": ")
+				if isComponent {
+					c.serviceText.WriteString("{} as any")
+				} else {
+					c.generateEventExpression(dir)
+				}
+				c.serviceText.WriteString(",\n")
+				break
+			}
 			isBind := dir.Name == "bind"
 			isModel := dir.Name == "model"
 			if !isBind && !isModel {
@@ -815,4 +800,44 @@ func (c *templateCodegenCtx) generateElementProps(elem *vue_ast.ElementNode) {
 			c.serviceText.WriteString("),\n")
 		}
 	}
+}
+
+func (c *templateCodegenCtx) generateEventName(dir *vue_ast.DirectiveNode) {
+	emitNameStart := c.serviceText.Len()
+	c.serviceText.WriteByte('\'')
+	camelize("on-"+dir.Arg, &c.serviceText)
+	c.mapRange(dir.Loc.Pos(), dir.Loc.Pos()+len(dir.RawName), emitNameStart, c.serviceText.Len()+1)
+	c.serviceText.WriteByte('\'')
+}
+
+func (c *templateCodegenCtx) generateEventExpression(dir *vue_ast.DirectiveNode) {
+	if dir.Expression == nil || dir.Expression.Ast == nil {
+		c.serviceText.WriteString("() => {}")
+		return
+	}
+	isCompound := true
+	if len(dir.Expression.Ast.Statements.Nodes) == 0 {
+		panic("Expected event listener AST to have at least one statement")
+	}
+	if len(dir.Expression.Ast.Statements.Nodes) == 1 {
+		if ast.IsExpressionStatement(dir.Expression.Ast.Statements.Nodes[0]) {
+			expr := ast.SkipParentheses(dir.Expression.Ast.Statements.Nodes[0].AsExpressionStatement().Expression)
+			if ast.IsArrowFunction(expr) || ast.IsIdentifier(expr) || ast.IsPropertyAccessExpression(expr) || ast.IsFunctionExpression(expr) {
+				isCompound = false
+			}
+		}
+	}
+
+	if isCompound {
+		c.serviceText.WriteString("(...[$event]) => {\n")
+		c.enterScope()
+		c.declareScopeVar("$event")
+		c.mapExpressionInNonBindingPosition(dir.Expression)
+		c.exitScope()
+		c.serviceText.WriteString("}\n")
+		// TODO: condition guards
+	} else {
+		c.mapExpressionInNonBindingPosition(dir.Expression)
+	}
+
 }

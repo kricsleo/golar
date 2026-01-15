@@ -337,8 +337,8 @@ func (t *Tokenizer) stateText(c rune) {
 		}
 		t.state = StateBeforeTagName
 		t.sectionStart = t.index
-	} else if c == CharCodeAmp {
-		t.startEntity()
+	// } else if c == CharCodeAmp {
+	// 	t.startEntity()
 	} else if !t.inVPre && c == defaultDelimitersOpen[0] {
 		t.state = StateInterpolationOpen
 		t.delimiterIndex = 0
@@ -448,9 +448,10 @@ func (t *Tokenizer) stateInRCDATA(c rune) {
 	} else if t.sequenceIndex == 0 {
 		if t.currentSequence == &SequenceTitleEnd || (t.currentSequence == &SequenceTextareaEnd && !t.inSFCRoot()) {
 			// We have to parse entities in <title> and <textarea> tags.
-			if c == CharCodeAmp {
-				t.startEntity()
-			} else if !t.inVPre && c == t.delimiterOpen[0] {
+			// if c == CharCodeAmp {
+			// 	t.startEntity()
+			// } else
+			if !t.inVPre && c == t.delimiterOpen[0] {
 				// We also need to handle interpolation
 				t.state = StateInterpolationOpen
 				t.delimiterIndex = 0
@@ -815,7 +816,7 @@ func (t *Tokenizer) handleInAttrValue(c rune, quote rune) {
 		)
 		t.state = StateBeforeAttrName
 	} else if c == CharCodeAmp {
-		t.startEntity()
+		// t.startEntity()
 	}
 }
 func (t *Tokenizer) stateInAttrValueDoubleQuotes(c rune) {
@@ -837,7 +838,7 @@ func (t *Tokenizer) stateInAttrValueNoQuotes(c rune) {
 			t.index,
 		)
 	} else if c == CharCodeAmp {
-		t.startEntity()
+		// t.startEntity()
 	}
 }
 func (t *Tokenizer) stateBeforeDeclaration(c rune) {

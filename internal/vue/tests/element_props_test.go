@@ -22,7 +22,15 @@ func TestElementProps(t *testing.T) {
 	<input v-model="foo">
 	<div [|:id|]></div>
 	<div [|:dir|]></div>
+	<div @click="e => e/*1*/"></div>
 </template>`, func(t *testing.T, f *fourslash.FourslashTest, version vueVersion) {
+	switch version {
+	case vue_3_2, vue_3_3, vue_3_4:
+		f.VerifyQuickInfoAt(t, "1", `(parameter) e: MouseEvent`, "")
+	default:
+		f.VerifyQuickInfoAt(t, "1", `(parameter) e: PointerEvent`, "")
+
+	}
 	common1 := &lsproto.Diagnostic{
 			Code: &lsproto.IntegerOrString{Integer: ptrTo[int32](2322)},
 			Message:"Type 'number' is not assignable to type 'string'.",
