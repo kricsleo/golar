@@ -13,6 +13,7 @@ const (
 	ServiceOffsets
 )
 
+// TODO: single offset?
 type Mapping struct {
 	SourceOffsets  []int
 	ServiceOffsets []int

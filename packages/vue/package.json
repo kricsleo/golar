@@ -1,0 +1,10 @@
+{
+	"name": "@golar/vue",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@golar/volar": "workspace:",
+		"@vue/language-core": "^3.2.2",
+		"typescript": "^5.9.3"
+	}
+}

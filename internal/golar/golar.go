@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/auvred/golar/internal/mapping"
+	"github.com/auvred/golar/internal/pluginhost"
 	"github.com/auvred/golar/internal/utils"
 	"github.com/auvred/golar/internal/vue/codegen"
 	"github.com/auvred/golar/internal/vue/parser"
@@ -19,6 +20,8 @@ import (
 	"github.com/microsoft/typescript-go/shim/diagnosticwriter"
 	"github.com/microsoft/typescript-go/shim/golarext"
 	"github.com/microsoft/typescript-go/shim/parser"
+	"github.com/microsoft/typescript-go/shim/scanner"
+	"github.com/microsoft/typescript-go/shim/sourcemap"
 	"github.com/microsoft/typescript-go/shim/tspath"
 	"github.com/microsoft/typescript-go/shim/vfs"
 )
@@ -44,7 +47,7 @@ type languageData struct {
 }
 
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
-	if strings.HasSuffix(opts.FileName, ".vue") {
+	if strings.HasSuffix(opts.FileName, ".vue") || strings.HasSuffix(opts.FileName, ".svelte") || strings.HasSuffix(opts.FileName, ".astro") {
 		sourceText, ok := h.CompilerHost.FS().ReadFile(opts.FileName)
 		if !ok {
 			return nil
@@ -86,8 +89,10 @@ func (d *diagnosticProxy) sourceLoc() core.TextRange {
 				d.hasSource = true
 				return d.cachedSourceLoc
 			}
+			d.cachedSourceLoc = core.NewTextRange(0, 0)
+		} else {
+			d.cachedSourceLoc = d.Diagnostic.Loc()
 		}
-		d.cachedSourceLoc = core.NewTextRange(0, 0)
 	}
 	return d.cachedSourceLoc
 }
@@ -182,7 +187,181 @@ func wrapASTDiagnostic(diagnostic *ast.Diagnostic) diagnosticwriter.Diagnostic {
 	return newDiagnosticProxy(diagnostic)
 }
 
+var vuePlugin *pluginhost.Plugin
+var sveltePlugin *pluginhost.Plugin
+var astroPlugin *pluginhost.Plugin
+
+func init() {
+	var err error
+	pluginNames, ok := os.LookupEnv("GOLAR_PLUGIN")
+	if !ok {
+		return
+	}
+
+	for pluginName := range strings.SplitSeq(pluginNames, ",") {
+		switch pluginName {
+		case "vue":
+			vuePlugin, err = pluginhost.NewPlugin([]string{"node", "/home/auvred/dev/personal/github/auvred/golar/packages/vue/src/index.ts"})
+			if err != nil {
+				panic(err)
+			}
+		case "svelte":
+			sveltePlugin, err = pluginhost.NewPlugin([]string{"node", "/home/auvred/dev/personal/github/auvred/golar/packages/svelte/src/index.ts"})
+			if err != nil {
+				panic(err)
+			}
+		case "astro":
+			astroPlugin, err = pluginhost.NewPlugin([]string{"/home/auvred/dev/personal/github/auvred/golar/packages/astro/astro"})
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func sourceMapToMapping(inputMappings string, sourceText string, serviceText string) []mapping.Mapping {
+	dec := sourcemap.DecodeMappings(inputMappings)
+	serviceLineMap := core.ComputeECMALineStarts(serviceText)
+	sourceLineMap := core.ComputeECMALineStarts(sourceText)
+	mappings := make([]mapping.Mapping, 0)
+
+	type currentMapping struct {
+		genOffset    int
+		sourceOffset int
+	}
+
+	var current *currentMapping
+
+	for decoded, done := dec.Next(); !done; decoded, done = dec.Next() {
+		if decoded == nil {
+			continue
+		}
+		genOffset := scanner.ComputePositionOfLineAndCharacterEx(
+			serviceLineMap,
+			decoded.GeneratedLine,
+			decoded.GeneratedCharacter,
+			&serviceText,
+			false,
+		)
+		if current != nil {
+			length := genOffset - current.genOffset
+			if length > 0 {
+				sourceEnd := min(current.sourceOffset+length, len(sourceText))
+				genEnd := min(current.genOffset+length, len(serviceText))
+				sourceChunk := sourceText[current.sourceOffset:sourceEnd]
+				genChunk := serviceText[current.genOffset:genEnd]
+				if sourceChunk != genChunk {
+					length = 0
+					maxLen := min(len(sourceChunk), len(genChunk))
+					for i := range maxLen {
+						if sourceChunk[i] == genChunk[i] {
+							length = i + 1
+						} else {
+							break
+						}
+					}
+				}
+			}
+			if length > 0 {
+				if len(mappings) > 0 {
+					last := &mappings[len(mappings)-1]
+					if last.ServiceOffsets[0]+last.SourceLengths[0] == current.genOffset &&
+						last.SourceOffsets[0]+last.SourceLengths[0] == current.sourceOffset {
+						last.SourceLengths[0] += length
+					} else {
+						mappings = append(mappings, mapping.Mapping{
+							SourceOffsets:  []int{current.sourceOffset},
+							ServiceOffsets: []int{current.genOffset},
+							SourceLengths:  []int{length},
+						})
+					}
+				} else {
+					mappings = append(mappings, mapping.Mapping{
+						SourceOffsets:  []int{current.sourceOffset},
+						ServiceOffsets: []int{current.genOffset},
+						SourceLengths:  []int{length},
+					})
+				}
+			}
+			current = nil
+		}
+		if decoded.IsSourceMapping() {
+			if decoded.SourceIndex != 0 {
+				continue
+			}
+			sourceOffset := scanner.ComputePositionOfLineAndCharacterEx(
+				sourceLineMap,
+				decoded.SourceLine,
+				decoded.SourceCharacter,
+				&sourceText,
+				false,
+			)
+			current = &currentMapping{
+				genOffset:    genOffset,
+				sourceOffset: sourceOffset,
+			}
+		}
+	}
+
+	if err := dec.Error(); err != nil {
+		panic(err)
+	}
+
+	return mappings
+}
+
 func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
+	var plugin *pluginhost.Plugin
+
+	if strings.HasSuffix(opts.FileName, ".vue") {
+		plugin = vuePlugin
+	} else if strings.HasSuffix(opts.FileName, ".svelte") {
+		plugin = sveltePlugin
+	} else if strings.HasSuffix(opts.FileName, ".astro") {
+		plugin = astroPlugin
+	}
+
+	if plugin != nil {
+		resp := <-plugin.CreateServiceCode(opts.FileName, sourceText)
+
+		file := parser.ParseSourceFile(opts, resp.ServiceText, scriptKind)
+		// TODO: figure out better way; .astro files have virtual: dev-only imports
+		if strings.Contains(opts.FileName, "/node_modules/") {
+			file.IsDeclarationFile = true
+		}
+		file.WrapDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
+			newFile := ast.SourceFile{
+			}
+			newFile.GolarLanguageData = file.GolarLanguageData
+			newFile.SetText(sourceText)
+			newFile.SetParseOptions(file.ParseOptions())
+			return wrapDiagnostics(&newFile, diags, false)
+		}
+		file.WrapSemanticDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
+			// TODO: this is hack
+			newFile := ast.SourceFile{}
+			newFile.GolarLanguageData = file.GolarLanguageData
+			newFile.SetText(sourceText)
+			newFile.SetParseOptions(file.ParseOptions())
+			return wrapDiagnostics(&newFile, diags, true)
+		}
+		langData := languageData{
+			sourceText:            sourceText,
+		}
+		if resp.SourceMap != "" {
+			langData.sourceMap = mapping.NewSourceMap(sourceMapToMapping(resp.SourceMap, sourceText, resp.ServiceText))
+		} else {
+			langData.sourceMap = mapping.NewSourceMap(resp.Mappings)
+			langData.ignoreDirectives = resp.IgnoreMappings
+		}
+		file.GolarLanguageData = langData
+		diags := file.Diagnostics()
+		for i, diag := range diags {
+			diags[i] = adjustDiagnostic(file, diag)
+		}
+
+		return file
+	}
 	if !strings.HasSuffix(opts.FileName, ".vue") {
 		return parser.ParseSourceFile(opts, sourceText, scriptKind)
 	}
@@ -295,40 +474,45 @@ func parseVueVersion(version string) (vue_codegen.VueVersion, bool) {
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
+	diagnostic.SetFile(file)
+	for _, s := range diagnostic.MessageChain() {
+		s.SetFile(file)
+	}
+	for _, s := range diagnostic.RelatedInformation() {
+		s.SetFile(file)
+	}
 	if file.GolarLanguageData == nil || diagnostic.Code() >= 1_000_000 {
 		return diagnostic
 	}
 	langData := file.GolarLanguageData.(languageData)
 	for _, sourceRange := range langData.sourceMap.ToSourceRange(diagnostic.Pos(), diagnostic.End(), true) {
 		diagnostic.SetLocation(core.NewTextRange(sourceRange.MappedStart, sourceRange.MappedEnd))
-		break
+		return diagnostic
 	}
+
+	diagnostic.SetLocation(core.NewTextRange(0, 0))
 
 	return diagnostic
 }
 
-func getDirectiveDiagnostics(file *ast.SourceFile, diagnostics [][]*ast.Diagnostic) []*ast.Diagnostic {
+func wrapDiagnostics(file *ast.SourceFile, diagnostics []*ast.Diagnostic, collectUnused bool) []*ast.Diagnostic {
+	res := []*ast.Diagnostic{}
 	if file.GolarLanguageData == nil {
 		return nil
 	}
 	langData := file.GolarLanguageData.(languageData)
 	directiveMap := mapping.NewDirectiveMap(langData.ignoreDirectives, langData.expectErrorDirectives)
-	for _, diagSlice := range diagnostics {
-		for i, diag := range diagSlice {
-			if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
-				diagSlice[i] = nil
-				continue
-			}
-			adjustDiagnostic(file, diag)
+	for _, diag := range diagnostics {
+		if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
+			continue
 		}
+		res = append(res, adjustDiagnostic(file, diag))
 	}
-	unused := directiveMap.CollectUnused()
-	if len(unused) == 0 {
-		return nil
+	if !collectUnused {
+		return res
 	}
-	res := make([]*ast.Diagnostic, len(unused))
-	for i, e := range unused {
-		res[i] = ast.NewDiagnostic(file, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive)
+	for _, e := range directiveMap.CollectUnused() {
+		res = append(res, ast.NewDiagnostic(file, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive))
 	}
 	return res
 }
@@ -348,11 +532,9 @@ func positionToService(file *ast.SourceFile, pos int) int {
 }
 
 var GolarExtCallbacks = &golarext.GolarCallbacks{
-	AdjustDiagnostic:        adjustDiagnostic,
-	GetDirectiveDiagnostics: getDirectiveDiagnostics,
+	// WrapDiagnostics: wrapDiagnostics,
 	PositionToService:       positionToService,
 	WrapCompilerHost:        wrapCompilerHost,
-	WrapASTDiagnostic:       wrapASTDiagnostic,
 	ParseSourceFile:         parseFile,
 }
 

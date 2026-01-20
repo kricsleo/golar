@@ -12,8 +12,11 @@ import (
 	"github.com/microsoft/typescript-go/shim/diagnostics"
 )
 
-const GlobalTypesPath = utils.GolarVirtualScheme + "vue-global-types.d.ts"
-const globalTypesReference = `/// <reference types="` + GlobalTypesPath + `" />\n`
+// TODO: relative to cwd or executable location, so vue import works
+// const GlobalTypesPath = utils.GolarVirtualScheme + "vue-global-types.d.ts"
+const GlobalTypesPath = "/" + "vue-global-types.d.ts"
+const globalTypesReference = `/// <reference types="` + GlobalTypesPath + `" />
+`
 
 // Iterable requires es2015.iterable
 const GlobalTypes = `/// <reference lib="es2015" />
