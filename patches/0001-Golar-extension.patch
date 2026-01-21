@@ -1,4 +1,4 @@
-From 2845aa45c716ca0a2b89d687a3df9b008644d2a4 Mon Sep 17 00:00:00 2001
+From b4d11ac619934ac714b21feb2186afca7c09b96f Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Mon, 15 Dec 2025 12:37:25 +0300
 Subject: [PATCH] Golar extension
@@ -6,7 +6,7 @@ Subject: [PATCH] Golar extension
 ---
  cmd/tsgo/lsp.go                         |  5 ++++-
  cmd/tsgo/sys.go                         |  8 +++++++-
- internal/ast/ast.go                     |  8 ++++++++
+ internal/ast/ast.go                     | 12 ++++++++++++
  internal/compiler/program.go            | 23 +++++++++++++++++++++--
  internal/core/core.go                   |  4 ++--
  internal/execute/incremental/program.go |  6 +++++-
@@ -27,7 +27,7 @@ Subject: [PATCH] Golar extension
  internal/project/session.go             |  6 +++++-
  internal/project/snapshot.go            |  6 ++++++
  internal/tspath/extension.go            |  6 +++---
- 23 files changed, 140 insertions(+), 27 deletions(-)
+ 23 files changed, 144 insertions(+), 27 deletions(-)
  create mode 100644 internal/golarext/golarext.go
 
 diff --git a/cmd/tsgo/lsp.go b/cmd/tsgo/lsp.go
@@ -93,7 +93,7 @@ index e5b2b8d56..0ea723425 100644
  		writer:             os.Stdout,
  		start:              time.Now(),
 diff --git a/internal/ast/ast.go b/internal/ast/ast.go
-index 3d6dbcffc..0c71389f0 100644
+index 3d6dbcffc..1ec8050e9 100644
 --- a/internal/ast/ast.go
 +++ b/internal/ast/ast.go
 @@ -10743,6 +10743,10 @@ type SourceFile struct {
@@ -107,7 +107,15 @@ index 3d6dbcffc..0c71389f0 100644
  	// Fields set by NewSourceFile
  	fileName       string // For debugging convenience
  	parseOptions   SourceFileParseOptions
-@@ -10830,6 +10834,10 @@ func (node *SourceFile) FileName() string {
+@@ -10826,10 +10830,18 @@ func (node *SourceFile) Text() string {
+ 	return node.text
+ }
+ 
++func (node *SourceFile) SetText(text string) {
++	node.text = text
++}
++
+ func (node *SourceFile) FileName() string {
  	return node.parseOptions.FileName
  }
  
