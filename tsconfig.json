@@ -1,4 +1,5 @@
 {
+	"exclude": ["./thirdparty"],
   "compilerOptions": {
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
