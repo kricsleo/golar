@@ -16,6 +16,13 @@ const SERVICE_CODE_PROPERTIES = {
 	SOURCE_MAP: 1 << 0,
 }
 
+const SCRIPT_KIND = {
+	js: 0,
+	jsx: 1,
+	ts: 2,
+	tsx: 3,
+} as const satisfies Record<ScriptKind, number>
+
 export type Mapping = {
 	sourceOffset: number
 	serviceOffset: number
@@ -28,16 +35,18 @@ export type IgnoreDirectiveMapping = {
 	serviceLength: number
 }
 
+export type ScriptKind = 'js' | 'jsx' | 'ts' | 'tsx'
 export type ServiceCode = {
 	serviceText: string
+	scriptKind: ScriptKind
+} & ({
 	sourceMap: string
 	mappings?: never
 } | {
-	serviceText: string
 	sourceMap?: never
 	mappings: Mapping[]
 	ignoreMappings?: IgnoreDirectiveMapping[] | undefined
-}
+})
 
 export type Promisable<T> = T | Promise<T>
 
@@ -144,10 +153,11 @@ export function createPlugin(opts: CreatePluginOptions) {
 						const serviceTextLen = Buffer.byteLength(serviceCode.serviceText)
 						const sourceMapLen = Buffer.byteLength(serviceCode.sourceMap)
 
-						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 4 + serviceTextLen + 4 + sourceMapLen)
+						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 1 + 4 + serviceTextLen + 4 + sourceMapLen)
 						offset = HEADER_SIZE
 						offset = sendBuffer.writeBigUInt64LE(reqId, offset)
 						offset = sendBuffer.writeUInt8(SERVICE_CODE_PROPERTIES.SOURCE_MAP, offset)
+						offset = sendBuffer.writeUInt8(SCRIPT_KIND[serviceCode.scriptKind], offset)
 						offset = sendBuffer.writeUInt32LE(serviceTextLen, offset)
 						offset += sendBuffer.write(serviceCode.serviceText, offset)
 						offset = sendBuffer.writeUInt32LE(sourceMapLen, offset)
@@ -160,11 +170,12 @@ export function createPlugin(opts: CreatePluginOptions) {
 						const mappingsLen = serviceCode.mappings.length * (4 * 4)
 						const ignoreMappingsLen = (serviceCode.ignoreMappings?.length ?? 0) * 8
 
-						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 4 + serviceTextLen + 4 + mappingsLen + 4 + ignoreMappingsLen)
+						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 1 + 4 + serviceTextLen + 4 + mappingsLen + 4 + ignoreMappingsLen)
 
 						offset = HEADER_SIZE
 						offset = sendBuffer.writeBigUInt64LE(reqId, offset)
 						offset = sendBuffer.writeUInt8(0, offset)
+						offset = sendBuffer.writeUInt8(SCRIPT_KIND[serviceCode.scriptKind], offset)
 						offset = sendBuffer.writeUInt32LE(serviceTextLen, offset)
 						offset += sendBuffer.write(serviceCode.serviceText, offset)
 						offset = sendBuffer.writeUInt32LE(serviceCode.mappings.length, offset)

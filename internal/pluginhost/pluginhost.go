@@ -12,6 +12,7 @@ import (
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/plugin"
+	"github.com/microsoft/typescript-go/shim/core"
 )
 
 type Plugin struct {
@@ -94,6 +95,7 @@ func ensureCap(b []byte, needed uint32) []byte {
 type CreateServiceCodeResponse struct {
 	ServiceText string
 	SourceMap string
+	ScriptKind core.ScriptKind
 	Mappings []mapping.Mapping
 	IgnoreMappings []mapping.IgnoreDirectiveMapping
 }
@@ -107,8 +109,20 @@ func (p *Plugin) CreateServiceCode(fileName string, sourceText string) <- chan C
 
 		properties := payload[offset]
 		offset += 1
+		scriptKind := plugin.ScriptKind(payload[offset])
+		offset += 1
 
 		response := CreateServiceCodeResponse{}
+		switch scriptKind {
+		case plugin.ScriptKindJS:
+			response.ScriptKind = core.ScriptKindJS
+		case plugin.ScriptKindJSX:
+			response.ScriptKind = core.ScriptKindJSX
+		case plugin.ScriptKindTS:
+			response.ScriptKind = core.ScriptKindTS
+		case plugin.ScriptKindTSX:
+			response.ScriptKind = core.ScriptKindTSX
+		}
 
 		if properties & 1 != 0 {
 			serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])

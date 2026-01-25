@@ -1,7 +1,8 @@
 /// <reference types="@volar/typescript" />
 
-import { createPlugin, type IgnoreDirectiveMapping, type Mapping } from '@golar/plugin'
+import { createPlugin, type IgnoreDirectiveMapping, type Mapping, type ScriptKind } from '@golar/plugin'
 import type { LanguagePlugin } from '@volar/language-core'
+import type ts from 'typescript'
 
 type Promisable<T> = T | Promise<T>
 
@@ -126,6 +127,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 
 				return {
 					serviceText,
+					scriptKind: tsScriptKindToGolar(serviceScript?.scriptKind),
 					mappings,
 					ignoreMappings,
 				}
@@ -135,3 +137,17 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 	})
 }
 
+function tsScriptKindToGolar(scriptKind: ts.ScriptKind | undefined): ScriptKind {
+	switch (scriptKind) {
+		case 1 satisfies ts.ScriptKind.JS:
+			return 'js'
+		case 2 satisfies ts.ScriptKind.JSX:
+			return 'jsx'
+		case 3 satisfies ts.ScriptKind.TS:
+			return 'ts'
+		case 4 satisfies ts.ScriptKind.TSX:
+			return 'tsx'
+		default:
+			return 'ts'
+	}
+}

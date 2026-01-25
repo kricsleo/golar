@@ -200,7 +200,7 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	if plugin != nil {
 		resp := <-plugin.CreateServiceCode(opts.FileName, sourceText)
 
-		file := parser.ParseSourceFile(opts, resp.ServiceText, core.ScriptKindTSX)
+		file := parser.ParseSourceFile(opts, resp.ServiceText, resp.ScriptKind)
 		// TODO: figure out better way; .astro files have virtual: dev-only imports
 		if strings.Contains(opts.FileName, "/node_modules/") {
 			file.IsDeclarationFile = true

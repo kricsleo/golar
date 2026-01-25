@@ -9,6 +9,7 @@ import (
 
 type ServiceCodeWithSourceMap struct {
 	ServiceText []byte
+	ScriptKind ScriptKind
 	Mappings []byte
 }
 
@@ -24,6 +25,15 @@ func ensureCap(b []byte, needed uint32) []byte {
 	}
 	return b[:needed]
 }
+
+type ScriptKind uint8
+
+const (
+	ScriptKindJS ScriptKind = iota
+	ScriptKindJSX
+	ScriptKindTS
+	ScriptKindTSX
+)
 
 type MsgKind uint8
 
@@ -57,7 +67,7 @@ func Run(opts PluginOptions) {
 
 				res := opts.CreateServiceCodeWithSourceMap(fileName, sourceText)
 
-				responsePayloadLen := uint32(8 + 1 + 4 + len(res.ServiceText) + 4 + len(res.Mappings))
+				responsePayloadLen := uint32(8 + 1 + 1 + 4 + len(res.ServiceText) + 4 + len(res.Mappings))
 
 				offset = 0
 				sendBuf = ensureCap(sendBuf, 5 + responsePayloadLen)
@@ -68,6 +78,8 @@ func Run(opts PluginOptions) {
 				binary.LittleEndian.PutUint64(sendBuf[offset:], reqId)
 				offset += 8
 				sendBuf[offset] = 1 // TODO
+				offset += 1
+				sendBuf[offset] = byte(res.ScriptKind)
 				offset += 1
 				binary.LittleEndian.PutUint32(sendBuf[offset:], uint32(len(res.ServiceText)))
 				offset += 4
