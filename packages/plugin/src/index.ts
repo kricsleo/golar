@@ -145,12 +145,13 @@ export function createPlugin(opts: CreatePluginOptions) {
 						const sourceMapLen = Buffer.byteLength(serviceCode.sourceMap)
 
 						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 4 + serviceTextLen + 4 + sourceMapLen)
-						sendBuffer.writeBigUInt64LE(reqId, offset = HEADER_SIZE)
-						sendBuffer.writeUInt8(SERVICE_CODE_PROPERTIES.SOURCE_MAP, offset += 8)
-						sendBuffer.writeUInt32LE(serviceTextLen, offset += 1)
-						sendBuffer.write(serviceCode.serviceText, offset += 4)
-						sendBuffer.writeUInt32LE(sourceMapLen, offset += serviceTextLen)
-						sendBuffer.write(serviceCode.sourceMap, offset += 4)
+						offset = HEADER_SIZE
+						offset = sendBuffer.writeBigUInt64LE(reqId, offset)
+						offset = sendBuffer.writeUInt8(SERVICE_CODE_PROPERTIES.SOURCE_MAP, offset)
+						offset = sendBuffer.writeUInt32LE(serviceTextLen, offset)
+						offset += sendBuffer.write(serviceCode.serviceText, offset)
+						offset = sendBuffer.writeUInt32LE(sourceMapLen, offset)
+						offset = sendBuffer.write(serviceCode.sourceMap, offset)
 
 						process.stdout.write(Buffer.copyBytesFrom(sendBuffer))
 						parentPort.postMessage(null)
@@ -161,26 +162,23 @@ export function createPlugin(opts: CreatePluginOptions) {
 
 						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 4 + serviceTextLen + 4 + mappingsLen + 4 + ignoreMappingsLen)
 
-						sendBuffer.writeBigUInt64LE(reqId, offset = HEADER_SIZE)
-						sendBuffer.writeUInt8(0, offset += 8)
-						sendBuffer.writeUInt32LE(serviceTextLen, offset += 1)
-						sendBuffer.write(serviceCode.serviceText, offset += 4)
-						sendBuffer.writeUInt32LE(serviceCode.mappings.length, offset += serviceTextLen)
-						offset += 4
+						offset = HEADER_SIZE
+						offset = sendBuffer.writeBigUInt64LE(reqId, offset)
+						offset = sendBuffer.writeUInt8(0, offset)
+						offset = sendBuffer.writeUInt32LE(serviceTextLen, offset)
+						offset += sendBuffer.write(serviceCode.serviceText, offset)
+						offset = sendBuffer.writeUInt32LE(serviceCode.mappings.length, offset)
 						const writeUint32 = (os.endianness() === "LE" ? sendBuffer.writeUint32LE : sendBuffer.writeUint32BE).bind(sendBuffer)
 						for (const m of serviceCode.mappings) {
 							for (const i of [m.sourceOffset, m.serviceOffset, m.sourceLength, m.serviceLength ?? m.sourceLength]) {
-								writeUint32(i, offset)
-								offset += 4
+								offset = writeUint32(i, offset)
 							}
 						}
 
-						sendBuffer.writeUInt32LE(serviceCode.ignoreMappings?.length ?? 0, offset)
-						offset += 4
+						offset = sendBuffer.writeUInt32LE(serviceCode.ignoreMappings?.length ?? 0, offset)
 						for (const m of serviceCode.ignoreMappings ?? []) {
-							writeUint32(m.serviceOffset, offset)
-							writeUint32(m.serviceLength, offset += 4)
-							offset += 4
+							offset = writeUint32(m.serviceOffset, offset)
+							offset = writeUint32(m.serviceLength, offset)
 						}
 
 						process.stdout.write(Buffer.copyBytesFrom(sendBuffer))
