@@ -1,4 +1,4 @@
-From b4d11ac619934ac714b21feb2186afca7c09b96f Mon Sep 17 00:00:00 2001
+From ecd3ce44eabad4e31df8b9266cd1ff2e29873de1 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Mon, 15 Dec 2025 12:37:25 +0300
 Subject: [PATCH] Golar extension
@@ -8,7 +8,6 @@ Subject: [PATCH] Golar extension
  cmd/tsgo/sys.go                         |  8 +++++++-
  internal/ast/ast.go                     | 12 ++++++++++++
  internal/compiler/program.go            | 23 +++++++++++++++++++++--
- internal/core/core.go                   |  4 ++--
  internal/execute/incremental/program.go |  6 +++++-
  internal/execute/tsc.go                 |  2 ++
  internal/execute/tsc/compile.go         |  3 +++
@@ -20,14 +19,14 @@ Subject: [PATCH] Golar extension
  internal/ls/hover.go                    |  2 +-
  internal/ls/lsconv/converters.go        |  2 +-
  internal/lsp/server.go                  |  9 +++++++++
- internal/module/resolver.go             |  5 +++++
- internal/module/util.go                 |  4 ++--
+ internal/module/resolver.go             |  8 ++++++++
+ internal/module/util.go                 |  5 +++++
  internal/project/compilerhost.go        |  2 +-
  internal/project/parsecache.go          | 21 ++++++++++++++++-----
  internal/project/session.go             |  6 +++++-
  internal/project/snapshot.go            |  6 ++++++
- internal/tspath/extension.go            |  6 +++---
- 23 files changed, 144 insertions(+), 27 deletions(-)
+ internal/tspath/extension.go            | 12 ++++++++++++
+ 22 files changed, 157 insertions(+), 20 deletions(-)
  create mode 100644 internal/golarext/golarext.go
 
 diff --git a/cmd/tsgo/lsp.go b/cmd/tsgo/lsp.go
@@ -188,22 +187,6 @@ index 8527d018c..17e0334b1 100644
  	return filtered
  }
  
-diff --git a/internal/core/core.go b/internal/core/core.go
-index 345867fcc..4dec374b5 100644
---- a/internal/core/core.go
-+++ b/internal/core/core.go
-@@ -446,9 +446,9 @@ func GetScriptKindFromFileName(fileName string) ScriptKind {
- 			return ScriptKindJS
- 		case tspath.ExtensionJsx:
- 			return ScriptKindJSX
--		case tspath.ExtensionTs, tspath.ExtensionCts, tspath.ExtensionMts:
-+		case tspath.ExtensionTs, tspath.ExtensionCts, tspath.ExtensionMts, ".vue":
- 			return ScriptKindTS
--		case tspath.ExtensionTsx:
-+		case tspath.ExtensionTsx, ".svelte", ".astro":
- 			return ScriptKindTSX
- 		case tspath.ExtensionJson:
- 			return ScriptKindJSON
 diff --git a/internal/execute/incremental/program.go b/internal/execute/incremental/program.go
 index 2d5e595a6..5139eb843 100644
 --- a/internal/execute/incremental/program.go
@@ -485,38 +468,40 @@ index ad30b34ea..2873e50ac 100644
  			DefaultLibraryPath:     s.defaultLibraryPath,
  			TypingsLocation:        s.typingsLocation,
 diff --git a/internal/module/resolver.go b/internal/module/resolver.go
-index f5ae94746..534e517f7 100644
+index f5ae94746..aa0d6f3eb 100644
 --- a/internal/module/resolver.go
 +++ b/internal/module/resolver.go
-@@ -1429,6 +1429,11 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
- 			}
+@@ -1458,6 +1458,14 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
  		}
  		return continueSearching()
-+	case ".vue", ".svelte", ".astro":
-+		if resolved := r.tryExtension(originalExtension, extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
-+			return resolved
+ 	default:
++		for _, e := range tspath.ExtraExtensions {
++			if e == originalExtension {
++				if resolved := r.tryExtension(originalExtension, extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
++					return resolved
++				}
++				return continueSearching()
++			}
 +		}
-+		return continueSearching()
- 	case tspath.ExtensionTs, tspath.ExtensionDts, tspath.ExtensionJs, "":
- 		if extensions&extensionsTypeScript != 0 {
- 			if resolved := r.tryExtension(tspath.ExtensionTs, extensionless, originalExtension == tspath.ExtensionTs || originalExtension == tspath.ExtensionDts, onlyRecordFailures); !resolved.shouldContinueSearching() {
+ 		if extensions&extensionsDeclaration != 0 && !tspath.IsDeclarationFileName(extensionless+originalExtension) {
+ 			if resolved := r.tryExtension(".d"+originalExtension+".ts", extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
+ 				return resolved
 diff --git a/internal/module/util.go b/internal/module/util.go
-index 04f75150f..6fe7856a3 100644
+index 04f75150f..25831bd01 100644
 --- a/internal/module/util.go
 +++ b/internal/module/util.go
-@@ -135,10 +135,10 @@ func GetResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *Reso
- 	switch resolvedModule.Extension {
- 	case tspath.ExtensionTs, tspath.ExtensionDts,
- 		tspath.ExtensionMts, tspath.ExtensionDmts,
--		tspath.ExtensionCts, tspath.ExtensionDcts:
-+		tspath.ExtensionCts, tspath.ExtensionDcts, ".vue":
- 		// These are always allowed.
- 		return nil
--	case tspath.ExtensionTsx:
-+	case tspath.ExtensionTsx, ".svelte", ".astro":
- 		return needJsx()
- 	case tspath.ExtensionJsx:
- 		if message := needJsx(); message != nil {
+@@ -150,6 +150,11 @@ func GetResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *Reso
+ 	case tspath.ExtensionJson:
+ 		return needResolveJsonModule()
+ 	default:
++		for _, e := range tspath.ExtraExtensions {
++			if e == resolvedModule.Extension {
++				return nil
++			}
++		}
+ 		return needAllowArbitraryExtensions()
+ 	}
+ }
 diff --git a/internal/project/compilerhost.go b/internal/project/compilerhost.go
 index d36d67593..d9ad39183 100644
 --- a/internal/project/compilerhost.go
@@ -632,22 +617,35 @@ index dcb945a9e..418a1fbc6 100644
  func NewSnapshot(
  	id uint64,
 diff --git a/internal/tspath/extension.go b/internal/tspath/extension.go
-index 1b4422e79..df24c0166 100644
+index 1b4422e79..0d0198a8e 100644
 --- a/internal/tspath/extension.go
 +++ b/internal/tspath/extension.go
-@@ -26,9 +26,9 @@ var (
+@@ -23,6 +23,7 @@ const (
+ )
+ 
+ var (
++	ExtraExtensions = []string{}
  	supportedDeclarationExtensions                 = []string{ExtensionDts, ExtensionDcts, ExtensionDmts}
  	supportedTSImplementationExtensions            = []string{ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
  	supportedTSExtensionsForExtractExtension       = []string{ExtensionDts, ExtensionDcts, ExtensionDmts, ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
--	AllSupportedExtensions                         = [][]string{{ExtensionTs, ExtensionTsx, ExtensionDts, ExtensionJs, ExtensionJsx}, {ExtensionCts, ExtensionDcts, ExtensionCjs}, {ExtensionMts, ExtensionDmts, ExtensionMjs}}
--	SupportedTSExtensions                          = [][]string{{ExtensionTs, ExtensionTsx, ExtensionDts}, {ExtensionCts, ExtensionDcts}, {ExtensionMts, ExtensionDmts}}
--	SupportedTSExtensionsFlat                      = []string{ExtensionTs, ExtensionTsx, ExtensionDts, ExtensionCts, ExtensionDcts, ExtensionMts, ExtensionDmts}
-+	AllSupportedExtensions                         = [][]string{{ExtensionTs, ExtensionTsx, ExtensionDts, ExtensionJs, ExtensionJsx, ".vue", ".svelte", ".astro"}, {ExtensionCts, ExtensionDcts, ExtensionCjs}, {ExtensionMts, ExtensionDmts, ExtensionMjs}}
-+	SupportedTSExtensions                          = [][]string{{ExtensionTs, ExtensionTsx, ExtensionDts, ".vue", ".svelte", ".astro"}, {ExtensionCts, ExtensionDcts}, {ExtensionMts, ExtensionDmts}}
-+	SupportedTSExtensionsFlat                      = []string{ExtensionTs, ExtensionTsx, ExtensionDts, ExtensionCts, ExtensionDcts, ExtensionMts, ExtensionDmts, ".vue", ".svelte", ".astro"}
- 	SupportedJSExtensions                          = [][]string{{ExtensionJs, ExtensionJsx}, {ExtensionMjs}, {ExtensionCjs}}
- 	SupportedJSExtensionsFlat                      = []string{ExtensionJs, ExtensionJsx, ExtensionMjs, ExtensionCjs}
- 	AllSupportedExtensionsWithJson                 = slices.Concat(AllSupportedExtensions, [][]string{{ExtensionJson}})
+@@ -37,6 +38,17 @@ var (
+ 	ExtensionsNotSupportingExtensionlessResolution = []string{ExtensionMts, ExtensionDmts, ExtensionMjs, ExtensionCts, ExtensionDcts, ExtensionCjs}
+ )
+ 
++
++func RegisterSupportedExtension(ext string) {
++	ExtraExtensions = append(ExtraExtensions, ext)
++	AllSupportedExtensions[0] = append(AllSupportedExtensions[0], ext)
++	AllSupportedExtensionsWithJson[0] = append(AllSupportedExtensionsWithJson[0], ext)
++	SupportedTSExtensions[0] = append(SupportedTSExtensions[0], ext)
++	SupportedTSExtensionsWithJson[0] = append(SupportedTSExtensionsWithJson[0], ext)
++	SupportedTSExtensionsFlat = append(SupportedTSExtensionsFlat, ext)
++	SupportedTSExtensionsWithJsonFlat = append(SupportedTSExtensionsWithJsonFlat, ext)
++}
++
+ func ExtensionIsTs(ext string) bool {
+ 	return ext == ExtensionTs || ext == ExtensionTsx || ext == ExtensionDts || ext == ExtensionMts || ext == ExtensionDmts || ext == ExtensionCts || ext == ExtensionDcts || len(ext) >= 7 && ext[:3] == ".d." && ext[len(ext)-3:] == ".ts"
+ }
 -- 
 2.51.0
 

@@ -52,6 +52,7 @@ const ExtensionTs = tspath.ExtensionTs
 const ExtensionTsBuildInfo = tspath.ExtensionTsBuildInfo
 const ExtensionTsx = tspath.ExtensionTsx
 var ExtensionsNotSupportingExtensionlessResolution = tspath.ExtensionsNotSupportingExtensionlessResolution
+var ExtraExtensions = tspath.ExtraExtensions
 //go:linkname FileExtensionIs github.com/microsoft/typescript-go/internal/tspath.FileExtensionIs
 func FileExtensionIs(path string, extension string) bool
 //go:linkname FileExtensionIsOneOf github.com/microsoft/typescript-go/internal/tspath.FileExtensionIsOneOf
@@ -125,6 +126,8 @@ type Path = tspath.Path
 func PathIsAbsolute(path string) bool
 //go:linkname PathIsRelative github.com/microsoft/typescript-go/internal/tspath.PathIsRelative
 func PathIsRelative(path string) bool
+//go:linkname RegisterSupportedExtension github.com/microsoft/typescript-go/internal/tspath.RegisterSupportedExtension
+func RegisterSupportedExtension(ext string)
 //go:linkname RemoveExtension github.com/microsoft/typescript-go/internal/tspath.RemoveExtension
 func RemoveExtension(path string, extension string) string
 //go:linkname RemoveFileExtension github.com/microsoft/typescript-go/internal/tspath.RemoveFileExtension

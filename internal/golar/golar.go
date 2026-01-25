@@ -89,6 +89,10 @@ func init() {
 			}
 		}
 	}
+
+	tspath.RegisterSupportedExtension(".vue")
+	tspath.RegisterSupportedExtension(".svelte")
+	tspath.RegisterSupportedExtension(".astro")
 }
 
 func sourceMapToMapping(inputMappings string, sourceText string, serviceText string) []mapping.Mapping {
