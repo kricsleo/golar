@@ -3,15 +3,15 @@ package mapping
 import "github.com/microsoft/typescript-go/shim/core"
 
 type IgnoreDirectiveMapping struct {
-	ServiceOffset int
-	ServiceLength int
+	ServiceOffset uint32
+	ServiceLength uint32
 }
 
 type ExpectErrorDirectiveMapping struct {
-	SourceOffset  int
-	ServiceOffset int
-	SourceLength  int
-	ServiceLength int
+	SourceOffset  uint32
+	ServiceOffset uint32
+	SourceLength  uint32
+	ServiceLength uint32
 }
 
 type ExpectErrorDirectiveMappingWithUsed struct {
@@ -44,8 +44,8 @@ func (d *DirectiveMap) IsServiceRangeIgnored(serviceRange core.TextRange) bool {
 	result := false
 	for _, mapping := range d.IgnoreMappings {
 		mappingRange := core.NewTextRange(
-			mapping.ServiceOffset,
-			mapping.ServiceOffset+mapping.ServiceLength,
+			int(mapping.ServiceOffset),
+			int(mapping.ServiceOffset+mapping.ServiceLength),
 		)
 		if serviceRange.ContainedBy(mappingRange) {
 			result = true
@@ -55,13 +55,15 @@ func (d *DirectiveMap) IsServiceRangeIgnored(serviceRange core.TextRange) bool {
 
 	for i, mapping := range d.ExpectErrorMappings {
 		mappingRange := core.NewTextRange(
-			mapping.ServiceOffset,
-			mapping.ServiceOffset+mapping.ServiceLength,
+			int(mapping.ServiceOffset),
+			int(mapping.ServiceOffset+mapping.ServiceLength),
 		)
 		if serviceRange.ContainedBy(mappingRange) {
 			result = true
-			d.ExpectErrorMappings[i].Used = true
-			d.Used++
+			if !d.ExpectErrorMappings[i].Used {
+				d.ExpectErrorMappings[i].Used = true
+				d.Used++
+			}
 		}
 	}
 

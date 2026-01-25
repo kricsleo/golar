@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/plugin"
@@ -126,49 +127,17 @@ func (p *Plugin) CreateServiceCode(fileName string, sourceText string) <- chan C
 			offset += serviceTextLen
 
 			mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+			mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
 			offset += 4
 			response.Mappings = make([]mapping.Mapping, mappingsCount)
-			for i := range mappingsCount {
-				hasServiceLengths := (payload[offset] & (1 << 7)) != 0
-				count := payload[offset] & ^byte(1 << 7)
-				offset += 1
-
-				response.Mappings[i].SourceOffsets = make([]int, count)
-				for j := range count {
-					response.Mappings[i].SourceOffsets[j] = int(binary.LittleEndian.Uint32(payload[offset:]))
-					offset += 4
-				}
-
-				response.Mappings[i].ServiceOffsets = make([]int, count)
-				for j := range count {
-					response.Mappings[i].ServiceOffsets[j] = int(binary.LittleEndian.Uint32(payload[offset:]))
-					offset += 4
-				}
-
-				response.Mappings[i].SourceLengths = make([]int, count)
-				for j := range count {
-					response.Mappings[i].SourceLengths[j] = int(binary.LittleEndian.Uint32(payload[offset:]))
-					offset += 4
-				}
-
-				if hasServiceLengths {
-					response.Mappings[i].ServiceLengths = make([]int, count)
-					for j := range count {
-						response.Mappings[i].ServiceLengths[j] = int(binary.LittleEndian.Uint32(payload[offset:]))
-						offset += 4
-					}
-				}
-			}
+			copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
+			offset += mappingsByteLen
 
 			ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+			ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))
 			offset += 4
 			response.IgnoreMappings = make([]mapping.IgnoreDirectiveMapping, ignoreMappingsCount)
-			for i := range ignoreMappingsCount {
-				response.IgnoreMappings[i].ServiceOffset = int(binary.LittleEndian.Uint32(payload[offset:]))
-				offset += 4
-				response.IgnoreMappings[i].ServiceLength = int(binary.LittleEndian.Uint32(payload[offset:]))
-				offset += 4
-			}
+			copy(response.IgnoreMappings, unsafe.Slice((*mapping.IgnoreDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+ignoreMappingsByteLen]))), ignoreMappingsCount))
 		}
 
 		ch <- response

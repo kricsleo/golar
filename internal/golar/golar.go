@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/internal/pluginhost"
@@ -17,7 +16,6 @@ import (
 	"github.com/microsoft/typescript-go/shim/compiler"
 	"github.com/microsoft/typescript-go/shim/core"
 	"github.com/microsoft/typescript-go/shim/diagnostics"
-	"github.com/microsoft/typescript-go/shim/diagnosticwriter"
 	"github.com/microsoft/typescript-go/shim/golarext"
 	"github.com/microsoft/typescript-go/shim/parser"
 	"github.com/microsoft/typescript-go/shim/scanner"
@@ -61,132 +59,6 @@ func wrapCompilerHost(host compiler.CompilerHost) compiler.CompilerHost {
 	return &compilerHostProxy{host}
 }
 
-type diagnosticProxy struct {
-	*ast.Diagnostic
-	cachedSourceLoc core.TextRange
-	hasSource       bool
-}
-
-func newDiagnosticProxy(base *ast.Diagnostic) *diagnosticProxy {
-	return &diagnosticProxy{
-		Diagnostic:      base,
-		cachedSourceLoc: core.NewTextRange(-1, -1),
-	}
-}
-
-func (d *diagnosticProxy) sourceLoc() core.TextRange {
-	if d.cachedSourceLoc.Pos() == -1 {
-		if d.Diagnostic.Code() >= 1_000_000 {
-			d.cachedSourceLoc = d.Diagnostic.Loc()
-			d.hasSource = true
-			return d.cachedSourceLoc
-		}
-		file := d.Diagnostic.File()
-		if file != nil && file.GolarLanguageData != nil {
-			langData := file.GolarLanguageData.(languageData)
-			for _, sourceLoc := range langData.sourceMap.ToSourceRange(d.Diagnostic.Pos(), d.Diagnostic.End(), true) {
-				d.cachedSourceLoc = core.NewTextRange(sourceLoc.MappedStart, sourceLoc.MappedEnd)
-				d.hasSource = true
-				return d.cachedSourceLoc
-			}
-			d.cachedSourceLoc = core.NewTextRange(0, 0)
-		} else {
-			d.cachedSourceLoc = d.Diagnostic.Loc()
-		}
-	}
-	return d.cachedSourceLoc
-}
-
-func (d *diagnosticProxy) RelatedInformation() []diagnosticwriter.Diagnostic {
-	related := d.Diagnostic.RelatedInformation()
-	result := []diagnosticwriter.Diagnostic{}
-	for _, r := range related {
-		relProxy := newDiagnosticProxy(r)
-		if r.Code() >= 1_000_000 {
-			result = append(result, relProxy)
-			continue
-		}
-		relProxy.sourceLoc()
-		if relProxy.hasSource {
-			result = append(result, relProxy)
-		}
-	}
-	return result
-}
-
-func (d *diagnosticProxy) MessageChain() []diagnosticwriter.Diagnostic {
-	chain := d.Diagnostic.MessageChain()
-	result := []diagnosticwriter.Diagnostic{}
-	for _, r := range chain {
-		relProxy := newDiagnosticProxy(r)
-		if r.Code() >= 1_000_000 {
-			result = append(result, relProxy)
-			continue
-		}
-		relProxy.sourceLoc()
-		if relProxy.hasSource {
-			result = append(result, relProxy)
-		}
-	}
-	return result
-}
-
-type fileProxy struct {
-	*ast.SourceFile
-	ecmaLineMapMu sync.RWMutex
-	ecmaLineMap   []core.TextPos
-}
-
-func (f *fileProxy) Text() string {
-	return f.SourceFile.GolarLanguageData.(languageData).sourceText
-}
-
-func (f *fileProxy) ECMALineMap() []core.TextPos {
-	f.ecmaLineMapMu.RLock()
-	lineMap := f.ecmaLineMap
-	f.ecmaLineMapMu.RUnlock()
-	if lineMap == nil {
-		f.ecmaLineMapMu.Lock()
-		defer f.ecmaLineMapMu.Unlock()
-		lineMap = f.ecmaLineMap
-		if lineMap == nil {
-			lineMap = core.ComputeECMALineStarts(f.Text())
-			f.ecmaLineMap = lineMap
-		}
-	}
-	return lineMap
-}
-
-func (d *diagnosticProxy) File() diagnosticwriter.FileLike {
-	if file := d.Diagnostic.File(); file != nil {
-		if file.GolarLanguageData == nil {
-			return file
-		}
-		return &fileProxy{SourceFile: file}
-	}
-	return nil
-}
-
-func (d *diagnosticProxy) Loc() core.TextRange {
-	return d.sourceLoc()
-}
-
-func (d *diagnosticProxy) Len() int {
-	return d.sourceLoc().Len()
-}
-
-func (d *diagnosticProxy) Pos() int {
-	return d.sourceLoc().Pos()
-}
-
-func (d *diagnosticProxy) End() int {
-	return d.sourceLoc().End()
-}
-
-func wrapASTDiagnostic(diagnostic *ast.Diagnostic) diagnosticwriter.Diagnostic {
-	return newDiagnosticProxy(diagnostic)
-}
-
 var vuePlugin *pluginhost.Plugin
 var sveltePlugin *pluginhost.Plugin
 var astroPlugin *pluginhost.Plugin
@@ -226,8 +98,8 @@ func sourceMapToMapping(inputMappings string, sourceText string, serviceText str
 	mappings := make([]mapping.Mapping, 0)
 
 	type currentMapping struct {
-		genOffset    int
-		sourceOffset int
+		genOffset    uint32
+		sourceOffset uint32
 	}
 
 	var current *currentMapping
@@ -236,18 +108,18 @@ func sourceMapToMapping(inputMappings string, sourceText string, serviceText str
 		if decoded == nil {
 			continue
 		}
-		genOffset := scanner.ComputePositionOfLineAndCharacterEx(
+		genOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
 			serviceLineMap,
 			decoded.GeneratedLine,
 			decoded.GeneratedCharacter,
 			&serviceText,
 			false,
-		)
+		))
 		if current != nil {
 			length := genOffset - current.genOffset
 			if length > 0 {
-				sourceEnd := min(current.sourceOffset+length, len(sourceText))
-				genEnd := min(current.genOffset+length, len(serviceText))
+				sourceEnd := min(current.sourceOffset+length, uint32(len(sourceText)))
+				genEnd := min(current.genOffset+length, uint32(len(serviceText)))
 				sourceChunk := sourceText[current.sourceOffset:sourceEnd]
 				genChunk := serviceText[current.genOffset:genEnd]
 				if sourceChunk != genChunk {
@@ -255,7 +127,7 @@ func sourceMapToMapping(inputMappings string, sourceText string, serviceText str
 					maxLen := min(len(sourceChunk), len(genChunk))
 					for i := range maxLen {
 						if sourceChunk[i] == genChunk[i] {
-							length = i + 1
+							length = uint32(i) + 1
 						} else {
 							break
 						}
@@ -265,21 +137,21 @@ func sourceMapToMapping(inputMappings string, sourceText string, serviceText str
 			if length > 0 {
 				if len(mappings) > 0 {
 					last := &mappings[len(mappings)-1]
-					if last.ServiceOffsets[0]+last.SourceLengths[0] == current.genOffset &&
-						last.SourceOffsets[0]+last.SourceLengths[0] == current.sourceOffset {
-						last.SourceLengths[0] += length
+					if last.ServiceOffset+last.SourceLength == current.genOffset &&
+						last.SourceOffset+last.SourceLength == current.sourceOffset {
+						last.SourceLength += length
 					} else {
 						mappings = append(mappings, mapping.Mapping{
-							SourceOffsets:  []int{current.sourceOffset},
-							ServiceOffsets: []int{current.genOffset},
-							SourceLengths:  []int{length},
+							SourceOffset:  current.sourceOffset,
+							ServiceOffset: current.genOffset,
+							SourceLength:  length,
 						})
 					}
 				} else {
 					mappings = append(mappings, mapping.Mapping{
-						SourceOffsets:  []int{current.sourceOffset},
-						ServiceOffsets: []int{current.genOffset},
-						SourceLengths:  []int{length},
+						SourceOffset:  current.sourceOffset,
+						ServiceOffset: current.genOffset,
+						SourceLength:  length,
 					})
 				}
 			}
@@ -289,13 +161,13 @@ func sourceMapToMapping(inputMappings string, sourceText string, serviceText str
 			if decoded.SourceIndex != 0 {
 				continue
 			}
-			sourceOffset := scanner.ComputePositionOfLineAndCharacterEx(
+			sourceOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
 				sourceLineMap,
 				decoded.SourceLine,
 				decoded.SourceCharacter,
 				&sourceText,
-				false,
-			)
+				true,
+			))
 			current = &currentMapping{
 				genOffset:    genOffset,
 				sourceOffset: sourceOffset,
@@ -324,7 +196,7 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	if plugin != nil {
 		resp := <-plugin.CreateServiceCode(opts.FileName, sourceText)
 
-		file := parser.ParseSourceFile(opts, resp.ServiceText, scriptKind)
+		file := parser.ParseSourceFile(opts, resp.ServiceText, core.ScriptKindTSX)
 		// TODO: figure out better way; .astro files have virtual: dev-only imports
 		if strings.Contains(opts.FileName, "/node_modules/") {
 			file.IsDeclarationFile = true
@@ -355,10 +227,10 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 			langData.ignoreDirectives = resp.IgnoreMappings
 		}
 		file.GolarLanguageData = langData
-		diags := file.Diagnostics()
-		for i, diag := range diags {
-			diags[i] = adjustDiagnostic(file, diag)
-		}
+		// diags := file.Diagnostics()
+		// for i, diag := range diags {
+		// 	diags[i] = adjustDiagnostic(file, diag)
+		// }
 
 		return file
 	}
@@ -397,12 +269,26 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 		fileDiagnostics = []*ast.Diagnostic{ast.NewDiagnostic(nil, core.NewTextRange(0, 0), msg)}
 	}
 	file := parser.ParseSourceFile(opts, serviceText, scriptKind)
-	for _, d := range fileDiagnostics {
-		d.SetFile(file)
-		for _, r := range d.RelatedInformation() {
-			r.SetFile(file)
+		file.WrapDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
+			newFile := ast.SourceFile{
+			}
+			newFile.GolarLanguageData = file.GolarLanguageData
+			newFile.SetText(sourceText)
+			newFile.SetParseOptions(file.ParseOptions())
+			return wrapDiagnostics(&newFile, diags, false)
 		}
-	}
+		file.WrapSemanticDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
+			// TODO: this is hack
+			newFile := ast.SourceFile{}
+			newFile.GolarLanguageData = file.GolarLanguageData
+			newFile.SetText(sourceText)
+			newFile.SetParseOptions(file.ParseOptions())
+			return wrapDiagnostics(&newFile, diags, true)
+		}
+		diags := file.Diagnostics()
+		for i, diag := range diags {
+			diags[i] = adjustDiagnostic(file, diag)
+		}
 	file.SetDiagnostics(append(file.Diagnostics(), fileDiagnostics...))
 	file.GolarLanguageData = languageData{
 		sourceText:            sourceText,
@@ -485,8 +371,8 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 		return diagnostic
 	}
 	langData := file.GolarLanguageData.(languageData)
-	for _, sourceRange := range langData.sourceMap.ToSourceRange(diagnostic.Pos(), diagnostic.End(), true) {
-		diagnostic.SetLocation(core.NewTextRange(sourceRange.MappedStart, sourceRange.MappedEnd))
+	for _, sourceRange := range langData.sourceMap.ToSourceRange(uint32(diagnostic.Pos()), uint32(diagnostic.End()), true) {
+		diagnostic.SetLocation(core.NewTextRange(int(sourceRange.MappedStart), int(sourceRange.MappedEnd)))
 		return diagnostic
 	}
 
@@ -512,7 +398,7 @@ func wrapDiagnostics(file *ast.SourceFile, diagnostics []*ast.Diagnostic, collec
 		return res
 	}
 	for _, e := range directiveMap.CollectUnused() {
-		res = append(res, ast.NewDiagnostic(file, core.NewTextRange(e.SourceOffset, e.SourceOffset+e.SourceLength), unused_directive))
+		res = append(res, ast.NewDiagnostic(file, core.NewTextRange(int(e.SourceOffset), int(e.SourceOffset+e.SourceLength)), unused_directive))
 	}
 	return res
 }
@@ -525,8 +411,8 @@ func positionToService(file *ast.SourceFile, pos int) int {
 	}
 
 	langData := file.GolarLanguageData.(languageData)
-	for _, serviceLoc := range langData.sourceMap.ToServiceLocation(pos) {
-		return serviceLoc.Offset
+	for _, serviceLoc := range langData.sourceMap.ToServiceLocation(uint32(pos)) {
+		return int(serviceLoc.Offset)
 	}
 	return pos
 }

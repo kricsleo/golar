@@ -78,19 +78,24 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 
 				const serviceCovered: [number, number][] = []
 				const mappings = verificationMappings
-					.map((m): Mapping => {
-						for (const [i, offset] of m.generatedOffsets.entries()) {
-  			   	const len = m.generatedLengths?.[i] ?? m.lengths[i]!;
-  			    	if (len > 0) {
-								serviceCovered.push([serviceOffsetsUtf8.get(offset)!, serviceOffsetsUtf8.get(offset + len)!])
+					.flatMap((m): Mapping[] => {
+						return m.sourceOffsets.map((sourceOffset, i) => {
+							const generatedOffset = m.generatedOffsets[i]!
+							const sourceLength = m.lengths[i]!
+							const generatedLength = m.generatedLengths?.[i] ?? sourceLength
+							if (generatedLength > 0) {
+								serviceCovered.push([serviceOffsetsUtf8.get(generatedOffset)!, serviceOffsetsUtf8.get(generatedOffset + generatedLength)!])
 							}
-						}
-						return {
-							sourceOffsets: m.sourceOffsets.map(o => sourceOffsetsUtf8.get(o)!),
-							serviceOffsets: m.generatedOffsets.map(o => serviceOffsetsUtf8.get(o)!),
-							sourceLengths: m.lengths.map((l, i) => sourceOffsetsUtf8.get(m.sourceOffsets[i]! + l)! - sourceOffsetsUtf8.get(m.sourceOffsets[i]!)!),
-							serviceLengths: m.generatedLengths?.map((l, i) => serviceOffsetsUtf8.get(m.generatedOffsets[i]! + l)! - serviceOffsetsUtf8.get(m.generatedOffsets[i]!)!),
-						}
+
+							const sourceOffsetUtf8 = sourceOffsetsUtf8.get(sourceOffset)!
+							const generatedOffsetUtf8 = serviceOffsetsUtf8.get(generatedOffset)!
+							return {
+								sourceOffset: sourceOffsetUtf8,
+								serviceOffset: generatedOffsetUtf8,
+								sourceLength: sourceOffsetsUtf8.get(sourceOffset + sourceLength)! - sourceOffsetUtf8,
+								serviceLengths: serviceOffsetsUtf8.get(generatedOffset + generatedLength)! - generatedOffsetUtf8,
+							}
+						})
 					})
 
   			serviceCovered.sort((a, b) => a[0] - b[0] || a[1] - b[1]);

@@ -17,10 +17,10 @@ const SERVICE_CODE_PROPERTIES = {
 }
 
 export type Mapping = {
-	sourceOffsets: number[]
-	serviceOffsets: number[]
-	sourceLengths: number[]
-	serviceLengths?: number[] | undefined
+	sourceOffset: number
+	serviceOffset: number
+	sourceLength: number
+	serviceLength?: number | undefined
 }
 
 export type IgnoreDirectiveMapping = {
@@ -156,15 +156,7 @@ export function createPlugin(opts: CreatePluginOptions) {
 						parentPort.postMessage(null)
 					} else {
 						const serviceTextLen = Buffer.byteLength(serviceCode.serviceText)
-						const mappingsLen = serviceCode.mappings.reduce((sum, m) => {
-							assert.ok(m.sourceOffsets.length < 0xf)
-							assert.equal(m.sourceOffsets.length, m.serviceOffsets.length)
-							assert.equal(m.sourceOffsets.length, m.sourceLengths.length)
-							if (m.serviceLengths != null) {
-								assert.equal(m.sourceOffsets.length, m.serviceLengths.length)
-							}
-							return sum + 1 + 4 * m.sourceOffsets.length * (3 + Number(m.serviceLengths != null))
-						}, 0)
+						const mappingsLen = serviceCode.mappings.length * (4 * 4)
 						const ignoreMappingsLen = (serviceCode.ignoreMappings?.length ?? 0) * 8
 
 						const sendBuffer = prepareSendBuffer(MSG_KIND.CREATE_SERVICE_CODE_RESPONSE, 8 + 1 + 4 + serviceTextLen + 4 + mappingsLen + 4 + ignoreMappingsLen)
@@ -175,22 +167,19 @@ export function createPlugin(opts: CreatePluginOptions) {
 						sendBuffer.write(serviceCode.serviceText, offset += 4)
 						sendBuffer.writeUInt32LE(serviceCode.mappings.length, offset += serviceTextLen)
 						offset += 4
+						const writeUint32 = (os.endianness() === "LE" ? sendBuffer.writeUint32LE : sendBuffer.writeUint32BE).bind(sendBuffer)
 						for (const m of serviceCode.mappings) {
-							sendBuffer.writeUInt8(m.sourceOffsets.length | (Number(m.serviceLengths != null) << 7), offset)
-							offset += 1
-							for (const arr of [m.sourceOffsets, m.serviceOffsets, m.sourceLengths, m.serviceLengths ?? []]) {
-								for (const i of arr) {
-									sendBuffer.writeUInt32LE(i, offset)
-									offset += 4
-								}
+							for (const i of [m.sourceOffset, m.serviceOffset, m.sourceLength, m.serviceLength ?? m.sourceLength]) {
+								writeUint32(i, offset)
+								offset += 4
 							}
 						}
 
 						sendBuffer.writeUInt32LE(serviceCode.ignoreMappings?.length ?? 0, offset)
 						offset += 4
 						for (const m of serviceCode.ignoreMappings ?? []) {
-							sendBuffer.writeUInt32LE(m.serviceOffset, offset)
-							sendBuffer.writeUInt32LE(m.serviceLength, offset += 4)
+							writeUint32(m.serviceOffset, offset)
+							writeUint32(m.serviceLength, offset += 4)
 							offset += 4
 						}
 

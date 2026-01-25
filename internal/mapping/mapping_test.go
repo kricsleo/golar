@@ -5,43 +5,43 @@ import "testing"
 func TestBinarySearch(t *testing.T) {
 	cases := []struct {
 		name      string
-		values    []int
-		search    int
+		values    []uint32
+		search    uint32
 		wantLow   int
 		wantHigh  int
 		wantMatch *int
 	}{
 		{
 			name:     "value between elements",
-			values:   []int{1, 3, 5, 7, 9},
+			values:   []uint32{1, 3, 5, 7, 9},
 			search:   4,
 			wantLow:  1,
 			wantHigh: 2,
 		},
 		{
 			name:     "value less than first element",
-			values:   []int{1, 3, 5, 7, 9},
+			values:   []uint32{1, 3, 5, 7, 9},
 			search:   0,
 			wantLow:  0,
 			wantHigh: 0,
 		},
 		{
 			name:     "value greater than last element",
-			values:   []int{1, 3, 5, 7, 9},
+			values:   []uint32{1, 3, 5, 7, 9},
 			search:   10,
 			wantLow:  4,
 			wantHigh: 4,
 		},
 		{
 			name:     "empty array",
-			values:   []int{},
+			values:   []uint32{},
 			search:   1,
 			wantLow:  0,
 			wantHigh: -1,
 		},
 		{
 			name:      "value at start of array",
-			values:    []int{1, 3, 5, 7, 9},
+			values:    []uint32{1, 3, 5, 7, 9},
 			search:    1,
 			wantLow:   0,
 			wantHigh:  0,
@@ -49,7 +49,7 @@ func TestBinarySearch(t *testing.T) {
 		},
 		{
 			name:      "value at end of array",
-			values:    []int{1, 3, 5, 7, 9},
+			values:    []uint32{1, 3, 5, 7, 9},
 			search:    9,
 			wantLow:   4,
 			wantHigh:  4,
@@ -57,7 +57,7 @@ func TestBinarySearch(t *testing.T) {
 		},
 		{
 			name:      "single element array, value matches",
-			values:    []int{1},
+			values:    []uint32{1},
 			search:    1,
 			wantLow:   0,
 			wantHigh:  0,
@@ -65,14 +65,14 @@ func TestBinarySearch(t *testing.T) {
 		},
 		{
 			name:     "single element array, value does not match",
-			values:   []int{1},
+			values:   []uint32{1},
 			search:   2,
 			wantLow:  0,
 			wantHigh: 0,
 		},
 		{
 			name:      "two elements array, value matches first",
-			values:    []int{1, 2},
+			values:    []uint32{1, 2},
 			search:    1,
 			wantLow:   0,
 			wantHigh:  0,
@@ -80,7 +80,7 @@ func TestBinarySearch(t *testing.T) {
 		},
 		{
 			name:      "two elements array, value matches second",
-			values:    []int{1, 2},
+			values:    []uint32{1, 2},
 			search:    2,
 			wantLow:   1,
 			wantHigh:  1,
@@ -88,7 +88,7 @@ func TestBinarySearch(t *testing.T) {
 		},
 		{
 			name:     "two elements array, value does not match",
-			values:   []int{1, 2},
+			values:   []uint32{1, 2},
 			search:   3,
 			wantLow:  1,
 			wantHigh: 1,
@@ -105,85 +105,61 @@ func TestBinarySearch(t *testing.T) {
 func TestTranslateOffset(t *testing.T) {
 	cases := []struct {
 		name        string
-		start       int
-		fromOffsets []int
-		toOffsets   []int
-		fromLengths []int
-		toLengths   []int
-		want        int
+		start       uint32
+		fromOffset  uint32
+		toOffset    uint32
+		fromLength  uint32
+		toLength    uint32
+		want        uint32
 		wantOk      bool
 	}{
 		{
 			name:        "start within fromRange, offset within toRange",
 			start:       5,
-			fromOffsets: []int{1},
-			toOffsets:   []int{11},
-			fromLengths: []int{9},
+			fromOffset: 1,
+			toOffset:   11,
+			fromLength: 9,
+			toLength: 9,
 			want:        15,
 			wantOk:      true,
 		},
 		{
 			name:        "start outside fromRange",
 			start:       0,
-			fromOffsets: []int{1},
-			toOffsets:   []int{11},
-			fromLengths: []int{9},
+			fromOffset: 1,
+			toOffset:   11,
+			fromLength: 9,
+			toLength: 9,
 			want:        0,
 			wantOk:      false,
 		},
 		{
 			name:        "start at end of fromRange with shorter toLength",
 			start:       10,
-			fromOffsets: []int{1},
-			toOffsets:   []int{11},
-			fromLengths: []int{9},
-			toLengths:   []int{7},
+			fromOffset: 1,
+			toOffset:   11,
+			fromLength: 9,
+			toLength:   7,
 			want:        18,
-			wantOk:      true,
-		},
-		{
-			name:        "hits second segment",
-			start:       12,
-			fromOffsets: []int{0, 10},
-			toOffsets:   []int{100, 200},
-			fromLengths: []int{5, 5},
-			want:        202,
 			wantOk:      true,
 		},
 		{
 			name:        "uses fromLengths when toLengths is empty",
 			start:       3,
-			fromOffsets: []int{1},
-			toOffsets:   []int{11},
-			fromLengths: []int{4},
+			fromOffset: 1,
+			toOffset:   11,
+			fromLength: 4,
+			toLength: 4,
 			want:        13,
 			wantOk:      true,
 		},
 		{
-			name:        "mismatched lengths ignore extra segments",
-			start:       12,
-			fromOffsets: []int{0, 10},
-			toOffsets:   []int{100},
-			fromLengths: []int{5, 5},
-			want:        0,
-			wantOk:      false,
-		},
-		{
-			name:        "empty inputs",
-			start:       5,
-			fromOffsets: nil,
-			toOffsets:   nil,
-			fromLengths: nil,
-			toLengths:   nil,
-			want:        0,
-			wantOk:      false,
-		},
-		{
 			name:        "start equals fromOffset",
 			start:       10,
-			fromOffsets: []int{10},
-			toOffsets:   []int{50},
-			fromLengths: []int{2},
+			fromOffset: 10,
+			toOffset:   50,
+			fromLength: 2,
+			toLength: 2,
 			want:        50,
 			wantOk:      true,
 		},
@@ -191,29 +167,34 @@ func TestTranslateOffset(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assertTranslateOffset(t, tc.start, tc.fromOffsets, tc.toOffsets, tc.fromLengths, tc.toLengths, tc.want, tc.wantOk)
+			assertTranslateOffset(t, tc.start, tc.fromOffset, tc.toOffset, tc.fromLength, tc.toLength, tc.want, tc.wantOk)
 		})
 	}
 }
 
 func TestSourceMapLocations(t *testing.T) {
-	mapping := Mapping{
-		SourceOffsets:  []int{0, 10},
-		ServiceOffsets: []int{100, 110},
-		SourceLengths:  []int{5, 5},
+	mapping1 := Mapping{
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  5,
+	}
+	mapping2 := Mapping{
+		SourceOffset:  10,
+		ServiceOffset: 110,
+		SourceLength:  5,
 	}
 	overlapMapping := Mapping{
-		SourceOffsets:  []int{0},
-		ServiceOffsets: []int{100},
-		SourceLengths:  []int{10},
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  10,
 	}
 
 	cases := []struct {
 		name      string
 		mappings  []Mapping
 		toSource  bool
-		offset    int
-		want      []int
+		offset    uint32
+		want      []uint32
 		wantEmpty bool
 	}{
 		{
@@ -225,28 +206,28 @@ func TestSourceMapLocations(t *testing.T) {
 		},
 		{
 			name:     "to source location",
-			mappings: []Mapping{mapping},
+			mappings: []Mapping{mapping1, mapping2},
 			toSource: true,
 			offset:   102,
-			want:     []int{2},
+			want:     []uint32{2},
 		},
 		{
 			name:     "to service location",
-			mappings: []Mapping{mapping},
+			mappings: []Mapping{mapping1, mapping2},
 			toSource: false,
 			offset:   12,
-			want:     []int{112},
+			want:     []uint32{112},
 		},
 		{
 			name:     "dedupes mapping across memo buckets",
 			mappings: []Mapping{overlapMapping},
 			toSource: true,
 			offset:   105,
-			want:     []int{5},
+			want:     []uint32{5},
 		},
 		{
 			name:     "no matching location",
-			mappings: []Mapping{mapping},
+			mappings: []Mapping{mapping1, mapping2},
 			toSource: false,
 			offset:   99,
 			want:     nil,
@@ -276,50 +257,55 @@ func TestSourceMapLocations(t *testing.T) {
 
 func TestSourceMapRanges(t *testing.T) {
 	basicMapping := Mapping{
-		SourceOffsets:  []int{0},
-		ServiceOffsets: []int{100},
-		SourceLengths:  []int{5},
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  5,
 	}
-	multiSegment := Mapping{
-		SourceOffsets:  []int{0, 20},
-		ServiceOffsets: []int{100, 200},
-		SourceLengths:  []int{5, 5},
+	multiSegment1 := Mapping{
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  5,
+	}
+	multiSegment2 := Mapping{
+		SourceOffset:  20,
+		ServiceOffset: 200,
+		SourceLength:  5,
 	}
 	serviceLengthMapping := Mapping{
-		SourceOffsets:  []int{0},
-		ServiceOffsets: []int{100},
-		SourceLengths:  []int{10},
-		ServiceLengths: []int{5},
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  10,
+		ServiceLength: 5,
 	}
 	mappingA := Mapping{
-		SourceOffsets:  []int{0},
-		ServiceOffsets: []int{100},
-		SourceLengths:  []int{5},
+		SourceOffset:  0,
+		ServiceOffset: 100,
+		SourceLength:  5,
 	}
 	mappingB := Mapping{
-		SourceOffsets:  []int{10},
-		ServiceOffsets: []int{200},
-		SourceLengths:  []int{5},
+		SourceOffset:  10,
+		ServiceOffset: 200,
+		SourceLength:  5,
 	}
 	reversedStart := Mapping{
-		SourceOffsets:  []int{0},
-		ServiceOffsets: []int{200},
-		SourceLengths:  []int{5},
+		SourceOffset:  0,
+		ServiceOffset: 200,
+		SourceLength:  5,
 	}
 	reversedEnd := Mapping{
-		SourceOffsets:  []int{10},
-		ServiceOffsets: []int{100},
-		SourceLengths:  []int{5},
+		SourceOffset:  10,
+		ServiceOffset: 100,
+		SourceLength:  5,
 	}
 
 	cases := []struct {
 		name     string
 		mappings []Mapping
 		toSource bool
-		start    int
-		end      int
+		start    uint32
+		end      uint32
 		fallback bool
-		want     [][2]int
+		want     [][2]uint32
 	}{
 		{
 			name:     "direct mapping to source",
@@ -328,7 +314,7 @@ func TestSourceMapRanges(t *testing.T) {
 			start:    100,
 			end:      105,
 			fallback: false,
-			want:     [][2]int{{0, 5}},
+			want:     [][2]uint32{{0, 5}},
 		},
 		{
 			name:     "direct mapping to service",
@@ -337,7 +323,7 @@ func TestSourceMapRanges(t *testing.T) {
 			start:    0,
 			end:      5,
 			fallback: false,
-			want:     [][2]int{{100, 105}},
+			want:     [][2]uint32{{100, 105}},
 		},
 		{
 			name:     "start in segment, end outside without fallback",
@@ -355,7 +341,7 @@ func TestSourceMapRanges(t *testing.T) {
 			start:    2,
 			end:      12,
 			fallback: true,
-			want:     [][2]int{{102, 202}},
+			want:     [][2]uint32{{102, 202}},
 		},
 		{
 			name:     "fallback skips reversed range",
@@ -373,16 +359,16 @@ func TestSourceMapRanges(t *testing.T) {
 			start:    2,
 			end:      8,
 			fallback: false,
-			want:     [][2]int{{102, 105}},
+			want:     [][2]uint32{{102, 105}},
 		},
 		{
 			name:     "multiple segments in one mapping",
-			mappings: []Mapping{multiSegment},
+			mappings: []Mapping{multiSegment1, multiSegment2},
 			toSource: false,
 			start:    22,
 			end:      24,
 			fallback: false,
-			want:     [][2]int{{202, 204}},
+			want:     [][2]uint32{{202, 204}},
 		},
 		{
 			name:     "no mappings",
@@ -409,7 +395,7 @@ func TestSourceMapRanges(t *testing.T) {
 	}
 }
 
-func assertBinarySearch(t *testing.T, values []int, search int, wantLow int, wantHigh int, wantMatch *int) {
+func assertBinarySearch(t *testing.T, values []uint32, search uint32, wantLow int, wantHigh int, wantMatch *int) {
 	t.Helper()
 
 	low, high, match := BinarySearch(values, search)
@@ -428,23 +414,23 @@ func assertBinarySearch(t *testing.T, values []int, search int, wantLow int, wan
 
 func assertTranslateOffset(
 	t *testing.T,
-	start int,
-	fromOffsets []int,
-	toOffsets []int,
-	fromLengths []int,
-	toLengths []int,
-	want int,
+	start uint32,
+	fromOffset uint32,
+	toOffset uint32,
+	fromLength uint32,
+	toLength uint32,
+	want uint32,
 	wantOk bool,
 ) {
 	t.Helper()
 
-	got, ok := TranslateOffset(start, fromOffsets, toOffsets, fromLengths, toLengths)
+	got, ok := TranslateOffset(start, fromOffset, toOffset, fromLength, toLength)
 	if ok != wantOk || (ok && got != want) {
 		t.Fatalf("expected ok=%v offset=%d, got ok=%v offset=%d", wantOk, want, ok, got)
 	}
 }
 
-func assertLocationsSet(t *testing.T, got []MappedLocation, want []int) {
+func assertLocationsSet(t *testing.T, got []MappedLocation, want []uint32) {
 	t.Helper()
 
 	if len(got) != len(want) {
@@ -469,7 +455,7 @@ func assertLocationsSet(t *testing.T, got []MappedLocation, want []int) {
 	}
 }
 
-func assertRangesSet(t *testing.T, got []MappedRange, want [][2]int) {
+func assertRangesSet(t *testing.T, got []MappedRange, want [][2]uint32) {
 	t.Helper()
 
 	if len(got) != len(want) {

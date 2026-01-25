@@ -1,7 +1,7 @@
 package mapping
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/auvred/golar/internal/collections"
 )
@@ -13,16 +13,15 @@ const (
 	ServiceOffsets
 )
 
-// TODO: single offset?
 type Mapping struct {
-	SourceOffsets  []int
-	ServiceOffsets []int
-	SourceLengths  []int
-	ServiceLengths []int
+	SourceOffset  uint32
+	ServiceOffset uint32
+	SourceLength  uint32
+	ServiceLength uint32
 }
 
 type MappingMemo struct {
-	offsets  []int
+	offsets  []uint32
 	mappings []*collections.Set[*Mapping]
 }
 
@@ -33,13 +32,13 @@ type SourceMap struct {
 }
 
 type MappedLocation struct {
-	Offset  int
+	Offset  uint32
 	Mapping *Mapping
 }
 
 type MappedRange struct {
-	MappedStart  int
-	MappedEnd    int
+	MappedStart  uint32
+	MappedEnd    uint32
 	StartMapping *Mapping
 	EndMapping   *Mapping
 }
@@ -49,31 +48,31 @@ func NewSourceMap(mappings []Mapping) *SourceMap {
 }
 
 func (m *SourceMap) ToSourceRange(
-	serviceStart int,
-	serviceEnd int,
+	serviceStart uint32,
+	serviceEnd uint32,
 	fallbackToAnyMatch bool,
 ) []MappedRange {
 	return m.findMatchingStartEnd(serviceStart, serviceEnd, fallbackToAnyMatch, ServiceOffsets)
 }
 
 func (m *SourceMap) ToServiceRange(
-	sourceStart int,
-	sourceEnd int,
+	sourceStart uint32,
+	sourceEnd uint32,
 	fallbackToAnyMatch bool,
 ) []MappedRange {
 	return m.findMatchingStartEnd(sourceStart, sourceEnd, fallbackToAnyMatch, SourceOffsets)
 }
 
-func (m *SourceMap) ToSourceLocation(serviceOffset int) []MappedLocation {
+func (m *SourceMap) ToSourceLocation(serviceOffset uint32) []MappedLocation {
 	return m.findMatchingOffsets(serviceOffset, ServiceOffsets)
 }
 
-func (m *SourceMap) ToServiceLocation(sourceOffset int) []MappedLocation {
+func (m *SourceMap) ToServiceLocation(sourceOffset uint32) []MappedLocation {
 	return m.findMatchingOffsets(sourceOffset, SourceOffsets)
 }
 
 func (m *SourceMap) findMatchingOffsets(
-	offset int,
+	offset uint32,
 	fromRange CodeRangeKey,
 ) []MappedLocation {
 	memo := m.getMemoBasedOnRange(fromRange)
@@ -93,10 +92,10 @@ func (m *SourceMap) findMatchingOffsets(
 			}
 			mapped, ok := TranslateOffset(
 				offset,
-				getOffsets(mapping, fromRange),
-				getOffsets(mapping, toRange),
-				getLengths(mapping, fromRange),
-				getLengths(mapping, toRange),
+				getOffset(mapping, fromRange),
+				getOffset(mapping, toRange),
+				getLength(mapping, fromRange),
+				getLength(mapping, toRange),
 			)
 			if ok {
 				results = append(results, MappedLocation{
@@ -111,8 +110,8 @@ func (m *SourceMap) findMatchingOffsets(
 }
 
 func (m *SourceMap) findMatchingStartEnd(
-	start int,
-	end int,
+	start uint32,
+	end uint32,
 	fallbackToAnyMatch bool,
 	fromRange CodeRangeKey,
 ) []MappedRange {
@@ -126,10 +125,10 @@ func (m *SourceMap) findMatchingStartEnd(
 		mapping := mappedStart.Mapping
 		mappedEnd, ok := TranslateOffset(
 			end,
-			getOffsets(mapping, fromRange),
-			getOffsets(mapping, toRange),
-			getLengths(mapping, fromRange),
-			getLengths(mapping, toRange),
+			getOffset(mapping, fromRange),
+			getOffset(mapping, toRange),
+			getLength(mapping, fromRange),
+			getLength(mapping, toRange),
 		)
 		if ok {
 			hadMatch = true
@@ -179,22 +178,18 @@ func (m *SourceMap) getMemoBasedOnRange(fromRange CodeRangeKey) *MappingMemo {
 }
 
 func (m *SourceMap) createMemo(key CodeRangeKey) MappingMemo {
-	offsetsSet := collections.NewSetWithSizeHint[int](0)
+	offsetsSet := collections.NewSetWithSizeHint[uint32](0)
 	for _, mapping := range m.Mappings {
-		offsets := getOffsets(&mapping, key)
-		lengths := getLengths(&mapping, key)
-		count := min(len(offsets), len(lengths))
-		for i := range count {
-			offsetsSet.Add(offsets[i])
-			offsetsSet.Add(offsets[i] + lengths[i])
-		}
+		offset := getOffset(&mapping, key)
+		offsetsSet.Add(offset)
+		offsetsSet.Add(offset + getLength(&mapping, key))
 	}
 
-	offsets := make([]int, 0, offsetsSet.Len())
+	offsets := make([]uint32, 0, offsetsSet.Len())
 	for offset := range offsetsSet.Keys() {
 		offsets = append(offsets, offset)
 	}
-	sort.Ints(offsets)
+	slices.Sort(offsets)
 
 	mappings := make([]*collections.Set[*Mapping], len(offsets))
 	for i := range mappings {
@@ -202,18 +197,15 @@ func (m *SourceMap) createMemo(key CodeRangeKey) MappingMemo {
 	}
 
 	for _, mapping := range m.Mappings {
-		offsetsList := getOffsets(&mapping, key)
-		lengths := getLengths(&mapping, key)
-		count := min(len(offsetsList), len(lengths))
-		for i := range count {
-			startOffset := offsetsList[i]
-			endOffset := startOffset + lengths[i]
-			_, _, startMatch := BinarySearch(offsets, startOffset)
-			_, _, endMatch := BinarySearch(offsets, endOffset)
-			for j := startMatch; j <= endMatch; j++ {
-				mappings[j].Add(&mapping)
-			}
+		startOffset := getOffset(&mapping, key)
+		length := getLength(&mapping, key)
+		endOffset := startOffset + length
+		_, _, startMatch := BinarySearch(offsets, startOffset)
+		_, _, endMatch := BinarySearch(offsets, endOffset)
+		for j := startMatch; j <= endMatch; j++ {
+			mappings[j].Add(&mapping)
 		}
+
 	}
 
 	return MappingMemo{offsets: offsets, mappings: mappings}
@@ -226,68 +218,38 @@ func otherRangeKey(key CodeRangeKey) CodeRangeKey {
 	return SourceOffsets
 }
 
-func getOffsets(mapping *Mapping, key CodeRangeKey) []int {
+func getOffset(mapping *Mapping, key CodeRangeKey) uint32 {
 	if key == SourceOffsets {
-		return mapping.SourceOffsets
+		return mapping.SourceOffset
 	}
-	return mapping.ServiceOffsets
+	return mapping.ServiceOffset
 }
 
-func getLengths(mapping *Mapping, key CodeRangeKey) []int {
+func getLength(mapping *Mapping, key CodeRangeKey) uint32 {
 	if key == SourceOffsets {
-		return mapping.SourceLengths
+		return mapping.SourceLength
 	}
-	if len(mapping.ServiceLengths) > 0 {
-		return mapping.ServiceLengths
+	if mapping.ServiceLength > 0 {
+		return mapping.ServiceLength
 	}
-	return mapping.SourceLengths
+	return mapping.SourceLength
 }
 
 func TranslateOffset(
-	start int,
-	fromOffsets []int,
-	toOffsets []int,
-	fromLengths []int,
-	toLengths []int,
-) (int, bool) {
-	if len(toLengths) == 0 {
-		toLengths = fromLengths
-	}
-
-	count := min(len(fromOffsets), len(toOffsets), len(fromLengths), len(toLengths))
-	if count == 0 {
-		return 0, false
-	}
-
-	offsets := fromOffsets
-	if len(offsets) > count {
-		offsets = offsets[:count]
-	}
-
-	low := 0
-	high := len(offsets) - 1
-
-	for low <= high {
-		mid := (low + high) / 2
-		fromOffset := offsets[mid]
-		fromLength := fromLengths[mid]
-		if start >= fromOffset && start <= fromOffset+fromLength {
-			toLength := toLengths[mid]
-			toOffset := toOffsets[mid]
-			rangeOffset := min(start-fromOffset, toLength)
-			return toOffset + rangeOffset, true
-		}
-		if start < fromOffset {
-			high = mid - 1
-		} else {
-			low = mid + 1
-		}
+	start uint32,
+	fromOffset uint32,
+	toOffset uint32,
+	fromLength uint32,
+	toLength uint32,
+) (uint32, bool) {
+	if start >= fromOffset && start <= fromOffset + fromLength {
+		return toOffset + min(start-fromOffset, toLength), true
 	}
 
 	return 0, false
 }
 
-func BinarySearch(values []int, searchValue int) (low int, high int, match int) {
+func BinarySearch(values []uint32, searchValue uint32) (low int, high int, match int) {
 	if len(values) == 0 {
 		return 0, -1, 0
 	}

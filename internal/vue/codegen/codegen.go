@@ -364,33 +364,37 @@ func (c *codegenCtx) mapText(from, to int) {
 	serviceOffset := c.serviceText.Len()
 	c.serviceText.WriteString(c.sourceText[from:to])
 	c.mappings = append(c.mappings, mapping.Mapping{
-		SourceOffsets:  []int{from},
-		ServiceOffsets: []int{serviceOffset},
-		SourceLengths:  []int{to - from},
+		SourceOffset:  uint32(from),
+		ServiceOffset: uint32(serviceOffset),
+		SourceLength:  uint32(to - from),
 	})
 }
 
 func (c *codegenCtx) mapRange(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
 	c.mappings = append(c.mappings, mapping.Mapping{
-		SourceOffsets:  []int{sourceStart, sourceEnd},
-		ServiceOffsets: []int{serviceStart, serviceEnd},
-		SourceLengths:  []int{0, 0},
+		SourceOffset:  uint32(sourceStart),
+		ServiceOffset: uint32(serviceStart),
+		SourceLength:  uint32(0),
+	}, mapping.Mapping{
+		SourceOffset:  uint32(sourceEnd),
+		ServiceOffset: uint32(serviceEnd),
+		SourceLength:  uint32(0),
 	})
 }
 
 func (c *codegenCtx) mapIgnoreDirective(serviceStart, serviceEnd int) {
 	c.ignoreDirectives = append(c.ignoreDirectives, mapping.IgnoreDirectiveMapping{
-		ServiceOffset: serviceStart,
-		ServiceLength: serviceEnd - serviceStart,
+		ServiceOffset: uint32(serviceStart),
+		ServiceLength: uint32(serviceEnd - serviceStart),
 	})
 }
 
 func (c *codegenCtx) mapExpectErrorDirective(sourceStart, sourceEnd, serviceStart, serviceEnd int) {
 	c.expectErrorDirectives = append(c.expectErrorDirectives, mapping.ExpectErrorDirectiveMapping{
-		SourceOffset:  sourceStart,
-		ServiceOffset: serviceStart,
-		SourceLength:  sourceEnd - sourceStart,
-		ServiceLength: serviceEnd - serviceStart,
+		SourceOffset:  uint32(sourceStart),
+		ServiceOffset: uint32(serviceStart),
+		SourceLength:  uint32(sourceEnd - sourceStart),
+		ServiceLength: uint32(serviceEnd - serviceStart),
 	})
 }
 

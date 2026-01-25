@@ -93,14 +93,14 @@ func TestTSDirectivesResetByText(t *testing.T) {
 				Message: "An arithmetic operand must be of type 'any', 'number', 'bigint' or an enum type.",
 			},
 			{
-				Range:   lsproto.Range{Start: lsproto.Position{Line: 10, Character: 18}, End: lsproto.Position{Line: 10, Character: 19}},
-				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2356)},
-				Message: "An arithmetic operand must be of type 'any', 'number', 'bigint' or an enum type.",
-			},
-			{
 				Range:   lsproto.Range{Start: lsproto.Position{Line: 8, Character: 1}, End: lsproto.Position{Line: 8, Character: 27}},
 				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](1_000_000)},
 				Message: "Unused directive.",
+			},
+			{
+				Range:   lsproto.Range{Start: lsproto.Position{Line: 10, Character: 18}, End: lsproto.Position{Line: 10, Character: 19}},
+				Code:    &lsproto.IntegerOrString{Integer: ptrTo[int32](2356)},
+				Message: "An arithmetic operand must be of type 'any', 'number', 'bigint' or an enum type.",
 			},
 		})
 	})
