@@ -2,6 +2,7 @@ package pluginhost
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -23,6 +24,8 @@ type Plugin struct {
 
 	reqId atomic.Uint64
 	createServiceCodeRequests sync.Map
+
+	ExtraExtensions []string
 }
 
 func NewPlugin(args []string) (*Plugin, error) {
@@ -42,9 +45,23 @@ func NewPlugin(args []string) (*Plugin, error) {
 		return nil, err
 	}
 
+	var header [5]byte
+	var recvBuf []byte
+	if _, err := io.ReadFull(p.stdout, header[:4]); err != nil {
+		panic(err)
+	}
+	payloadLen := binary.LittleEndian.Uint32(header[:])
+	recvBuf = ensureCap(recvBuf, payloadLen)
+	if _, err := io.ReadFull(p.stdout, recvBuf); err != nil {
+		panic(err)
+	}
+	initialization := plugin.InitializationMessage{}
+	if err := json.Unmarshal(recvBuf, &initialization); err != nil {
+		panic(err)
+	}
+	p.ExtraExtensions = initialization.ExtraExtensions
+
 	go func() {
-		var header [5]byte
-		var recvBuf []byte
 		for {
 			_, err := io.ReadFull(p.stdout, header[:])
 			if err != nil {
@@ -61,7 +78,6 @@ func NewPlugin(args []string) (*Plugin, error) {
 				panic(err)
 			}
 			switch msgKind {
-			case plugin.MsgKindInitializeResponse:
 			case plugin.MsgKindCreateServiceCodeResponse:
 				reqId := binary.LittleEndian.Uint64(recvBuf)
 				f, _ := p.createServiceCodeRequests.LoadAndDelete(reqId)

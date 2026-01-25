@@ -77,22 +77,27 @@ func init() {
 			if err != nil {
 				panic(err)
 			}
+			for _, ext := range vuePlugin.ExtraExtensions {
+				tspath.RegisterSupportedExtension(ext)
+			}
 		case "svelte":
 			sveltePlugin, err = pluginhost.NewPlugin([]string{"node", "/home/auvred/dev/personal/github/auvred/golar/packages/svelte/src/index.ts"})
 			if err != nil {
 				panic(err)
+			}
+			for _, ext := range sveltePlugin.ExtraExtensions {
+				tspath.RegisterSupportedExtension(ext)
 			}
 		case "astro":
 			astroPlugin, err = pluginhost.NewPlugin([]string{"/home/auvred/dev/personal/github/auvred/golar/packages/astro/astro"})
 			if err != nil {
 				panic(err)
 			}
+			for _, ext := range astroPlugin.ExtraExtensions {
+				tspath.RegisterSupportedExtension(ext)
+			}
 		}
 	}
-
-	tspath.RegisterSupportedExtension(".vue")
-	tspath.RegisterSupportedExtension(".svelte")
-	tspath.RegisterSupportedExtension(".astro")
 }
 
 func sourceMapToMapping(inputMappings string, sourceText string, serviceText string) []mapping.Mapping {

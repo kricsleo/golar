@@ -8,15 +8,15 @@ type Promisable<T> = T | Promise<T>
 
 export type CreateVolarPluginOptions = {
 	filename: string
-	getLanguagePlugins: () => Promisable<LanguagePlugin<string>[]>
+	languagePlugins: LanguagePlugin<string>[]
 }
 
 export function createVolarPlugin(opts: CreateVolarPluginOptions) {
-	let _languagePlugins: Promisable<LanguagePlugin<string>[]> | null = null
 	createPlugin({
 		filename: opts.filename,
+		extraExtensions: opts.languagePlugins.flatMap(p => p.typescript?.extraFileExtensions?.map(e => `.${e.extension}`) ?? []),
 		async createServiceCode(fileName, sourceText) {
-			for (const plugin of await (_languagePlugins ??= opts.getLanguagePlugins())) {
+			for (const plugin of opts.languagePlugins) {
 				if (plugin.createVirtualCode == null) {
 					continue
 				}

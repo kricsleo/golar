@@ -51,7 +51,7 @@ func main() {
 	plugin.Run(plugin.PluginOptions{
 		Input: os.Stdin,
 		Output: os.Stdout,
-
+		ExtraExtensions: []string{".astro"},
 		CreateServiceCodeWithSourceMap: func (fileName string, sourceText string) *plugin.ServiceCodeWithSourceMap {
 			transformOptions := transform.TransformOptions{
 				Scope: "xxxxxx",
@@ -76,6 +76,7 @@ func main() {
 			printed.Output = append(printed.Output, astroFooter...)
 
 			result := &plugin.ServiceCodeWithSourceMap{
+				ScriptKind: plugin.ScriptKindTSX,
 				ServiceText: printed.Output,
 				Mappings: printed.SourceMapChunk.Buffer,
 			}

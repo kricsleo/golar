@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"io"
 	"slices"
 	"sync"
@@ -16,6 +17,8 @@ type ServiceCodeWithSourceMap struct {
 type PluginOptions struct {
 	Input io.Reader
 	Output io.Writer
+	// Example: [".vue"]
+	ExtraExtensions []string
 	CreateServiceCodeWithSourceMap func (fileName string, sourceText string) *ServiceCodeWithSourceMap
 }
 
@@ -38,15 +41,38 @@ const (
 type MsgKind uint8
 
 const (
-	MsgKindInitialize MsgKind = iota
-	MsgKindInitializeResponse
-	MsgKindCreateServiceCode
+	MsgKindCreateServiceCode MsgKind = iota
 	MsgKindCreateServiceCodeResponse
 )
+
+type InitializationMessage struct {
+	ExtraExtensions []string `json:"extraExtensions"`
+}
 
 func Run(opts PluginOptions) {
 	var header [5]byte
 	var recvBuf []byte
+
+	{
+		if opts.ExtraExtensions == nil {
+			opts.ExtraExtensions = []string{}
+		}
+		initialization, err := json.Marshal(InitializationMessage{
+			ExtraExtensions: opts.ExtraExtensions,
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		binary.LittleEndian.PutUint32(header[:], uint32(len(initialization)))
+		if _, err = opts.Output.Write(header[:4]); err != nil {
+			panic(err)
+		}
+		if _, err = opts.Output.Write(initialization); err != nil {
+			panic(err)
+		}
+	}
+
 	tasks := make(chan []byte, 1000)
 	var writeMu sync.Mutex
 	for range 4 {
@@ -116,7 +142,6 @@ func Run(opts PluginOptions) {
 		}
 
 		switch msgKind {
-		case MsgKindInitialize:
 		case MsgKindCreateServiceCode:
 			tasks <- slices.Clone(recvBuf[:payloadLen])
 		}

@@ -6,10 +6,8 @@ import worker_threads from 'node:worker_threads'
 const HEADER_SIZE = 5
 
 const MSG_KIND = {
-	INITIALIZE: 0,
-	INITIALIZE_RESPONSE: 1,
-	CREATE_SERVICE_CODE: 2,
-	CREATE_SERVICE_CODE_RESPONSE: 3,
+	CREATE_SERVICE_CODE: 0,
+	CREATE_SERVICE_CODE_RESPONSE: 1,
 }
 
 const SERVICE_CODE_PROPERTIES = {
@@ -52,6 +50,10 @@ export type Promisable<T> = T | Promise<T>
 
 export type CreatePluginOptions = {
 	filename: string
+	/**
+		* @example ['.vue']
+		*/
+	extraExtensions?: string[] | undefined
 	createServiceCode: (fileName: string, sourceText: string) => Promisable<ServiceCode>
 }
 
@@ -87,6 +89,14 @@ export function createPlugin(opts: CreatePluginOptions) {
 				recvBuffer = newBuffer
 		  }
 		}
+		{
+			const initialization = JSON.stringify({
+				extraExtensions: opts.extraExtensions ?? [],
+			})
+			recvBuffer.writeUint32LE(Buffer.byteLength(initialization))
+			process.stdout.write(recvBuffer.subarray(0, 4))
+			process.stdout.write(initialization)
+		}
 
 		process.stdin.on('data', data => {
 			assert.ok(data instanceof Buffer, 'Data is expected to be buffer')
@@ -120,6 +130,7 @@ export function createPlugin(opts: CreatePluginOptions) {
 				recvBuffer.copyWithin(0, readOffset)
 			}
 		});
+
 	} else {
 		const { parentPort } = worker_threads
 		assert.ok(parentPort)
@@ -195,7 +206,6 @@ export function createPlugin(opts: CreatePluginOptions) {
 						process.stdout.write(Buffer.copyBytesFrom(sendBuffer))
 						parentPort.postMessage(null)
 					}
-
 				}
 			}
 		})
