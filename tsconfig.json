@@ -19,9 +19,9 @@
     "verbatimModuleSyntax": true,
 		"erasableSyntaxOnly": true,
 
-    "lib": ["es2023"],
+    "lib": ["esnext"],
     "moduleDetection": "force",
-    "target": "es2023",
+    "target": "esnext",
 
     "noErrorTruncation": true,
 		"rewriteRelativeImportExtensions": true,

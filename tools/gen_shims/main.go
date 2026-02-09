@@ -54,6 +54,7 @@ func main() {
 		"transform",
 		"handler",
 		"printer",
+		"loc",
 	}, "./shim/astro-compiler/",   "")
 }
 

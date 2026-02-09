@@ -108,27 +108,52 @@ func ensureCap(b []byte, needed uint32) []byte {
 	return b[:needed]
 }
 
+type ServiceCodeError struct {
+	Message string
+	Loc core.TextRange
+}
 type CreateServiceCodeResponse struct {
+	Errors []ServiceCodeError
 	ServiceText string
-	SourceMap string
 	ScriptKind core.ScriptKind
 	Mappings []mapping.Mapping
 	IgnoreMappings []mapping.IgnoreDirectiveMapping
+	ExpectErrorMappings []mapping.ExpectErrorDirectiveMapping
+	DeclarationFile bool
 }
 
-func (p *Plugin) CreateServiceCode(fileName string, sourceText string) <- chan CreateServiceCodeResponse {
+func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName string, sourceText string) <- chan CreateServiceCodeResponse {
 	ch := make(chan CreateServiceCodeResponse, 1)
 
 	reqId := p.reqId.Add(1)
 	p.createServiceCodeRequests.Store(reqId, func (payload []byte) {
 		offset := uint32(0)
+		response := CreateServiceCodeResponse{}
 
-		properties := payload[offset]
+		properties := plugin.ServiceCodeProperties(payload[offset])
 		offset += 1
+		if properties & plugin.ServiceCodePropertiesError != 0 {
+			errorsCount := binary.LittleEndian.Uint32(payload[offset:])
+			offset += 4
+			response.Errors = make([]ServiceCodeError, errorsCount)
+			for i := range errorsCount {
+				messageLen := binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				response.Errors[i].Message = string(payload[offset:offset+messageLen])
+				offset += messageLen
+				start := binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				end := binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				response.Errors[i].Loc = core.NewTextRange(int(start), int(end))
+			}
+			ch <- response
+			return
+		}
+
 		scriptKind := plugin.ScriptKind(payload[offset])
 		offset += 1
 
-		response := CreateServiceCodeResponse{}
 		switch scriptKind {
 		case plugin.ScriptKindJS:
 			response.ScriptKind = core.ScriptKindJS
@@ -140,44 +165,52 @@ func (p *Plugin) CreateServiceCode(fileName string, sourceText string) <- chan C
 			response.ScriptKind = core.ScriptKindTSX
 		}
 
-		if properties & 1 != 0 {
-			serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
-			offset += 4
-			response.ServiceText = string(payload[offset:offset+serviceTextLen])
-			offset += serviceTextLen
-
-			sourceMapLen := binary.LittleEndian.Uint32(payload[offset:])
-			offset += 4
-			response.SourceMap = string(payload[offset:offset+sourceMapLen])
-			offset += sourceMapLen
-		} else {
-			serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
-			offset += 4
-			response.ServiceText = string(payload[offset:offset+serviceTextLen])
-			offset += serviceTextLen
-
-			mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-			mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
-			offset += 4
-			response.Mappings = make([]mapping.Mapping, mappingsCount)
-			copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
-			offset += mappingsByteLen
-
-			ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-			ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))
-			offset += 4
-			response.IgnoreMappings = make([]mapping.IgnoreDirectiveMapping, ignoreMappingsCount)
-			copy(response.IgnoreMappings, unsafe.Slice((*mapping.IgnoreDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+ignoreMappingsByteLen]))), ignoreMappingsCount))
+		if properties & plugin.ServiceCodePropertiesDeclarationFile != 0 {
+			response.DeclarationFile = true
 		}
+
+		serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
+		offset += 4
+		response.ServiceText = string(payload[offset:offset+serviceTextLen])
+		offset += serviceTextLen
+
+		mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+		mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
+		offset += 4
+		response.Mappings = make([]mapping.Mapping, mappingsCount)
+		copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
+		offset += mappingsByteLen
+
+		ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+		ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))
+		offset += 4
+		response.IgnoreMappings = make([]mapping.IgnoreDirectiveMapping, ignoreMappingsCount)
+		copy(response.IgnoreMappings, unsafe.Slice((*mapping.IgnoreDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+ignoreMappingsByteLen]))), ignoreMappingsCount))
+		offset += ignoreMappingsByteLen
+
+		expectErrorMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+		expectErrorMappingsByteLen := expectErrorMappingsCount * uint32(unsafe.Sizeof(mapping.ExpectErrorDirectiveMapping{}))
+		offset += 4
+		response.ExpectErrorMappings = make([]mapping.ExpectErrorDirectiveMapping, expectErrorMappingsCount)
+		copy(response.ExpectErrorMappings, unsafe.Slice((*mapping.ExpectErrorDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+expectErrorMappingsByteLen]))), expectErrorMappingsCount))
+		offset += expectErrorMappingsByteLen
 
 		ch <- response
 	})
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.sendBuf = ensureCap(p.sendBuf, uint32(8 + 4 + len(fileName) + 4 + len(sourceText)))
+	p.sendBuf = ensureCap(p.sendBuf, uint32(8 + 4 + len(cwd) + 4 + len(configFileName) + 4 + len(fileName) + 4 + len(sourceText)))
 	binary.LittleEndian.PutUint64(p.sendBuf, reqId)
 	offset := 8
+	binary.LittleEndian.PutUint32(p.sendBuf[offset:], uint32(len(cwd)))
+	offset += 4
+	copy(p.sendBuf[offset:], cwd)
+	offset += len(cwd)
+	binary.LittleEndian.PutUint32(p.sendBuf[offset:], uint32(len(configFileName)))
+	offset += 4
+	copy(p.sendBuf[offset:], configFileName)
+	offset += len(configFileName)
 	binary.LittleEndian.PutUint32(p.sendBuf[offset:], uint32(len(fileName)))
 	offset += 4
 	copy(p.sendBuf[offset:], fileName)

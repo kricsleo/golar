@@ -1,7 +1,6 @@
 package golar
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -9,32 +8,30 @@ import (
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/internal/pluginhost"
 	"github.com/auvred/golar/internal/utils"
-	"github.com/auvred/golar/internal/vue/codegen"
-	"github.com/auvred/golar/internal/vue/parser"
 
+	"github.com/microsoft/typescript-go/shim/tsoptions"
 	"github.com/microsoft/typescript-go/shim/ast"
 	"github.com/microsoft/typescript-go/shim/compiler"
 	"github.com/microsoft/typescript-go/shim/core"
 	"github.com/microsoft/typescript-go/shim/diagnostics"
 	"github.com/microsoft/typescript-go/shim/golarext"
 	"github.com/microsoft/typescript-go/shim/parser"
-	"github.com/microsoft/typescript-go/shim/scanner"
-	"github.com/microsoft/typescript-go/shim/sourcemap"
 	"github.com/microsoft/typescript-go/shim/tspath"
 	"github.com/microsoft/typescript-go/shim/vfs"
 )
 
-var unused_directive = &diagnostics.Message{}
+var pluginErrorDiagnostic = &diagnostics.Message{}
 
 func init() {
-	diagnostics.Message_Set_code(unused_directive, 1_000_000)
-	diagnostics.Message_Set_category(unused_directive, diagnostics.CategoryError)
-	diagnostics.Message_Set_key(unused_directive, "Unused_directive")
-	diagnostics.Message_Set_text(unused_directive, "Unused directive.")
+  diagnostics.Message_Set_code(pluginErrorDiagnostic, 1_000_000)
+  diagnostics.Message_Set_category(pluginErrorDiagnostic, diagnostics.CategoryError)
+  diagnostics.Message_Set_key(pluginErrorDiagnostic, "plugin_error_diagnostic")
+  diagnostics.Message_Set_text(pluginErrorDiagnostic, "{0}")
 }
 
 type compilerHostProxy struct {
 	compiler.CompilerHost
+	config *tsoptions.ParsedCommandLine
 }
 
 type languageData struct {
@@ -50,13 +47,13 @@ func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.
 		if !ok {
 			return nil
 		}
-		return parseFile(h.FS(), opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
+		return h.parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
 	}
 	return h.CompilerHost.GetSourceFile(opts)
 }
 
-func wrapCompilerHost(host compiler.CompilerHost) compiler.CompilerHost {
-	return &compilerHostProxy{host}
+func wrapCompilerHost(config *tsoptions.ParsedCommandLine, host compiler.CompilerHost) compiler.CompilerHost {
+	return &compilerHostProxy{host, config}
 }
 
 var vuePlugin *pluginhost.Plugin
@@ -100,98 +97,7 @@ func init() {
 	}
 }
 
-func sourceMapToMapping(inputMappings string, sourceText string, serviceText string) []mapping.Mapping {
-	dec := sourcemap.DecodeMappings(inputMappings)
-	serviceLineMap := core.ComputeECMALineStarts(serviceText)
-	sourceLineMap := core.ComputeECMALineStarts(sourceText)
-	mappings := make([]mapping.Mapping, 0)
-
-	type currentMapping struct {
-		genOffset    uint32
-		sourceOffset uint32
-	}
-
-	var current *currentMapping
-
-	for decoded, done := dec.Next(); !done; decoded, done = dec.Next() {
-		if decoded == nil {
-			continue
-		}
-		genOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
-			serviceLineMap,
-			decoded.GeneratedLine,
-			decoded.GeneratedCharacter,
-			&serviceText,
-			false,
-		))
-		if current != nil {
-			length := genOffset - current.genOffset
-			if length > 0 {
-				sourceEnd := min(current.sourceOffset+length, uint32(len(sourceText)))
-				genEnd := min(current.genOffset+length, uint32(len(serviceText)))
-				sourceChunk := sourceText[current.sourceOffset:sourceEnd]
-				genChunk := serviceText[current.genOffset:genEnd]
-				if sourceChunk != genChunk {
-					length = 0
-					maxLen := min(len(sourceChunk), len(genChunk))
-					for i := range maxLen {
-						if sourceChunk[i] == genChunk[i] {
-							length = uint32(i) + 1
-						} else {
-							break
-						}
-					}
-				}
-			}
-			if length > 0 {
-				if len(mappings) > 0 {
-					last := &mappings[len(mappings)-1]
-					if last.ServiceOffset+last.SourceLength == current.genOffset &&
-						last.SourceOffset+last.SourceLength == current.sourceOffset {
-						last.SourceLength += length
-					} else {
-						mappings = append(mappings, mapping.Mapping{
-							SourceOffset:  current.sourceOffset,
-							ServiceOffset: current.genOffset,
-							SourceLength:  length,
-						})
-					}
-				} else {
-					mappings = append(mappings, mapping.Mapping{
-						SourceOffset:  current.sourceOffset,
-						ServiceOffset: current.genOffset,
-						SourceLength:  length,
-					})
-				}
-			}
-			current = nil
-		}
-		if decoded.IsSourceMapping() {
-			if decoded.SourceIndex != 0 {
-				continue
-			}
-			sourceOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
-				sourceLineMap,
-				decoded.SourceLine,
-				decoded.SourceCharacter,
-				&sourceText,
-				true,
-			))
-			current = &currentMapping{
-				genOffset:    genOffset,
-				sourceOffset: sourceOffset,
-			}
-		}
-	}
-
-	if err := dec.Error(); err != nil {
-		panic(err)
-	}
-
-	return mappings
-}
-
-func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
+func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
 	var plugin *pluginhost.Plugin
 
 	if strings.HasSuffix(opts.FileName, ".vue") {
@@ -203,13 +109,21 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 	}
 
 	if plugin != nil {
-		resp := <-plugin.CreateServiceCode(opts.FileName, sourceText)
+		resp := <-plugin.CreateServiceCode(h.GetCurrentDirectory(), h.config.ConfigName(), opts.FileName, sourceText)
+		if resp.Errors != nil {
+			file := ast.SourceFile{}
+			file.SetText(sourceText)
+			file.SetParseOptions(opts)
+			diags := make([]*ast.Diagnostic, len(resp.Errors))
+			for i, err := range resp.Errors {
+				diags[i] = ast.NewDiagnostic(&file, err.Loc, pluginErrorDiagnostic, err.Message)
+			}
+			file.SetDiagnostics(diags)
+			return &file
+		}
 
 		file := parser.ParseSourceFile(opts, resp.ServiceText, resp.ScriptKind)
-		// TODO: figure out better way; .astro files have virtual: dev-only imports
-		if strings.Contains(opts.FileName, "/node_modules/") {
-			file.IsDeclarationFile = true
-		}
+		file.IsDeclarationFile = resp.DeclarationFile
 		file.WrapDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
 			newFile := ast.SourceFile{
 			}
@@ -227,14 +141,11 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 			return wrapDiagnostics(&newFile, diags, true)
 		}
 		langData := languageData{
-			sourceText:            sourceText,
+			sourceText: sourceText,
 		}
-		if resp.SourceMap != "" {
-			langData.sourceMap = mapping.NewSourceMap(sourceMapToMapping(resp.SourceMap, sourceText, resp.ServiceText))
-		} else {
-			langData.sourceMap = mapping.NewSourceMap(resp.Mappings)
-			langData.ignoreDirectives = resp.IgnoreMappings
-		}
+		langData.sourceMap = mapping.NewSourceMap(resp.Mappings)
+		langData.ignoreDirectives = resp.IgnoreMappings
+		langData.expectErrorDirectives = resp.ExpectErrorMappings
 		file.GolarLanguageData = langData
 		// diags := file.Diagnostics()
 		// for i, diag := range diags {
@@ -243,130 +154,9 @@ func parseFile(fs vfs.FS, opts ast.SourceFileParseOptions, sourceText string, sc
 
 		return file
 	}
-	if !strings.HasSuffix(opts.FileName, ".vue") {
-		return parser.ParseSourceFile(opts, sourceText, scriptKind)
-	}
-	vueAst, parsingErrors := vue_parser.Parse(sourceText)
-	var serviceText string
-	var mappings []mapping.Mapping
-	var ignoreDirectives []mapping.IgnoreDirectiveMapping
-	var expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
-	var fileDiagnostics []*ast.Diagnostic
-	if len(parsingErrors) > 0 {
-		// TODO: error recovery?
-		fileDiagnostics = make([]*ast.Diagnostic, len(parsingErrors))
-		for i, err := range parsingErrors {
-			// TODO: statically define parsing errors as diagnostics
-			msg := &diagnostics.Message{}
-			diagnostics.Message_Set_code(msg, 1_000_999)
-			diagnostics.Message_Set_category(msg, diagnostics.CategoryError)
-			diagnostics.Message_Set_key(msg, diagnostics.Key(err.Message))
-			diagnostics.Message_Set_text(msg, err.Message)
-			fileDiagnostics[i] = ast.NewDiagnostic(nil, core.NewTextRange(err.Pos, err.Pos), msg)
-		}
-	} else if vueVersion, ok := resolveVueVersion(fs, opts.FileName); ok {
-		options := vue_codegen.VueOptions{
-			Version: vueVersion,
-		}
-		serviceText, mappings, ignoreDirectives, expectErrorDirectives, fileDiagnostics = vue_codegen.Codegen(sourceText, vueAst, options)
-	} else {
-		msg := &diagnostics.Message{}
-		diagnostics.Message_Set_code(msg, 1_000_999)
-		diagnostics.Message_Set_category(msg, diagnostics.CategoryError)
-		diagnostics.Message_Set_key(msg, "unable_to_resolve_vue_version")
-		diagnostics.Message_Set_text(msg, "Unable to resolve Vue version")
-		fileDiagnostics = []*ast.Diagnostic{ast.NewDiagnostic(nil, core.NewTextRange(0, 0), msg)}
-	}
-	file := parser.ParseSourceFile(opts, serviceText, scriptKind)
-		file.WrapDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
-			newFile := ast.SourceFile{
-			}
-			newFile.GolarLanguageData = file.GolarLanguageData
-			newFile.SetText(sourceText)
-			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, false)
-		}
-		file.WrapSemanticDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
-			// TODO: this is hack
-			newFile := ast.SourceFile{}
-			newFile.GolarLanguageData = file.GolarLanguageData
-			newFile.SetText(sourceText)
-			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, true)
-		}
-		diags := file.Diagnostics()
-		for i, diag := range diags {
-			diags[i] = adjustDiagnostic(file, diag)
-		}
-	file.SetDiagnostics(append(file.Diagnostics(), fileDiagnostics...))
-	file.GolarLanguageData = languageData{
-		sourceText:            sourceText,
-		sourceMap:             mapping.NewSourceMap(mappings),
-		ignoreDirectives:      ignoreDirectives,
-		expectErrorDirectives: expectErrorDirectives,
-	}
-
-	return file
+	return parser.ParseSourceFile(opts, sourceText, scriptKind)
 }
 
-func resolveVueVersion(fs vfs.FS, fileName string) (vue_codegen.VueVersion, bool) {
-	dir := tspath.GetDirectoryPath(fileName)
-	for {
-		pkgPath := tspath.CombinePaths(dir, "node_modules", "vue", "package.json")
-		if fs != nil {
-			contents, ok := fs.ReadFile(pkgPath)
-			if ok {
-				var pkg struct {
-					Version string `json:"version"`
-				}
-				if json.Unmarshal([]byte(contents), &pkg) == nil {
-					return parseVueVersion(pkg.Version)
-				}
-				break
-			}
-		}
-		parent := tspath.GetDirectoryPath(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return 0, false
-}
-
-func parseVueVersion(version string) (vue_codegen.VueVersion, bool) {
-	version = strings.TrimSpace(version)
-	if version == "" {
-		return 0, false
-	}
-	if version[0] == 'v' || version[0] == 'V' {
-		version = version[1:]
-	}
-	parts := [3]int{}
-	partIdx := 0
-	digits := 0
-	for i := 0; i < len(version) && partIdx < len(parts); i++ {
-		ch := version[i]
-		if ch >= '0' && ch <= '9' {
-			parts[partIdx] = parts[partIdx]*10 + int(ch-'0')
-			digits++
-			continue
-		}
-		if ch == '.' {
-			if digits == 0 {
-				return 0, false
-			}
-			partIdx++
-			digits = 0
-			continue
-		}
-		break
-	}
-	if partIdx == 0 && digits == 0 {
-		return 0, false
-	}
-	return vue_codegen.NewVueVersionFromSemver(parts[0], parts[1], parts[2]), true
-}
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
 	diagnostic.SetFile(file)
@@ -390,14 +180,14 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 	return diagnostic
 }
 
-func wrapDiagnostics(file *ast.SourceFile, diagnostics []*ast.Diagnostic, collectUnused bool) []*ast.Diagnostic {
+func wrapDiagnostics(file *ast.SourceFile, diags []*ast.Diagnostic, collectUnused bool) []*ast.Diagnostic {
 	res := []*ast.Diagnostic{}
 	if file.GolarLanguageData == nil {
 		return nil
 	}
 	langData := file.GolarLanguageData.(languageData)
 	directiveMap := mapping.NewDirectiveMap(langData.ignoreDirectives, langData.expectErrorDirectives)
-	for _, diag := range diagnostics {
+	for _, diag := range diags {
 		if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
 			continue
 		}
@@ -406,8 +196,8 @@ func wrapDiagnostics(file *ast.SourceFile, diagnostics []*ast.Diagnostic, collec
 	if !collectUnused {
 		return res
 	}
-	for _, e := range directiveMap.CollectUnused() {
-		res = append(res, ast.NewDiagnostic(file, core.NewTextRange(int(e.SourceOffset), int(e.SourceOffset+e.SourceLength)), unused_directive))
+	for _, loc := range directiveMap.CollectUnused() {
+		res = append(res, ast.NewDiagnostic(file, loc, diagnostics.Unused_ts_expect_error_directive))
 	}
 	return res
 }
@@ -426,22 +216,21 @@ func positionToService(file *ast.SourceFile, pos int) int {
 	return pos
 }
 
-var GolarExtCallbacks = &golarext.GolarCallbacks{
-	// WrapDiagnostics: wrapDiagnostics,
-	PositionToService:       positionToService,
-	WrapCompilerHost:        wrapCompilerHost,
-	ParseSourceFile:         parseFile,
+func init() {
+	compiler.GolarExt.WrapCompilerHost = wrapCompilerHost
+	// golarext.GolarCallbacks.ParseSourceFile = parseFile
+	golarext.GolarCallbacks.PositionToService = positionToService
 }
 
 func WrapFS(fs vfs.FS) vfs.FS {
 	return utils.NewOverlayVFS(fs, map[string]string{
-		vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
+		// vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
 	})
 }
 
 func WrapFourslashFS(globalOptions map[string]string, fs vfs.FS) vfs.FS {
 	overlay := map[string]string{
-		vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
+		// vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
 	}
 	if extraFiles := globalOptions["golarextrafiles"]; extraFiles != "" {
 		for pair := range strings.SplitSeq(extraFiles, "\x1f") {

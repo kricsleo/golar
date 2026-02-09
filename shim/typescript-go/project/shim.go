@@ -5,7 +5,6 @@ package project
 
 import "github.com/microsoft/typescript-go/internal/ast"
 import "github.com/microsoft/typescript-go/internal/core"
-import "github.com/microsoft/typescript-go/internal/golarext"
 import "github.com/microsoft/typescript-go/internal/project"
 import "github.com/microsoft/typescript-go/internal/project/logging"
 import "github.com/microsoft/typescript-go/internal/tspath"
@@ -45,7 +44,7 @@ func NewExtendedConfigCache() *project.ExtendedConfigCache
 //go:linkname NewInferredProject github.com/microsoft/typescript-go/internal/project.NewInferredProject
 func NewInferredProject(currentDirectory string, compilerOptions *core.CompilerOptions, rootFileNames []string, builder *project.ProjectCollectionBuilder, logger *logging.LogTree) *project.Project
 //go:linkname NewParseCache github.com/microsoft/typescript-go/internal/project.NewParseCache
-func NewParseCache(options project.RefCountCacheOptions, golarCallbacks *golarext.GolarCallbacks) *project.ParseCache
+func NewParseCache(options project.RefCountCacheOptions) *project.ParseCache
 //go:linkname NewParseCacheKey github.com/microsoft/typescript-go/internal/project.NewParseCacheKey
 func NewParseCacheKey(options ast.SourceFileParseOptions, hash xxh3.Uint128, scriptKind core.ScriptKind) project.ParseCacheKey
 //go:linkname NewProject github.com/microsoft/typescript-go/internal/project.NewProject

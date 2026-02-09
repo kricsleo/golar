@@ -14,24 +14,30 @@ type ExpectErrorDirectiveMapping struct {
 	ServiceLength uint32
 }
 
-type ExpectErrorDirectiveMappingWithUsed struct {
-	ExpectErrorDirectiveMapping
+type ExpectErrorDirectiveUsage struct {
+	ServiceMappings []IgnoreDirectiveMapping
 	Used bool
 }
 
 type DirectiveMap struct {
 	IgnoreMappings      []IgnoreDirectiveMapping
-	ExpectErrorMappings []ExpectErrorDirectiveMappingWithUsed
+	ExpectErrorMappings map[core.TextRange]ExpectErrorDirectiveUsage
 	Used                int
 }
 
 func NewDirectiveMap(ignore []IgnoreDirectiveMapping, expectError []ExpectErrorDirectiveMapping) DirectiveMap {
-	e := make([]ExpectErrorDirectiveMappingWithUsed, len(expectError))
-	for i, d := range expectError {
-		e[i] = ExpectErrorDirectiveMappingWithUsed{
-			d,
-			false,
+	e := map[core.TextRange]ExpectErrorDirectiveUsage{}
+	for _, dir := range expectError {
+		id := core.NewTextRange(int(dir.SourceOffset), int(dir.SourceOffset + dir.SourceLength))
+		usage, ok := e[id]
+		if !ok {
+			usage = ExpectErrorDirectiveUsage{}
 		}
+		usage.ServiceMappings = append(usage.ServiceMappings, IgnoreDirectiveMapping{
+			ServiceOffset: dir.ServiceOffset,
+			ServiceLength: dir.ServiceLength,
+		})
+		e[id] = usage
 	}
 
 	return DirectiveMap{
@@ -53,16 +59,21 @@ func (d *DirectiveMap) IsServiceRangeIgnored(serviceRange core.TextRange) bool {
 		}
 	}
 
-	for i, mapping := range d.ExpectErrorMappings {
-		mappingRange := core.NewTextRange(
-			int(mapping.ServiceOffset),
-			int(mapping.ServiceOffset+mapping.ServiceLength),
-		)
-		if serviceRange.ContainedBy(mappingRange) {
-			result = true
-			if !d.ExpectErrorMappings[i].Used {
-				d.ExpectErrorMappings[i].Used = true
+	for id, usage := range d.ExpectErrorMappings {
+		if usage.Used {
+			continue
+		}
+		for _, mapping := range usage.ServiceMappings {
+			mappingRange := core.NewTextRange(
+				int(mapping.ServiceOffset),
+				int(mapping.ServiceOffset+mapping.ServiceLength),
+			)
+			if serviceRange.ContainedBy(mappingRange) {
+				result = true
+				usage.Used = true
 				d.Used++
+				d.ExpectErrorMappings[id] = usage
+				break
 			}
 		}
 	}
@@ -70,14 +81,14 @@ func (d *DirectiveMap) IsServiceRangeIgnored(serviceRange core.TextRange) bool {
 	return result
 }
 
-func (d *DirectiveMap) CollectUnused() []ExpectErrorDirectiveMapping {
+func (d *DirectiveMap) CollectUnused() []core.TextRange {
 	if d.Used == len(d.ExpectErrorMappings) {
 		return nil
 	}
-	res := make([]ExpectErrorDirectiveMapping, 0, len(d.ExpectErrorMappings)-d.Used)
-	for _, e := range d.ExpectErrorMappings {
-		if !e.Used {
-			res = append(res, e.ExpectErrorDirectiveMapping)
+	res := make([]core.TextRange, 0, len(d.ExpectErrorMappings)-d.Used)
+	for id, usage := range d.ExpectErrorMappings {
+		if !usage.Used {
+			res = append(res, id)
 		}
 	}
 

@@ -1,0 +1,10 @@
+{
+	"name": "@golar/sourcemap",
+	"private": true,
+	"type": "module",
+	"exports": "./src/index.ts",
+	"dependencies": {
+		"@golar/plugin": "workspace:*",
+		"@jridgewell/sourcemap-codec": "^1.5.5"
+	}
+}

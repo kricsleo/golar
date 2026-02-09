@@ -5,4 +5,4 @@ package golarext
 
 import "github.com/microsoft/typescript-go/internal/golarext"
 
-type GolarCallbacks = golarext.GolarCallbacks
+var GolarCallbacks = golarext.GolarCallbacks

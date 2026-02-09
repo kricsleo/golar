@@ -1,22 +1,39 @@
 /// <reference types="@volar/typescript" />
 
-import { createPlugin, type IgnoreDirectiveMapping, type Mapping, type ScriptKind } from '@golar/plugin'
-import type { LanguagePlugin } from '@volar/language-core'
+import { createPlugin, type ExpectErrorDirectiveMapping, type IgnoreDirectiveMapping, type Mapping, type Promisable, type ScriptKind, type ServiceCodeError } from '@golar/plugin'
+import type { LanguagePlugin, VirtualCode } from '@volar/language-core'
 import type ts from 'typescript'
 
-type Promisable<T> = T | Promise<T>
-
+export type VolarLanguagePlugin = LanguagePlugin<string> & {
+	getVirtualCodeErrors?(root: VirtualCode): ServiceCodeError[]
+}
 export type CreateVolarPluginOptions = {
 	filename: string
-	languagePlugins: LanguagePlugin<string>[]
+	/**
+		* @example ['.vue']
+		*/
+	extraFileExtensions: string[]
+	languagePlugins: VolarLanguagePlugin[] | ((cwd: string, configFileName: string | null) => Promisable<VolarLanguagePlugin[]>)
 }
 
 export function createVolarPlugin(opts: CreateVolarPluginOptions) {
+	const languagePluginsByProject = new Map<string, Promisable<VolarLanguagePlugin[]>>()
 	createPlugin({
 		filename: opts.filename,
-		extraExtensions: opts.languagePlugins.flatMap(p => p.typescript?.extraFileExtensions?.map(e => `.${e.extension}`) ?? []),
-		async createServiceCode(fileName, sourceText) {
-			for (const plugin of opts.languagePlugins) {
+		extraExtensions: opts.extraFileExtensions,
+		async createServiceCode(cwd, configFileName, fileName, sourceText) {
+			let languagePlugins: VolarLanguagePlugin[]
+			if (Array.isArray(opts.languagePlugins)) {
+				languagePlugins = opts.languagePlugins
+			} else {
+				const project = `${cwd}::${configFileName}`
+				let plugins = languagePluginsByProject.get(project)
+				if (plugins == null) {
+					languagePluginsByProject.set(project, plugins = opts.languagePlugins(cwd, configFileName))
+				}
+				languagePlugins = await plugins
+			}
+			for (const plugin of languagePlugins) {
 				if (plugin.createVirtualCode == null) {
 					continue
 				}
@@ -45,6 +62,15 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					continue
 				}
 
+				{
+					const errors = plugin.getVirtualCodeErrors?.(virtualCode)
+					if (errors?.length) {
+						return {
+							errors,
+						}
+					}
+				}
+
 				const serviceScript = plugin.typescript!.getServiceScript(virtualCode)
 				const serviceText = serviceScript!.code.snapshot.getText(0, serviceScript!.code.snapshot.getLength())
 
@@ -61,40 +87,40 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 						serviceOffsets.add(offset)
 						serviceOffsets.add(offset + (m.generatedLengths ?? m.lengths)[i]!)
 					}
-				}
-
-				const sourceOffsetsUtf8 = new Map<number, number>()
-				const serviceOffsetsUtf8 = new Map<number, number>()
-
-				let currentUtf8Pos = 0
-				const sortedSourceOffsets = Array.from(sourceOffsets).sort((a, b) => a - b)
-				for (const [i, offset] of sortedSourceOffsets.entries()) {
-					sourceOffsetsUtf8.set(offset, currentUtf8Pos += Buffer.byteLength(sourceText.slice(sortedSourceOffsets[i-1] ?? 0, offset)))
-				}
-				currentUtf8Pos = 0
-				const sortedServiceOffsets = Array.from(serviceOffsets).sort((a, b) => a - b)
-				for (const [i, offset] of sortedServiceOffsets.entries()) {
-					serviceOffsetsUtf8.set(offset, currentUtf8Pos += Buffer.byteLength(serviceText.slice(sortedServiceOffsets[i-1] ?? 0, offset)))
+					if ('__expectErrorCommentLoc' in m.data) {
+						const [start, end] = m.data.__expectErrorCommentLoc as [number, number]
+						sourceOffsets.add(start).add(end)
+					}
 				}
 
 				const serviceCovered: [number, number][] = []
+				const expectErrorMappings: ExpectErrorDirectiveMapping[] = []
+
 				const mappings = verificationMappings
 					.flatMap((m): Mapping[] => {
-						return m.sourceOffsets.map((sourceOffset, i) => {
+						return m.sourceOffsets.map((sourceOffset, i): Mapping => {
 							const generatedOffset = m.generatedOffsets[i]!
 							const sourceLength = m.lengths[i]!
 							const generatedLength = m.generatedLengths?.[i] ?? sourceLength
 							if (generatedLength > 0) {
-								serviceCovered.push([serviceOffsetsUtf8.get(generatedOffset)!, serviceOffsetsUtf8.get(generatedOffset + generatedLength)!])
+								serviceCovered.push([generatedOffset, generatedOffset + generatedLength])
 							}
 
-							const sourceOffsetUtf8 = sourceOffsetsUtf8.get(sourceOffset)!
-							const generatedOffsetUtf8 = serviceOffsetsUtf8.get(generatedOffset)!
+							if ('__expectErrorCommentLoc' in m.data) {
+								const [start, end] = m.data.__expectErrorCommentLoc as [number, number]
+								expectErrorMappings.push({
+									sourceOffset: start,
+									serviceOffset: generatedOffset,
+									sourceLength: end - start,
+									serviceLength: generatedLength,
+								})
+							}
+
 							return {
-								sourceOffset: sourceOffsetUtf8,
-								serviceOffset: generatedOffsetUtf8,
-								sourceLength: sourceOffsetsUtf8.get(sourceOffset + sourceLength)! - sourceOffsetUtf8,
-								serviceLengths: serviceOffsetsUtf8.get(generatedOffset + generatedLength)! - generatedOffsetUtf8,
+								sourceOffset,
+								serviceOffset: generatedOffset,
+								sourceLength,
+								serviceLength: generatedLength,
 							}
 						})
 					})
@@ -123,13 +149,14 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
   			  cursor = Math.max(cursor, e);
   			}
 
-  			ignoreMappings.push({ serviceOffset: cursor, serviceLength: Buffer.byteLength(serviceText) - cursor });
+  			ignoreMappings.push({ serviceOffset: cursor, serviceLength: serviceText.length - cursor });
 
 				return {
 					serviceText,
 					scriptKind: tsScriptKindToGolar(serviceScript?.scriptKind),
 					mappings,
 					ignoreMappings,
+					expectErrorMappings,
 				}
 			}
 			throw new Error('Unknown language')

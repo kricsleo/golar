@@ -29,6 +29,7 @@ type FileIncludeReason = compiler.FileIncludeReason
 func FilterNoEmitSemanticDiagnostics(diagnostics []*ast.Diagnostic, options *core.CompilerOptions) []*ast.Diagnostic
 //go:linkname GetDiagnosticsOfAnyProgram github.com/microsoft/typescript-go/internal/compiler.GetDiagnosticsOfAnyProgram
 func GetDiagnosticsOfAnyProgram(ctx context.Context, program compiler.ProgramLike, file *ast.SourceFile, skipNoEmitCheckForDtsDiagnostics bool, getBindDiagnostics func(context.Context, *ast.SourceFile) []*ast.Diagnostic, getSemanticDiagnostics func(context.Context, *ast.SourceFile) []*ast.Diagnostic) []*ast.Diagnostic
+var GolarExt = compiler.GolarExt
 //go:linkname HandleNoEmitOnError github.com/microsoft/typescript-go/internal/compiler.HandleNoEmitOnError
 func HandleNoEmitOnError(ctx context.Context, program compiler.ProgramLike, file *ast.SourceFile) *compiler.EmitResult
 type LibFile = compiler.LibFile
