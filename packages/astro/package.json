@@ -2,6 +2,8 @@
 	"name": "@golar/astro",
 	"version": "0.0.2",
 	"type": "module",
+	"bin": "./src/bin.ts",
+	"files": ["./dist"],
 	"license": "MIT",
 	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
 	"repository": {
@@ -12,7 +14,9 @@
 	"bugs": "https://github.com/auvred/golar/issues",
 	"homepage": "https://github.com/auvred/golar/tree/main/packages/astro#readme",
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"bin": "./dist/bin.js",
+		"executableFiles": ["./dist/bin.js"]
 	},
 	"files": [],
 	"optionalDependencies": {
