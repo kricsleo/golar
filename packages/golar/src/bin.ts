@@ -11,15 +11,19 @@ const filename = import.meta.filename.replaceAll('\\', '/')
 
 await Promise.all(filename.matchAll(/\/node_modules\//g).map(async nodeModulesMatch => {
 	const nodeModulesPath = filename.slice(0, nodeModulesMatch.index + nodeModulesMatch[0].length)
-	for (const packageName of await fs.readdir(nodeModulesPath)) {
-		if (!/^@[^\/]+\/golar-plugin(-.+)?$/.exec(packageName)) {
-			continue
-		}
-		const packageJson = JSON.parse(await fs.readFile(path.join(packageName, 'package.json'), 'utf8'))
-		if (typeof packageJson.bin !== 'string') {
-			continue
-		}
-		plugins.set(packageName, path.join(nodeModulesPath, packageName, packageJson.bin))
+	for (const orgName of await fs.readdir(nodeModulesPath)) {
+    if (!orgName.startsWith('@')) {
+      continue
+    }
+    for (const packageName of await fs.readdir(path.join(nodeModulesPath, orgName))) {
+		  if ((orgName !== '@golar' || !['astro', 'svelte', 'vue'].includes(packageName)) && !/^golar-plugin(-.+)?$/.exec(packageName)) {
+        continue
+      }
+      const packagePath = path.join(nodeModulesPath, orgName, packageName)
+		  const packageJson = JSON.parse(await fs.readFile(path.join(packagePath, "package.json"), "utf8"));
+		  if (typeof packageJson.bin !== "string") continue;
+		  plugins.set(packageName, path.join(packagePath, packageJson.bin));
+    }
 	}
 }))
 
