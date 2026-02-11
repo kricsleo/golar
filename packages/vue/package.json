@@ -5,7 +5,7 @@
 	"scripts": {
 		"build-typescript-lite": "cd ../../thirdparty/typescript && npm install && npx hereby generate-diagnostics && cd - && node ./scripts/build-typescript-lite.ts"
 	},
-	"bin": "./src/bin.ts",
+	"golarBin": "./dist/bin.js",
 	"files": [
 		"./dist"
 	],
@@ -20,7 +20,6 @@
 	"homepage": "https://github.com/auvred/golar/tree/main/packages/vue#readme",
 	"publishConfig": {
 		"access": "public",
-		"bin": "./dist/bin.js",
 		"executableFiles": [
 			"./dist/bin.js"
 		]

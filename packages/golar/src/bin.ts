@@ -33,8 +33,10 @@ await Promise.all(
 				const packageJson = JSON.parse(
 					await fs.readFile(path.join(packagePath, 'package.json'), 'utf8'),
 				)
-				if (typeof packageJson.bin !== 'string') continue
-				plugins.set(packageName, path.join(packagePath, packageJson.bin))
+				if (typeof packageJson.golarBin !== 'string') {
+					continue
+				}
+				plugins.set(packageName, path.join(packagePath, packageJson.golarBin))
 			}
 		}
 	}),

@@ -2,7 +2,7 @@
 	"name": "@golar/astro",
 	"version": "0.0.3",
 	"type": "module",
-	"bin": "./src/bin.ts",
+	"golarBin": "./dist/bin.js",
 	"files": [
 		"./dist"
 	],
@@ -17,12 +17,10 @@
 	"homepage": "https://github.com/auvred/golar/tree/main/packages/astro#readme",
 	"publishConfig": {
 		"access": "public",
-		"bin": "./dist/bin.js",
 		"executableFiles": [
 			"./dist/bin.js"
 		]
 	},
-	"files": [],
 	"optionalDependencies": {
 		"@golar/astro-win32-x64": "workspace:*",
 		"@golar/astro-win32-arm64": "workspace:*",
