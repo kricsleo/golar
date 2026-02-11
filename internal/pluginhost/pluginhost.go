@@ -17,12 +17,12 @@ import (
 )
 
 type Plugin struct {
-	stdin      io.WriteCloser
-	stdout     io.ReadCloser
+	stdin   io.WriteCloser
+	stdout  io.ReadCloser
 	sendBuf []byte
-	mu sync.Mutex
+	mu      sync.Mutex
 
-	reqId atomic.Uint64
+	reqId                     atomic.Uint64
 	createServiceCodeRequests sync.Map
 
 	ExtraExtensions []string
@@ -81,7 +81,7 @@ func NewPlugin(args []string) (*Plugin, error) {
 			case plugin.MsgKindCreateServiceCodeResponse:
 				reqId := binary.LittleEndian.Uint64(recvBuf)
 				f, _ := p.createServiceCodeRequests.LoadAndDelete(reqId)
-				f.(func (r[]byte))(recvBuf[8:])
+				f.(func(r []byte))(recvBuf[8:])
 			}
 		}
 	}()
@@ -110,36 +110,36 @@ func ensureCap(b []byte, needed uint32) []byte {
 
 type ServiceCodeError struct {
 	Message string
-	Loc core.TextRange
+	Loc     core.TextRange
 }
 type CreateServiceCodeResponse struct {
-	Errors []ServiceCodeError
-	ServiceText string
-	ScriptKind core.ScriptKind
-	Mappings []mapping.Mapping
-	IgnoreMappings []mapping.IgnoreDirectiveMapping
+	Errors              []ServiceCodeError
+	ServiceText         string
+	ScriptKind          core.ScriptKind
+	Mappings            []mapping.Mapping
+	IgnoreMappings      []mapping.IgnoreDirectiveMapping
 	ExpectErrorMappings []mapping.ExpectErrorDirectiveMapping
-	DeclarationFile bool
+	DeclarationFile     bool
 }
 
-func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName string, sourceText string) <- chan CreateServiceCodeResponse {
+func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName string, sourceText string) <-chan CreateServiceCodeResponse {
 	ch := make(chan CreateServiceCodeResponse, 1)
 
 	reqId := p.reqId.Add(1)
-	p.createServiceCodeRequests.Store(reqId, func (payload []byte) {
+	p.createServiceCodeRequests.Store(reqId, func(payload []byte) {
 		offset := uint32(0)
 		response := CreateServiceCodeResponse{}
 
 		properties := plugin.ServiceCodeProperties(payload[offset])
 		offset += 1
-		if properties & plugin.ServiceCodePropertiesError != 0 {
+		if properties&plugin.ServiceCodePropertiesError != 0 {
 			errorsCount := binary.LittleEndian.Uint32(payload[offset:])
 			offset += 4
 			response.Errors = make([]ServiceCodeError, errorsCount)
 			for i := range errorsCount {
 				messageLen := binary.LittleEndian.Uint32(payload[offset:])
 				offset += 4
-				response.Errors[i].Message = string(payload[offset:offset+messageLen])
+				response.Errors[i].Message = string(payload[offset : offset+messageLen])
 				offset += messageLen
 				start := binary.LittleEndian.Uint32(payload[offset:])
 				offset += 4
@@ -165,13 +165,13 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 			response.ScriptKind = core.ScriptKindTSX
 		}
 
-		if properties & plugin.ServiceCodePropertiesDeclarationFile != 0 {
+		if properties&plugin.ServiceCodePropertiesDeclarationFile != 0 {
 			response.DeclarationFile = true
 		}
 
 		serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
 		offset += 4
-		response.ServiceText = string(payload[offset:offset+serviceTextLen])
+		response.ServiceText = string(payload[offset : offset+serviceTextLen])
 		offset += serviceTextLen
 
 		mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
@@ -200,7 +200,7 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.sendBuf = ensureCap(p.sendBuf, uint32(8 + 4 + len(cwd) + 4 + len(configFileName) + 4 + len(fileName) + 4 + len(sourceText)))
+	p.sendBuf = ensureCap(p.sendBuf, uint32(8+4+len(cwd)+4+len(configFileName)+4+len(fileName)+4+len(sourceText)))
 	binary.LittleEndian.PutUint64(p.sendBuf, reqId)
 	offset := 8
 	binary.LittleEndian.PutUint32(p.sendBuf[offset:], uint32(len(cwd)))

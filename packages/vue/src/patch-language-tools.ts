@@ -1,27 +1,37 @@
 import assert from 'node:assert/strict'
-import fs from "node:fs";
-import { createRequire } from "node:module";
+import fs from 'node:fs'
+import { createRequire } from 'node:module'
 
-const require = createRequire(import.meta.url);
+const require = createRequire(import.meta.url)
 
-const originalReadFileSync = fs.readFileSync;
+const originalReadFileSync = fs.readFileSync
 function patchFile(filePath: string, patch: (src: string) => string) {
 	let patched = false
 	// @ts-expect-error - TypeScript doesn't understand that the overloads do match up.
 	fs.readFileSync = (...args) => {
 		const src = originalReadFileSync(...args).toString()
-		fs.readFileSync = originalReadFileSync;
+		fs.readFileSync = originalReadFileSync
 		patched = true
-		return patch(src);
-	};
-	require(filePath);
-	fs.readFileSync = originalReadFileSync;
-	assert.ok(patched, `Golar bug: File ${filePath} wasn't patched; most probably it has been already loaded`)
+		return patch(src)
+	}
+	require(filePath)
+	fs.readFileSync = originalReadFileSync
+	assert.ok(
+		patched,
+		`Golar bug: File ${filePath} wasn't patched; most probably it has been already loaded`,
+	)
 }
 
-patchFile("@vue/language-core/lib/codegen/template/context.js", src => {
-	src = replaceOrThrow(src, 'function createTemplateCodegenContext()', () => `function createTemplateCodegenContext(options)`)
-	src = replaceOrThrow(src, 'function resolveCodeFeatures', s => `${s}(...args) {
+patchFile('@vue/language-core/lib/codegen/template/context.js', (src) => {
+	src = replaceOrThrow(
+		src,
+		'function createTemplateCodegenContext()',
+		() => `function createTemplateCodegenContext(options)`,
+	)
+	src = replaceOrThrow(
+		src,
+		'function resolveCodeFeatures',
+		(s) => `${s}(...args) {
 		const features = _resolveCodeFeatures(...args)
 		const data = stack.at(-1)
 		if (data?.expectError != null) {
@@ -33,13 +43,18 @@ patchFile("@vue/language-core/lib/codegen/template/context.js", src => {
 		return features
 	}
 
-	function _resolveCodeFeatures`)
+	function _resolveCodeFeatures`,
+	)
 
 	return src
 })
 
-patchFile("@vue/language-core/lib/codegen/template/index.js", src => {
-	src = replaceOrThrow(src, 'createTemplateCodegenContext)()', () => `createTemplateCodegenContext)(options)`)
+patchFile('@vue/language-core/lib/codegen/template/index.js', (src) => {
+	src = replaceOrThrow(
+		src,
+		'createTemplateCodegenContext)()',
+		() => `createTemplateCodegenContext)(options)`,
+	)
 
 	return src
 })
@@ -49,13 +64,11 @@ function replaceOrThrow(
 	search: RegExp | string,
 	replace: (substring: string, ...args: string[]) => string,
 ): string {
-	const before = source;
-	source = source.replace(search, replace);
-	const after = source;
+	const before = source
+	source = source.replace(search, replace)
+	const after = source
 	if (after === before) {
-		throw new Error("Golar bug: failed to replace: " + search.toString());
+		throw new Error('Golar bug: failed to replace: ' + search.toString())
 	}
-	return after;
+	return after
 }
-
-

@@ -3,7 +3,9 @@
 	"version": "0.0.2",
 	"type": "module",
 	"bin": "./src/bin.ts",
-	"files": ["./dist"],
+	"files": [
+		"./dist"
+	],
 	"license": "MIT",
 	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
 	"repository": {
@@ -16,7 +18,9 @@
 	"publishConfig": {
 		"access": "public",
 		"bin": "./dist/bin.js",
-		"executableFiles": ["./dist/bin.js"]
+		"executableFiles": [
+			"./dist/bin.js"
+		]
 	},
 	"optionalDependencies": {
 		"@golar/win32-x64": "workspace:*",

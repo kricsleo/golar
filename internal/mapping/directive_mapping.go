@@ -16,7 +16,7 @@ type ExpectErrorDirectiveMapping struct {
 
 type ExpectErrorDirectiveUsage struct {
 	ServiceMappings []IgnoreDirectiveMapping
-	Used bool
+	Used            bool
 }
 
 type DirectiveMap struct {
@@ -28,7 +28,7 @@ type DirectiveMap struct {
 func NewDirectiveMap(ignore []IgnoreDirectiveMapping, expectError []ExpectErrorDirectiveMapping) DirectiveMap {
 	e := map[core.TextRange]ExpectErrorDirectiveUsage{}
 	for _, dir := range expectError {
-		id := core.NewTextRange(int(dir.SourceOffset), int(dir.SourceOffset + dir.SourceLength))
+		id := core.NewTextRange(int(dir.SourceOffset), int(dir.SourceOffset+dir.SourceLength))
 		usage, ok := e[id]
 		if !ok {
 			usage = ExpectErrorDirectiveUsage{}

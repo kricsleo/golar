@@ -88,78 +88,77 @@ export function sourceMapToMappings(opts: {
 }
 
 interface SourceFileWithLineMap {
-	readonly text: string;
+	readonly text: string
 	/** Used for caching the start positions of lines in `text` */
-	lineMap?: readonly number[];
+	lineMap?: readonly number[]
 }
 
 function computeLineStarts(source: string): readonly number[] {
-	const res = [];
-	let lineStart = 0;
-	let cr = source.indexOf("\r", lineStart);
-	let lf = source.indexOf("\n", lineStart);
+	const res = []
+	let lineStart = 0
+	let cr = source.indexOf('\r', lineStart)
+	let lf = source.indexOf('\n', lineStart)
 	while (true) {
 		if (lf === -1) {
 			while (cr !== -1) {
-				res.push(lineStart);
-				lineStart = cr + 1;
-				cr = source.indexOf("\r", lineStart);
+				res.push(lineStart)
+				lineStart = cr + 1
+				cr = source.indexOf('\r', lineStart)
 			}
-			break;
+			break
 		}
 		if (cr === -1) {
 			while (lf !== -1) {
-				res.push(lineStart);
-				lineStart = lf + 1;
-				lf = source.indexOf("\n", lineStart);
+				res.push(lineStart)
+				lineStart = lf + 1
+				lf = source.indexOf('\n', lineStart)
 			}
-			break;
+			break
 		}
 		if (cr + 1 === lf) {
-			res.push(lineStart);
-			lineStart = lf + 1;
-			cr = source.indexOf("\r", lineStart);
-			lf = source.indexOf("\n", lineStart);
-			continue;
+			res.push(lineStart)
+			lineStart = lf + 1
+			cr = source.indexOf('\r', lineStart)
+			lf = source.indexOf('\n', lineStart)
+			continue
 		}
-		res.push(lineStart);
+		res.push(lineStart)
 		if (cr < lf) {
-			lineStart = cr + 1;
-			cr = source.indexOf("\r", lineStart);
+			lineStart = cr + 1
+			cr = source.indexOf('\r', lineStart)
 		} else {
-			lineStart = lf + 1;
-			lf = source.indexOf("\n", lineStart);
+			lineStart = lf + 1
+			lf = source.indexOf('\n', lineStart)
 		}
 	}
-	res.push(lineStart);
-	return res;
+	res.push(lineStart)
+	return res
 }
 
 interface ColumnAndLine {
 	/** 0-indexed */
-	column: number;
+	column: number
 	/** 0-indexed */
-	line: number;
+	line: number
 }
-
 
 function getPositionOfColumnAndLine(
 	source: SourceFileWithLineMap,
 	columnAndLine: ColumnAndLine,
 ): number {
-	if (typeof source === "string") {
+	if (typeof source === 'string') {
 		return computePositionOfColumnAndLine(
 			source,
 			computeLineStarts(source),
 			columnAndLine,
-		);
+		)
 	}
-	source.lineMap ??= computeLineStarts(source.text);
+	source.lineMap ??= computeLineStarts(source.text)
 	return computePositionOfColumnAndLine(
 		source.text,
 		source.lineMap,
 		columnAndLine,
-	);
+	)
 }
 
 function computePositionOfColumnAndLine(
@@ -167,12 +166,11 @@ function computePositionOfColumnAndLine(
 	lineStarts: readonly number[],
 	{ column, line }: ColumnAndLine,
 ): number {
-	line = Math.min(Math.max(line, 0), lineStarts.length - 1);
+	line = Math.min(Math.max(line, 0), lineStarts.length - 1)
 
-	const res = lineStarts[line]! + column;
+	const res = lineStarts[line]! + column
 	if (line === lineStarts.length - 1) {
-		return Math.min(res, sourceText.length);
+		return Math.min(res, sourceText.length)
 	}
-	return Math.min(res, lineStarts[line + 1]! - 1);
+	return Math.min(res, lineStarts[line + 1]! - 1)
 }
-

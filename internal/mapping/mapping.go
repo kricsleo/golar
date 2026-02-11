@@ -242,7 +242,7 @@ func TranslateOffset(
 	fromLength uint32,
 	toLength uint32,
 ) (uint32, bool) {
-	if start >= fromOffset && start <= fromOffset + fromLength {
+	if start >= fromOffset && start <= fromOffset+fromLength {
 		return toOffset + min(start-fromOffset, toLength), true
 	}
 

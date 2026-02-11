@@ -12,16 +12,26 @@ const require = createRequire(process.cwd())
 
 const svelteTsxFilesByProject = new Map<string, Promise<string[]>>()
 
-async function importSvelteTsxFiles(cwd: string, configFileName: string | null): Promise<string[]> {
+async function importSvelteTsxFiles(
+	cwd: string,
+	configFileName: string | null,
+): Promise<string[]> {
 	const resolvePaths: string[] = []
 	if (configFileName != null) {
 		resolvePaths.push(path.dirname(configFileName))
 	}
 	resolvePaths.push(cwd)
 	// TODO: error message if svelte is not installed
-	const sveltePackageJsonPath = require.resolve('svelte/package.json', { paths: resolvePaths })
-	const { default: svelteCompilerPackageJson } = await import(sveltePackageJsonPath, { with: { type: 'json' }})
-	const majorVersion = Number.parseInt(svelteCompilerPackageJson.version.split('.')[0]!)
+	const sveltePackageJsonPath = require.resolve('svelte/package.json', {
+		paths: resolvePaths,
+	})
+	const { default: svelteCompilerPackageJson } = await import(
+		sveltePackageJsonPath,
+		{ with: { type: 'json' } }
+	)
+	const majorVersion = Number.parseInt(
+		svelteCompilerPackageJson.version.split('.')[0]!,
+	)
 	// Copied from packages/language-server/src/plugins/typescript/service.ts
 	// Svelte 4 has some fixes with regards to parsing the generics attribute.
 	// Svelte 5 has new features, but we don't want to add the new compiler into language-tools. In the future it's probably
@@ -36,13 +46,12 @@ async function importSvelteTsxFiles(cwd: string, configFileName: string | null):
 		ts.sys,
 		majorVersion === 3,
 		path.dirname(sveltePackageJsonPath),
-		path.dirname(require.resolve('svelte2tsx', {
-			paths: [
-				...resolvePaths,
-				import.meta.dirname,
-			],
-		})),
-		configFileName ?? cwd
+		path.dirname(
+			require.resolve('svelte2tsx', {
+				paths: [...resolvePaths, import.meta.dirname],
+			}),
+		),
+		configFileName ?? cwd,
 	)
 }
 
@@ -55,7 +64,10 @@ createPlugin({
 		{
 			let files = svelteTsxFilesByProject.get(project)
 			if (files == null) {
-				svelteTsxFilesByProject.set(project, files = importSvelteTsxFiles(cwd, configFileName))
+				svelteTsxFilesByProject.set(
+					project,
+					(files = importSvelteTsxFiles(cwd, configFileName)),
+				)
 			}
 			svelteTsxFiles = await files
 		}
@@ -63,16 +75,19 @@ createPlugin({
 		try {
 			const tsx = svelte2tsx(sourceText, {
 				isTsFile: true,
-				mode: "ts",
-			});
+				mode: 'ts',
+			})
 
 			return {
-				serviceText: tsx.code + '\n\n' + svelteTsxFiles.map(p => `import ${JSON.stringify(p)}`).join('\n'),
+				serviceText:
+					tsx.code +
+					'\n\n' +
+					svelteTsxFiles.map((p) => `import ${JSON.stringify(p)}`).join('\n'),
 				scriptKind: 'tsx',
 				mappings: sourceMapToMappings({
 					sourceText,
 					serviceText: tsx.code,
-					sourceMap: tsx.map.mappings
+					sourceMap: tsx.map.mappings,
 				}),
 			}
 		} catch (e) {

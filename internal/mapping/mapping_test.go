@@ -104,64 +104,64 @@ func TestBinarySearch(t *testing.T) {
 
 func TestTranslateOffset(t *testing.T) {
 	cases := []struct {
-		name        string
-		start       uint32
-		fromOffset  uint32
-		toOffset    uint32
-		fromLength  uint32
-		toLength    uint32
-		want        uint32
-		wantOk      bool
+		name       string
+		start      uint32
+		fromOffset uint32
+		toOffset   uint32
+		fromLength uint32
+		toLength   uint32
+		want       uint32
+		wantOk     bool
 	}{
 		{
-			name:        "start within fromRange, offset within toRange",
-			start:       5,
+			name:       "start within fromRange, offset within toRange",
+			start:      5,
 			fromOffset: 1,
 			toOffset:   11,
 			fromLength: 9,
-			toLength: 9,
-			want:        15,
-			wantOk:      true,
+			toLength:   9,
+			want:       15,
+			wantOk:     true,
 		},
 		{
-			name:        "start outside fromRange",
-			start:       0,
+			name:       "start outside fromRange",
+			start:      0,
 			fromOffset: 1,
 			toOffset:   11,
 			fromLength: 9,
-			toLength: 9,
-			want:        0,
-			wantOk:      false,
+			toLength:   9,
+			want:       0,
+			wantOk:     false,
 		},
 		{
-			name:        "start at end of fromRange with shorter toLength",
-			start:       10,
+			name:       "start at end of fromRange with shorter toLength",
+			start:      10,
 			fromOffset: 1,
 			toOffset:   11,
 			fromLength: 9,
 			toLength:   7,
-			want:        18,
-			wantOk:      true,
+			want:       18,
+			wantOk:     true,
 		},
 		{
-			name:        "uses fromLengths when toLengths is empty",
-			start:       3,
+			name:       "uses fromLengths when toLengths is empty",
+			start:      3,
 			fromOffset: 1,
 			toOffset:   11,
 			fromLength: 4,
-			toLength: 4,
-			want:        13,
-			wantOk:      true,
+			toLength:   4,
+			want:       13,
+			wantOk:     true,
 		},
 		{
-			name:        "start equals fromOffset",
-			start:       10,
+			name:       "start equals fromOffset",
+			start:      10,
 			fromOffset: 10,
 			toOffset:   50,
 			fromLength: 2,
-			toLength: 2,
-			want:        50,
-			wantOk:      true,
+			toLength:   2,
+			want:       50,
+			wantOk:     true,
 		},
 	}
 

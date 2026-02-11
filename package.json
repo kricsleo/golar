@@ -9,6 +9,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^25.0.8",
+		"prettier": "^3.8.1",
 		"tsdown": "^0.20.3"
 	}
 }

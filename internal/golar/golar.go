@@ -24,10 +24,10 @@ import (
 var pluginErrorDiagnostic = &diagnostics.Message{}
 
 func init() {
-  diagnostics.Message_Set_code(pluginErrorDiagnostic, 1_000_000)
-  diagnostics.Message_Set_category(pluginErrorDiagnostic, diagnostics.CategoryError)
-  diagnostics.Message_Set_key(pluginErrorDiagnostic, "plugin_error_diagnostic")
-  diagnostics.Message_Set_text(pluginErrorDiagnostic, "{0}")
+	diagnostics.Message_Set_code(pluginErrorDiagnostic, 1_000_000)
+	diagnostics.Message_Set_category(pluginErrorDiagnostic, diagnostics.CategoryError)
+	diagnostics.Message_Set_key(pluginErrorDiagnostic, "plugin_error_diagnostic")
+	diagnostics.Message_Set_text(pluginErrorDiagnostic, "{0}")
 }
 
 type compilerHostProxy struct {
@@ -95,15 +95,14 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 
 		file := parser.ParseSourceFile(opts, resp.ServiceText, resp.ScriptKind)
 		file.IsDeclarationFile = resp.DeclarationFile
-		file.WrapDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
-			newFile := ast.SourceFile{
-			}
+		file.WrapDiagnostics = func(diags []*ast.Diagnostic) []*ast.Diagnostic {
+			newFile := ast.SourceFile{}
 			newFile.GolarLanguageData = file.GolarLanguageData
 			newFile.SetText(sourceText)
 			newFile.SetParseOptions(file.ParseOptions())
 			return wrapDiagnostics(&newFile, diags, false)
 		}
-		file.WrapSemanticDiagnostics = func (diags []*ast.Diagnostic) []*ast.Diagnostic {
+		file.WrapSemanticDiagnostics = func(diags []*ast.Diagnostic) []*ast.Diagnostic {
 			// TODO: this is hack
 			newFile := ast.SourceFile{}
 			newFile.GolarLanguageData = file.GolarLanguageData
@@ -124,7 +123,6 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 
 	return parser.ParseSourceFile(opts, sourceText, scriptKind)
 }
-
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
 	diagnostic.SetFile(file)
