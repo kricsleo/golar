@@ -1,2 +1,3 @@
 packages:
   - packages/*
+  - generated-packages/* # used in gen-npm-packages.ts

@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+  "repository": "github:auvred/golar",
+  "bugs": "https://github.com/auvred/golar/issues",
+  "homepage": "https://github.com/auvred/golar#readme",
+  "publishConfig": {
+    "access": "public",
+    "executableFiles": [
+      "./golar-astro"
+    ]
+  },
+  "name": "@golar/astro-linux-arm64",
+  "preferUnplugged": true,
+  "files": [
+    "./golar-astro"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ]
+}

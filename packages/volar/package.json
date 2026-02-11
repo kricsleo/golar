@@ -1,13 +1,33 @@
 {
 	"name": "@golar/volar",
-	"private": true,
+	"version": "0.0.1",
 	"type": "module",
-	"exports": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"./dist"
+	],
+	"license": "MIT",
+	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/auvred/golar.git",
+		"directory": "packages/volar"
+	},
+	"bugs": "https://github.com/auvred/golar/issues",
+	"homepage": "https://github.com/auvred/golar/tree/main/packages/volar#readme",
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": "./dist/index.js"
+		}
+	},
 	"dependencies": {
-		"@golar/plugin": "workspace:",
-		"@volar/language-core": "^2.4.27"
+		"@golar/plugin": "workspace:*",
+		"@volar/language-core": "^2.4.28"
 	},
 	"devDependencies": {
-		"@volar/typescript": "^2.4.27"
+		"@volar/typescript": "^2.4.28"
 	}
 }

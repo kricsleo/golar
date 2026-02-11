@@ -3,19 +3,20 @@ package golar
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/internal/pluginhost"
 	"github.com/auvred/golar/internal/utils"
 
-	"github.com/microsoft/typescript-go/shim/tsoptions"
 	"github.com/microsoft/typescript-go/shim/ast"
 	"github.com/microsoft/typescript-go/shim/compiler"
 	"github.com/microsoft/typescript-go/shim/core"
 	"github.com/microsoft/typescript-go/shim/diagnostics"
 	"github.com/microsoft/typescript-go/shim/golarext"
 	"github.com/microsoft/typescript-go/shim/parser"
+	"github.com/microsoft/typescript-go/shim/tsoptions"
 	"github.com/microsoft/typescript-go/shim/tspath"
 	"github.com/microsoft/typescript-go/shim/vfs"
 )
@@ -56,59 +57,29 @@ func wrapCompilerHost(config *tsoptions.ParsedCommandLine, host compiler.Compile
 	return &compilerHostProxy{host, config}
 }
 
-var vuePlugin *pluginhost.Plugin
-var sveltePlugin *pluginhost.Plugin
-var astroPlugin *pluginhost.Plugin
+var pluginByExtension = map[string]*pluginhost.Plugin{}
 
 func init() {
-	var err error
-	pluginNames, ok := os.LookupEnv("GOLAR_PLUGIN")
-	if !ok {
+	plugins, ok := os.LookupEnv("GOLAR_PLUGINS")
+	if !ok || plugins == "" {
 		return
 	}
 
-	for pluginName := range strings.SplitSeq(pluginNames, ",") {
-		switch pluginName {
-		case "vue":
-			vuePlugin, err = pluginhost.NewPlugin([]string{"node", "/home/auvred/dev/personal/github/auvred/golar/packages/vue/src/index.ts"})
-			if err != nil {
-				panic(err)
-			}
-			for _, ext := range vuePlugin.ExtraExtensions {
-				tspath.RegisterSupportedExtension(ext)
-			}
-		case "svelte":
-			sveltePlugin, err = pluginhost.NewPlugin([]string{"node", "/home/auvred/dev/personal/github/auvred/golar/packages/svelte/src/index.ts"})
-			if err != nil {
-				panic(err)
-			}
-			for _, ext := range sveltePlugin.ExtraExtensions {
-				tspath.RegisterSupportedExtension(ext)
-			}
-		case "astro":
-			astroPlugin, err = pluginhost.NewPlugin([]string{"/home/auvred/dev/personal/github/auvred/golar/packages/astro/astro"})
-			if err != nil {
-				panic(err)
-			}
-			for _, ext := range astroPlugin.ExtraExtensions {
-				tspath.RegisterSupportedExtension(ext)
-			}
+	for pluginPath := range strings.SplitSeq(plugins, "\n") {
+		plugin, err := pluginhost.NewPlugin([]string{pluginPath})
+		if err != nil {
+			panic(err)
+		}
+		for _, ext := range plugin.ExtraExtensions {
+			tspath.RegisterSupportedExtension(ext)
+			pluginByExtension[ext] = plugin
 		}
 	}
 }
 
 func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
-	var plugin *pluginhost.Plugin
-
-	if strings.HasSuffix(opts.FileName, ".vue") {
-		plugin = vuePlugin
-	} else if strings.HasSuffix(opts.FileName, ".svelte") {
-		plugin = sveltePlugin
-	} else if strings.HasSuffix(opts.FileName, ".astro") {
-		plugin = astroPlugin
-	}
-
-	if plugin != nil {
+	ext := filepath.Ext(opts.FileName)
+	if plugin, ok := pluginByExtension[ext]; ok {
 		resp := <-plugin.CreateServiceCode(h.GetCurrentDirectory(), h.config.ConfigName(), opts.FileName, sourceText)
 		if resp.Errors != nil {
 			file := ast.SourceFile{}
@@ -147,13 +118,10 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 		langData.ignoreDirectives = resp.IgnoreMappings
 		langData.expectErrorDirectives = resp.ExpectErrorMappings
 		file.GolarLanguageData = langData
-		// diags := file.Diagnostics()
-		// for i, diag := range diags {
-		// 	diags[i] = adjustDiagnostic(file, diag)
-		// }
 
 		return file
 	}
+
 	return parser.ParseSourceFile(opts, sourceText, scriptKind)
 }
 

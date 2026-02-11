@@ -1,5 +1,5 @@
 {
-	"name": "@golar/svelte",
+	"name": "golar",
 	"version": "0.0.1",
 	"type": "module",
 	"bin": "./src/bin.ts",
@@ -9,22 +9,21 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/auvred/golar.git",
-		"directory": "packages/svelte"
+		"directory": "packages/plugin"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/svelte#readme",
+	"homepage": "https://github.com/auvred/golar/tree/main/packages/plugin#readme",
 	"publishConfig": {
 		"access": "public",
 		"bin": "./dist/bin.js",
 		"executableFiles": ["./dist/bin.js"]
 	},
-	"dependencies": {
-		"@golar/plugin": "workspace:*",
-		"@golar/sourcemap": "workspace:*",
-		"svelte2tsx": "^0.7.46"
-	},
-	"peerDependencies": {
-		"svelte": "^4.0.0 || ^5.0.0",
-		"typescript": "^5.4.0"
+	"optionalDependencies": {
+		"@golar/win32-x64": "workspace:*",
+		"@golar/win32-arm64": "workspace:*",
+		"@golar/linux-x64": "workspace:*",
+		"@golar/linux-arm64": "workspace:*",
+		"@golar/darwin-x64": "workspace:*",
+		"@golar/darwin-arm64": "workspace:*"
 	}
 }

@@ -1,0 +1,26 @@
+{
+	"name": "@golar/astro",
+	"version": "0.0.1",
+	"type": "module",
+	"license": "MIT",
+	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/auvred/golar.git",
+		"directory": "packages/astro"
+	},
+	"bugs": "https://github.com/auvred/golar/issues",
+	"homepage": "https://github.com/auvred/golar/tree/main/packages/astro#readme",
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [],
+	"optionalDependencies": {
+		"@golar/astro-win32-x64": "workspace:*",
+		"@golar/astro-win32-arm64": "workspace:*",
+		"@golar/astro-linux-x64": "workspace:*",
+		"@golar/astro-linux-arm64": "workspace:*",
+		"@golar/astro-darwin-x64": "workspace:*",
+		"@golar/astro-darwin-arm64": "workspace:*"
+	}
+}

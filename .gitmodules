@@ -4,6 +4,8 @@
 [submodule "astro-compiler"]
 	path = thirdparty/astro-compiler
 	url = https://github.com/withastro/compiler
+	shallow = true
 [submodule "vendor/typescript"]
 	path = thirdparty/typescript
 	url = https://github.com/microsoft/typescript
+	shallow = true

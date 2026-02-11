@@ -1,0 +1,46 @@
+#!/usr/bin/env node
+
+import process from 'node:process'
+import fs from 'node:fs/promises'
+import child_process from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const plugins = new Map<string, string>()
+const filename = import.meta.filename.replaceAll('\\', '/')
+
+await Promise.all(filename.matchAll(/\/node_modules\//g).map(async nodeModulesMatch => {
+	const nodeModulesPath = filename.slice(0, nodeModulesMatch.index + nodeModulesMatch[0].length)
+	for (const packageName of await fs.readdir(nodeModulesPath)) {
+		if (!/^@[^\/]+\/golar-plugin(-.+)?$/.exec(packageName)) {
+			continue
+		}
+		const packageJson = JSON.parse(await fs.readFile(path.join(packageName, 'package.json'), 'utf8'))
+		if (typeof packageJson.bin !== 'string') {
+			continue
+		}
+		plugins.set(packageName, path.join(nodeModulesPath, packageName, packageJson.bin))
+	}
+}))
+
+const exePath = fileURLToPath(import.meta.resolve(
+  `@golar/${process.platform}-${process.arch}/golar${process.platform === 'win32' ? '.exe' : ''}`,
+))
+
+try {
+  child_process.execFileSync(exePath, process.argv.slice(2), {
+		env: {
+			GOLAR_PLUGINS: Array.from(plugins.values()).join('\n'),
+			...process.env,
+		},
+    stdio: 'inherit',
+  })
+} catch (e) {
+	if (e instanceof Error) {
+  	if ('status' in e && typeof e.status === 'number') {
+    	process.exit(e.status)
+		}
+	}
+  throw e
+}
+

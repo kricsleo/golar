@@ -1,10 +1,12 @@
+#!/usr/bin/env node
+
 import { svelte2tsx, internalHelpers } from 'svelte2tsx'
 import { createPlugin, type ServiceCodeError } from '@golar/plugin'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
 import util from 'node:util'
-import { sourceMapToMappings } from '../../sourcemap/src/index.ts'
+import { sourceMapToMappings } from '@golar/sourcemap'
 
 const require = createRequire(process.cwd())
 
