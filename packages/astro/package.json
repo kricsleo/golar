@@ -1,6 +1,6 @@
 {
 	"name": "@golar/astro",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"type": "module",
 	"license": "MIT",
 	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",

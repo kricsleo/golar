@@ -1,6 +1,6 @@
 {
 	"name": "@golar/vue",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"type": "module",
 	"scripts": {
 		"build-typescript-lite": "cd ../../thirdparty/typescript && npm install && npx hereby generate-diagnostics && cd - && node ./scripts/build-typescript-lite.ts"
