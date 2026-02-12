@@ -1,6 +1,6 @@
 {
 	"name": "@golar/svelte",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"type": "module",
 	"golarBin": "./dist/bin.js",
 	"files": [
