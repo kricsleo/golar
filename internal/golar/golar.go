@@ -43,12 +43,13 @@ type languageData struct {
 }
 
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
-	if strings.HasSuffix(opts.FileName, ".vue") || strings.HasSuffix(opts.FileName, ".svelte") || strings.HasSuffix(opts.FileName, ".astro") {
-		sourceText, ok := h.CompilerHost.FS().ReadFile(opts.FileName)
-		if !ok {
-			return nil
-		}
-		return h.parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
+	sourceText, ok := h.CompilerHost.FS().ReadFile(opts.FileName)
+	if !ok {
+		return nil
+	}
+	res := h.parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
+	if res != nil {
+		return res
 	}
 	return h.CompilerHost.GetSourceFile(opts)
 }
@@ -121,7 +122,7 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 		return file
 	}
 
-	return parser.ParseSourceFile(opts, sourceText, scriptKind)
+	return nil
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
