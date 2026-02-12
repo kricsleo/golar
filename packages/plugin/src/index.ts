@@ -12,8 +12,7 @@ const MSG_KIND = {
 
 const SERVICE_CODE_PROPERTIES = {
 	ERROR: 1 << 0,
-	SOURCE_MAP: 1 << 1,
-	DECLARATION_FILE: 1 << 2,
+	DECLARATION_FILE: 1 << 1,
 }
 
 const SCRIPT_KIND = {
