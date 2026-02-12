@@ -12,22 +12,20 @@ import PluginVueScriptJs from '@vue/language-core/lib/plugins/vue-script-js.js'
 import PluginVueTemplateHtml from '@vue/language-core/lib/plugins/vue-template-html.js'
 import type { VolarLanguagePlugin } from '@golar/volar'
 
-export async function vueLanguagePlugin(
+export function vueLanguagePlugin(
 	cwd: string,
 	configFileName: string | null,
-): Promise<VolarLanguagePlugin> {
+): VolarLanguagePlugin {
 	const { options: compilerOptions, vueOptions: vueCompilerOptions } =
 		configFileName == null
 			? createParsedCommandLineByJson(ts, ts.sys, cwd, {})
 			: createParsedCommandLine(ts, ts.sys, configFileName)
-	const plugins = (
-		await Promise.all([
-			PluginVueTsx,
-			PluginFileVue,
-			PluginVueScriptJs,
-			PluginVueTemplateHtml,
-		])
-	).flatMap(({ default: ctor }) =>
+	const plugins = [
+		PluginVueTsx,
+		PluginFileVue,
+		PluginVueScriptJs,
+		PluginVueTemplateHtml,
+	].flatMap(({ default: ctor }) =>
 		ctor({
 			modules: {
 				typescript: ts,

@@ -9,12 +9,16 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/plugin"
+	"github.com/auvred/golar/util"
 	"github.com/microsoft/typescript-go/shim/core"
 )
+
+var debug = util.NewDebug("pluginhost")
 
 type Plugin struct {
 	stdin   io.WriteCloser
@@ -28,7 +32,14 @@ type Plugin struct {
 	ExtraExtensions []string
 }
 
+type serviceCodeRequest struct {
+	started time.Time
+	fileName string
+	callback func(payload []byte)
+}
+
 func NewPlugin(args []string) (*Plugin, error) {
+	t := time.Now()
 	p := Plugin{}
 	cmd := exec.Command(args[0], args[1:]...)
 	var err error
@@ -41,10 +52,13 @@ func NewPlugin(args []string) (*Plugin, error) {
 		return nil, fmt.Errorf("creating stdout pipe: %v", err)
 	}
 	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	debug.Printf("started %#v plugin; err: %#v; +%v", args, err, time.Since(t))
+	if err != nil {
 		return nil, err
 	}
 
+	t = time.Now()
 	var header [5]byte
 	var recvBuf []byte
 	if _, err := io.ReadFull(p.stdout, header[:4]); err != nil {
@@ -60,6 +74,7 @@ func NewPlugin(args []string) (*Plugin, error) {
 		panic(err)
 	}
 	p.ExtraExtensions = initialization.ExtraExtensions
+	debug.Printf("initialized %#v plugin; initialization: %#v; +%v", args, initialization, time.Since(t))
 
 	go func() {
 		for {
@@ -81,7 +96,9 @@ func NewPlugin(args []string) (*Plugin, error) {
 			case plugin.MsgKindCreateServiceCodeResponse:
 				reqId := binary.LittleEndian.Uint64(recvBuf)
 				f, _ := p.createServiceCodeRequests.LoadAndDelete(reqId)
-				f.(func(r []byte))(recvBuf[8:])
+				req := f.(serviceCodeRequest)
+				debug.Printf("createServiceCode(%v) +%v", req.fileName, time.Since(req.started))
+				req.callback(recvBuf[8:])
 			}
 		}
 	}()
@@ -126,76 +143,80 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 	ch := make(chan CreateServiceCodeResponse, 1)
 
 	reqId := p.reqId.Add(1)
-	p.createServiceCodeRequests.Store(reqId, func(payload []byte) {
-		offset := uint32(0)
-		response := CreateServiceCodeResponse{}
+	p.createServiceCodeRequests.Store(reqId, serviceCodeRequest{
+		started: time.Now(),
+		fileName: fileName,
+		callback: func(payload []byte) {
+			offset := uint32(0)
+			response := CreateServiceCodeResponse{}
 
-		properties := plugin.ServiceCodeProperties(payload[offset])
-		offset += 1
-		if properties&plugin.ServiceCodePropertiesError != 0 {
-			errorsCount := binary.LittleEndian.Uint32(payload[offset:])
-			offset += 4
-			response.Errors = make([]ServiceCodeError, errorsCount)
-			for i := range errorsCount {
-				messageLen := binary.LittleEndian.Uint32(payload[offset:])
+			properties := plugin.ServiceCodeProperties(payload[offset])
+			offset += 1
+			if properties&plugin.ServiceCodePropertiesError != 0 {
+				errorsCount := binary.LittleEndian.Uint32(payload[offset:])
 				offset += 4
-				response.Errors[i].Message = string(payload[offset : offset+messageLen])
-				offset += messageLen
-				start := binary.LittleEndian.Uint32(payload[offset:])
-				offset += 4
-				end := binary.LittleEndian.Uint32(payload[offset:])
-				offset += 4
-				response.Errors[i].Loc = core.NewTextRange(int(start), int(end))
+				response.Errors = make([]ServiceCodeError, errorsCount)
+				for i := range errorsCount {
+					messageLen := binary.LittleEndian.Uint32(payload[offset:])
+					offset += 4
+					response.Errors[i].Message = string(payload[offset : offset+messageLen])
+					offset += messageLen
+					start := binary.LittleEndian.Uint32(payload[offset:])
+					offset += 4
+					end := binary.LittleEndian.Uint32(payload[offset:])
+					offset += 4
+					response.Errors[i].Loc = core.NewTextRange(int(start), int(end))
+				}
+				ch <- response
+				return
 			}
+
+			scriptKind := plugin.ScriptKind(payload[offset])
+			offset += 1
+
+			switch scriptKind {
+			case plugin.ScriptKindJS:
+				response.ScriptKind = core.ScriptKindJS
+			case plugin.ScriptKindJSX:
+				response.ScriptKind = core.ScriptKindJSX
+			case plugin.ScriptKindTS:
+				response.ScriptKind = core.ScriptKindTS
+			case plugin.ScriptKindTSX:
+				response.ScriptKind = core.ScriptKindTSX
+			}
+
+			if properties&plugin.ServiceCodePropertiesDeclarationFile != 0 {
+				response.DeclarationFile = true
+			}
+
+			serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
+			offset += 4
+			response.ServiceText = string(payload[offset : offset+serviceTextLen])
+			offset += serviceTextLen
+
+			mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+			mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
+			offset += 4
+			response.Mappings = make([]mapping.Mapping, mappingsCount)
+			copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
+			offset += mappingsByteLen
+
+			ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+			ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))
+			offset += 4
+			response.IgnoreMappings = make([]mapping.IgnoreDirectiveMapping, ignoreMappingsCount)
+			copy(response.IgnoreMappings, unsafe.Slice((*mapping.IgnoreDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+ignoreMappingsByteLen]))), ignoreMappingsCount))
+			offset += ignoreMappingsByteLen
+
+			expectErrorMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
+			expectErrorMappingsByteLen := expectErrorMappingsCount * uint32(unsafe.Sizeof(mapping.ExpectErrorDirectiveMapping{}))
+			offset += 4
+			response.ExpectErrorMappings = make([]mapping.ExpectErrorDirectiveMapping, expectErrorMappingsCount)
+			copy(response.ExpectErrorMappings, unsafe.Slice((*mapping.ExpectErrorDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+expectErrorMappingsByteLen]))), expectErrorMappingsCount))
+			offset += expectErrorMappingsByteLen
+
 			ch <- response
-			return
-		}
-
-		scriptKind := plugin.ScriptKind(payload[offset])
-		offset += 1
-
-		switch scriptKind {
-		case plugin.ScriptKindJS:
-			response.ScriptKind = core.ScriptKindJS
-		case plugin.ScriptKindJSX:
-			response.ScriptKind = core.ScriptKindJSX
-		case plugin.ScriptKindTS:
-			response.ScriptKind = core.ScriptKindTS
-		case plugin.ScriptKindTSX:
-			response.ScriptKind = core.ScriptKindTSX
-		}
-
-		if properties&plugin.ServiceCodePropertiesDeclarationFile != 0 {
-			response.DeclarationFile = true
-		}
-
-		serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
-		offset += 4
-		response.ServiceText = string(payload[offset : offset+serviceTextLen])
-		offset += serviceTextLen
-
-		mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-		mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
-		offset += 4
-		response.Mappings = make([]mapping.Mapping, mappingsCount)
-		copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
-		offset += mappingsByteLen
-
-		ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-		ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))
-		offset += 4
-		response.IgnoreMappings = make([]mapping.IgnoreDirectiveMapping, ignoreMappingsCount)
-		copy(response.IgnoreMappings, unsafe.Slice((*mapping.IgnoreDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+ignoreMappingsByteLen]))), ignoreMappingsCount))
-		offset += ignoreMappingsByteLen
-
-		expectErrorMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-		expectErrorMappingsByteLen := expectErrorMappingsCount * uint32(unsafe.Sizeof(mapping.ExpectErrorDirectiveMapping{}))
-		offset += 4
-		response.ExpectErrorMappings = make([]mapping.ExpectErrorDirectiveMapping, expectErrorMappingsCount)
-		copy(response.ExpectErrorMappings, unsafe.Slice((*mapping.ExpectErrorDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+expectErrorMappingsByteLen]))), expectErrorMappingsCount))
-		offset += expectErrorMappingsByteLen
-
-		ch <- response
+		},
 	})
 	p.mu.Lock()
 	defer p.mu.Unlock()

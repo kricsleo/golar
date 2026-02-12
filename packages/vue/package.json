@@ -26,6 +26,7 @@
 	},
 	"dependencies": {
 		"@golar/volar": "workspace:*",
+		"@golar/util": "workspace:*",
 		"@vue/compiler-dom": "^3.5.0",
 		"@vue/language-core": "3.2.2"
 	},
