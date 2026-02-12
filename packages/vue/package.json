@@ -1,6 +1,6 @@
 {
 	"name": "@golar/vue",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"type": "module",
 	"exports": {
 		"./golar-entry": "./src/golar-entry.ts"
