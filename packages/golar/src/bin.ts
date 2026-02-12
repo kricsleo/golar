@@ -29,14 +29,7 @@ await Promise.all(
 				) {
 					continue
 				}
-				const packagePath = path.join(nodeModulesPath, orgName, packageName)
 				const packageSpecifier = `${orgName}/${packageName}`
-				const packageJson = JSON.parse(
-					await fs.readFile(path.join(packagePath, 'package.json'), 'utf8'),
-				)
-				if (packageJson == null || typeof packageJson !== 'object') {
-					continue
-				}
 				const mod = await import(`${packageSpecifier}/golar-entry`)
 				if (typeof mod.getGolarEntry !== 'function') {
 					continue
