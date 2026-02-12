@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { createVolarPlugin } from '@golar/volar'
 import { Debug, ms } from '@golar/util'
 

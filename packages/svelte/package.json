@@ -2,7 +2,9 @@
 	"name": "@golar/svelte",
 	"version": "0.0.8",
 	"type": "module",
-	"golarBin": "./dist/bin.js",
+	"exports": {
+		"./golar-entry": "./src/golar-entry.ts"
+	},
 	"files": [
 		"./dist"
 	],
@@ -17,9 +19,9 @@
 	"homepage": "https://github.com/auvred/golar/tree/main/packages/svelte#readme",
 	"publishConfig": {
 		"access": "public",
-		"executableFiles": [
-			"./dist/bin.js"
-		]
+		"exports": {
+			"./golar-entry": "./dist/golar-entry.js"
+		}
 	},
 	"dependencies": {
 		"@golar/plugin": "workspace:*",

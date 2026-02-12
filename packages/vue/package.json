@@ -2,6 +2,9 @@
 	"name": "@golar/vue",
 	"version": "0.0.8",
 	"type": "module",
+	"exports": {
+		"./golar-entry": "./src/golar-entry.ts"
+	},
 	"scripts": {
 		"build-typescript-lite": "cd ../../thirdparty/typescript && npm install && npx hereby generate-diagnostics && cd - && node ./scripts/build-typescript-lite.ts"
 	},
@@ -20,9 +23,9 @@
 	"homepage": "https://github.com/auvred/golar/tree/main/packages/vue#readme",
 	"publishConfig": {
 		"access": "public",
-		"executableFiles": [
-			"./dist/bin.js"
-		]
+		"exports": {
+			"./golar-entry": "./dist/golar-entry.js"
+		}
 	},
 	"dependencies": {
 		"@golar/volar": "workspace:*",

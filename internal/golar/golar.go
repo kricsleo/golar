@@ -66,8 +66,19 @@ func init() {
 		return
 	}
 
-	for pluginPath := range strings.SplitSeq(plugins, "\n") {
-		plugin, err := pluginhost.NewPlugin([]string{pluginPath})
+	for pluginCommand := range strings.SplitSeq(plugins, "\x1e") {
+		if pluginCommand == "" {
+			continue
+		}
+		args := []string{}
+		for arg := range strings.SplitSeq(pluginCommand, "\x1f") {
+			args = append(args, arg)
+		}
+		if len(args) == 0 || args[0] == "" {
+			continue
+		}
+
+		plugin, err := pluginhost.NewPlugin(args)
 		if err != nil {
 			panic(err)
 		}

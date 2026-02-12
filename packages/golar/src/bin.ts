@@ -6,7 +6,7 @@ import child_process from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const plugins = new Map<string, string>()
+const plugins = new Map<string, string[]>()
 const filename = import.meta.filename.replaceAll('\\', '/')
 
 await Promise.all(
@@ -30,13 +30,18 @@ await Promise.all(
 					continue
 				}
 				const packagePath = path.join(nodeModulesPath, orgName, packageName)
+				const packageSpecifier = `${orgName}/${packageName}`
 				const packageJson = JSON.parse(
 					await fs.readFile(path.join(packagePath, 'package.json'), 'utf8'),
 				)
-				if (typeof packageJson.golarBin !== 'string') {
+				if (packageJson == null || typeof packageJson !== 'object') {
 					continue
 				}
-				plugins.set(packageName, path.join(packagePath, packageJson.golarBin))
+				const mod = await import(`${packageSpecifier}/golar-entry`)
+				if (typeof mod.getGolarEntry !== 'function') {
+					continue
+				}
+				plugins.set(packageSpecifier, await mod.getGolarEntry())
 			}
 		}
 	}),
@@ -51,7 +56,9 @@ const exePath = fileURLToPath(
 try {
 	child_process.execFileSync(exePath, process.argv.slice(2), {
 		env: {
-			GOLAR_PLUGINS: Array.from(plugins.values()).join('\n'),
+			GOLAR_PLUGINS: Array.from(
+				plugins.values().map((args) => args.join('\x1f')),
+			).join('\x1e'),
 			...process.env,
 		},
 		stdio: 'inherit',
