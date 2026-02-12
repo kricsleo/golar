@@ -4,6 +4,7 @@ import assert from 'node:assert'
 import worker_threads from 'node:worker_threads'
 
 const HEADER_SIZE = 5
+const PROTOCOL_VERSION = 1
 
 const MSG_KIND = {
 	CREATE_SERVICE_CODE: 0,
@@ -115,6 +116,7 @@ export function createPlugin(opts: CreatePluginOptions) {
 		}
 		{
 			const initialization = JSON.stringify({
+				protocolVersion: PROTOCOL_VERSION,
 				extraExtensions: opts.extraExtensions ?? [],
 			})
 			recvBuffer.writeUint32LE(Buffer.byteLength(initialization))

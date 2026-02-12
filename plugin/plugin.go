@@ -64,6 +64,8 @@ const (
 	MsgKindCreateServiceCodeResponse
 )
 
+const ProtocolVersion uint32 = 1
+
 type ServiceCodeProperties uint8
 
 const (
@@ -91,6 +93,7 @@ type ExpectErrorDirectiveMapping struct {
 }
 
 type InitializationMessage struct {
+	ProtocolVersion uint32   `json:"protocolVersion"`
 	ExtraExtensions []string `json:"extraExtensions"`
 }
 
@@ -103,6 +106,7 @@ func Run(opts PluginOptions) {
 			opts.ExtraExtensions = []string{}
 		}
 		initialization, err := json.Marshal(InitializationMessage{
+			ProtocolVersion: ProtocolVersion,
 			ExtraExtensions: opts.ExtraExtensions,
 		})
 		if err != nil {

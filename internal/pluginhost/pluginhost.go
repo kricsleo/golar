@@ -73,6 +73,9 @@ func NewPlugin(args []string) (*Plugin, error) {
 	if err := json.Unmarshal(recvBuf, &initialization); err != nil {
 		panic(err)
 	}
+	if initialization.ProtocolVersion != plugin.ProtocolVersion {
+		panic(fmt.Sprintf("plugin protocol version mismatch: server=%d client=%d", plugin.ProtocolVersion, initialization.ProtocolVersion))
+	}
 	p.ExtraExtensions = initialization.ExtraExtensions
 	debug.Printf("initialized %#v plugin; initialization: %#v; +%v", args, initialization, time.Since(t))
 
