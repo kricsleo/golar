@@ -5,6 +5,8 @@ package project
 
 import "github.com/microsoft/typescript-go/internal/ast"
 import "github.com/microsoft/typescript-go/internal/core"
+import "github.com/microsoft/typescript-go/internal/ls/autoimport"
+import "github.com/microsoft/typescript-go/internal/ls/lsutil"
 import "github.com/microsoft/typescript-go/internal/project"
 import "github.com/microsoft/typescript-go/internal/project/logging"
 import "github.com/microsoft/typescript-go/internal/tspath"
@@ -15,7 +17,6 @@ type APISnapshotRequest = project.APISnapshotRequest
 type ATAStateChange = project.ATAStateChange
 type CheckerPool = project.CheckerPool
 type Client = project.Client
-type Config = project.Config
 type ConfigFileRegistry = project.ConfigFileRegistry
 type CreateProgramResult = project.CreateProgramResult
 type ExtendedConfigCache = project.ExtendedConfigCache
@@ -52,7 +53,7 @@ func NewProject(configFileName string, kind project.Kind, currentDirectory strin
 //go:linkname NewSession github.com/microsoft/typescript-go/internal/project.NewSession
 func NewSession(init *project.SessionInit) *project.Session
 //go:linkname NewSnapshot github.com/microsoft/typescript-go/internal/project.NewSnapshot
-func NewSnapshot(id uint64, fs *project.SnapshotFS, sessionOptions *project.SessionOptions, parseCache *project.ParseCache, extendedConfigCache *project.ExtendedConfigCache, configFileRegistry *project.ConfigFileRegistry, compilerOptionsForInferredProjects *core.CompilerOptions, config project.Config, toPath func(fileName string) tspath.Path) *project.Snapshot
+func NewSnapshot(id uint64, fs *project.SnapshotFS, sessionOptions *project.SessionOptions, configFileRegistry *project.ConfigFileRegistry, compilerOptionsForInferredProjects *core.CompilerOptions, allUserPreferences *lsutil.UserConfig, autoImports *autoimport.Registry, autoImportsWatch *project.WatchedFiles[map[tspath.Path]string], toPath func(fileName string) tspath.Path) *project.Snapshot
 type Overlay = project.Overlay
 type ParseCache = project.ParseCache
 type ParseCacheArgs = project.ParseCacheArgs
@@ -71,7 +72,7 @@ type Project = project.Project
 type ProjectCollection = project.ProjectCollection
 type ProjectCollectionBuilder = project.ProjectCollectionBuilder
 type ProjectTreeRequest = project.ProjectTreeRequest
-type RefCountCache[K comparable, V, AcquireArgs any] = project.RefCountCache[K,V,AcquireArgs]
+type RefCountCache[K comparable, V, LoadArgs any] = project.RefCountCache[K,V,LoadArgs]
 type RefCountCacheOptions = project.RefCountCacheOptions
 type ResourceRequest = project.ResourceRequest
 type Session = project.Session
@@ -89,6 +90,7 @@ const UpdateReasonRequestedLanguageServiceForFileNotOpen = project.UpdateReasonR
 const UpdateReasonRequestedLanguageServicePendingChanges = project.UpdateReasonRequestedLanguageServicePendingChanges
 const UpdateReasonRequestedLanguageServiceProjectDirty = project.UpdateReasonRequestedLanguageServiceProjectDirty
 const UpdateReasonRequestedLanguageServiceProjectNotLoaded = project.UpdateReasonRequestedLanguageServiceProjectNotLoaded
+const UpdateReasonRequestedLanguageServiceWithAutoImports = project.UpdateReasonRequestedLanguageServiceWithAutoImports
 const UpdateReasonRequestedLoadProjectTree = project.UpdateReasonRequestedLoadProjectTree
 const UpdateReasonUnknown = project.UpdateReasonUnknown
 type WatchedFiles[T any] = project.WatchedFiles[T]

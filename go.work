@@ -2,7 +2,7 @@ go 1.25.0
 
 use (
 	.
-	./thirdparty/typescript-go
-	./thirdparty/astro-compiler
 	./packages/astro
+	./thirdparty/astro-compiler
+	./thirdparty/typescript-go
 )

@@ -1,4 +1,4 @@
-From e8bd82680990bb48064348d3ac08cc0a3bf23141 Mon Sep 17 00:00:00 2001
+From 4170292013e8448b2ec229e761d49b58f89beec4 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Mon, 15 Dec 2025 12:37:25 +0300
 Subject: [PATCH] Golar extension
@@ -17,14 +17,15 @@ Subject: [PATCH] Golar extension
  internal/module/resolver.go             |  8 +++++++
  internal/module/util.go                 |  5 +++++
  internal/outputpaths/outputpaths.go     |  5 +++++
+ internal/project/autoimport.go          |  2 +-
  internal/project/compilerhost.go        |  2 +-
  internal/project/parsecache.go          | 19 ++++++++++++----
  internal/tspath/extension.go            | 17 ++++++++++++++
- 16 files changed, 130 insertions(+), 18 deletions(-)
+ 17 files changed, 131 insertions(+), 19 deletions(-)
  create mode 100644 internal/golarext/golarext.go
 
 diff --git a/cmd/tsgo/lsp.go b/cmd/tsgo/lsp.go
-index 0dd04c57f..a8a8e8ccd 100644
+index dfeac660d..3a5c6af3f 100644
 --- a/cmd/tsgo/lsp.go
 +++ b/cmd/tsgo/lsp.go
 @@ -10,6 +10,7 @@ import (
@@ -66,10 +67,10 @@ index e5b2b8d56..c5e40648e 100644
  		writer:             os.Stdout,
  		start:              time.Now(),
 diff --git a/internal/ast/ast.go b/internal/ast/ast.go
-index 3d6dbcffc..1ec8050e9 100644
+index 23a4badf3..b7417410e 100644
 --- a/internal/ast/ast.go
 +++ b/internal/ast/ast.go
-@@ -10743,6 +10743,10 @@ type SourceFile struct {
+@@ -10747,6 +10747,10 @@ type SourceFile struct {
  	LocalsContainerBase
  	compositeNodeBase
  
@@ -80,7 +81,7 @@ index 3d6dbcffc..1ec8050e9 100644
  	// Fields set by NewSourceFile
  	fileName       string // For debugging convenience
  	parseOptions   SourceFileParseOptions
-@@ -10826,10 +10830,18 @@ func (node *SourceFile) Text() string {
+@@ -10831,10 +10835,18 @@ func (node *SourceFile) Text() string {
  	return node.text
  }
  
@@ -100,10 +101,10 @@ index 3d6dbcffc..1ec8050e9 100644
  	return node.parseOptions.Path
  }
 diff --git a/internal/compiler/program.go b/internal/compiler/program.go
-index 8527d018c..c9bbfd9a2 100644
+index 92cc16829..30ce0fd14 100644
 --- a/internal/compiler/program.go
 +++ b/internal/compiler/program.go
-@@ -223,7 +223,14 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
+@@ -254,7 +254,14 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
  	return nil
  }
  
@@ -118,7 +119,7 @@ index 8527d018c..c9bbfd9a2 100644
  	p := &Program{opts: opts}
  	p.processedFiles = processAllProgramFiles(p.opts, p.SingleThreaded())
  	p.initCheckerPool()
-@@ -440,7 +447,13 @@ func (p *Program) collectDiagnostics(ctx context.Context, sourceFile *ast.Source
+@@ -475,7 +482,13 @@ func (p *Program) collectDiagnosticsFromFiles(ctx context.Context, sourceFiles [
  
  func (p *Program) GetSyntacticDiagnostics(ctx context.Context, sourceFile *ast.SourceFile) []*ast.Diagnostic {
  	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
@@ -133,7 +134,7 @@ index 8527d018c..c9bbfd9a2 100644
  	})
  }
  
-@@ -451,7 +464,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
+@@ -486,7 +499,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
  		p.BindSourceFiles()
  	}
  	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
@@ -146,7 +147,7 @@ index 8527d018c..c9bbfd9a2 100644
  	})
  }
  
-@@ -483,6 +500,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
+@@ -519,6 +536,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
  		return nil
  	}
  	filtered, _ := p.getDiagnosticsWithPrecedingDirectives(sourceFile, p.includeProcessor.getDiagnostics(p).GetDiagnosticsForFile(sourceFile.FileName()))
@@ -156,7 +157,7 @@ index 8527d018c..c9bbfd9a2 100644
  	return filtered
  }
  
-@@ -1095,6 +1115,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1131,6 +1151,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  
  	isPlainJS := ast.IsPlainJSFile(sourceFile, compilerOptions.CheckJs)
  	if isPlainJS {
@@ -166,7 +167,7 @@ index 8527d018c..c9bbfd9a2 100644
  		return core.Filter(diags, func(d *ast.Diagnostic) bool {
  			return plainJSErrors.Has(d.Code())
  		})
-@@ -1114,6 +1137,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1150,6 +1173,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  			filtered = append(filtered, ast.NewDiagnostic(sourceFile, directive.Loc, diagnostics.Unused_ts_expect_error_directive))
  		}
  	}
@@ -177,7 +178,7 @@ index 8527d018c..c9bbfd9a2 100644
  }
  
 diff --git a/internal/execute/incremental/program.go b/internal/execute/incremental/program.go
-index 2d5e595a6..5139eb843 100644
+index c1e581046..7b575b5e6 100644
 --- a/internal/execute/incremental/program.go
 +++ b/internal/execute/incremental/program.go
 @@ -178,8 +178,12 @@ func (p *Program) getSemanticDiagnosticsOfFile(file *ast.SourceFile) []*ast.Diag
@@ -195,7 +196,7 @@ index 2d5e595a6..5139eb843 100644
  	)
  }
 diff --git a/internal/fourslash/fourslash.go b/internal/fourslash/fourslash.go
-index e8d54139e..4210eb685 100644
+index 034c2ec4c..290dba08e 100644
 --- a/internal/fourslash/fourslash.go
 +++ b/internal/fourslash/fourslash.go
 @@ -14,6 +14,7 @@ import (
@@ -203,10 +204,10 @@ index e8d54139e..4210eb685 100644
  	"unicode/utf8"
  
 +	"github.com/auvred/golar/golar"
- 	"github.com/go-json-experiment/json"
  	"github.com/google/go-cmp/cmp"
  	"github.com/microsoft/typescript-go/internal/bundled"
-@@ -138,13 +139,14 @@ func newLSPPipe() (*lspReader, *lspWriter) {
+ 	"github.com/microsoft/typescript-go/internal/collections"
+@@ -162,13 +163,14 @@ func newLSPPipe() (*lspReader, *lspWriter) {
  
  const rootDir = "/"
  
@@ -225,16 +226,16 @@ index e8d54139e..4210eb685 100644
  	if !bundled.Embedded {
  		// Without embedding, we'd need to read all of the lib files out from disk into the MapFS.
  		// Just skip this for now.
-@@ -204,7 +206,7 @@ func NewFourslash(t *testing.T, capabilities *lsproto.ClientCapabilities, conten
+@@ -237,7 +239,7 @@ func NewFourslash(t *testing.T, capabilities *lsproto.ClientCapabilities, conten
  	outputReader, outputWriter := newLSPPipe()
  
  	fsFromMap := vfstest.FromMap(testfs, true /*useCaseSensitiveFileNames*/)
 -	fs := bundled.WrapFS(fsFromMap)
 +	fs := golar.WrapFourslashFS(testData.GlobalOptions, bundled.WrapFS(fsFromMap))
  
- 	var err strings.Builder
  	server := lsp.NewServer(&lsp.ServerOptions{
-@@ -893,6 +895,9 @@ func getLanguageKind(filename string) lsproto.LanguageKind {
+ 		In:  inputReader,
+@@ -1080,6 +1082,9 @@ func getLanguageKind(filename string) lsproto.LanguageKind {
  	if tspath.FileExtensionIs(filename, tspath.ExtensionJson) {
  		return lsproto.LanguageKindJSON
  	}
@@ -244,7 +245,7 @@ index e8d54139e..4210eb685 100644
  	return lsproto.LanguageKindTypeScript // !!! should we error in this case?
  }
  
-@@ -3501,7 +3506,7 @@ func (f *FourslashTest) verifyDiagnostics(t *testing.T, expected []*lsproto.Diag
+@@ -3960,7 +3965,7 @@ func (f *FourslashTest) verifyDiagnostics(t *testing.T, expected []*lsproto.Diag
  				t.Fatalf("No ranges found in file %s to assign to diagnostic with empty range", f.activeFilename)
  			}
  			diagWithRange := *diag
@@ -287,7 +288,7 @@ index 52d65512e..922c25564 100644
  		}
  	}
 diff --git a/internal/ls/hover.go b/internal/ls/hover.go
-index ec671a402..fc1e88990 100644
+index 471c45de9..2e90388c8 100644
 --- a/internal/ls/hover.go
 +++ b/internal/ls/hover.go
 @@ -11,6 +11,7 @@ import (
@@ -308,7 +309,7 @@ index ec671a402..fc1e88990 100644
  		// Avoid giving quickInfo for the sourceFile as a whole.
  		return lsproto.HoverOrNull{}, nil
 diff --git a/internal/ls/lsconv/converters.go b/internal/ls/lsconv/converters.go
-index 2e076b623..b5d5cc1fa 100644
+index 96c0bd352..8a3bc4197 100644
 --- a/internal/ls/lsconv/converters.go
 +++ b/internal/ls/lsconv/converters.go
 @@ -67,7 +67,7 @@ func (c *Converters) ToLSPLocation(script Script, rng core.TextRange) lsproto.Lo
@@ -321,10 +322,10 @@ index 2e076b623..b5d5cc1fa 100644
  	case "typescriptreact":
  		return core.ScriptKindTSX
 diff --git a/internal/module/resolver.go b/internal/module/resolver.go
-index f5ae94746..aa0d6f3eb 100644
+index d22fa0a97..bb1c61ff6 100644
 --- a/internal/module/resolver.go
 +++ b/internal/module/resolver.go
-@@ -1458,6 +1458,14 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
+@@ -1448,6 +1448,14 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
  		}
  		return continueSearching()
  	default:
@@ -340,10 +341,10 @@ index f5ae94746..aa0d6f3eb 100644
  			if resolved := r.tryExtension(".d"+originalExtension+".ts", extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
  				return resolved
 diff --git a/internal/module/util.go b/internal/module/util.go
-index 04f75150f..25831bd01 100644
+index bb48dedcb..036400eb9 100644
 --- a/internal/module/util.go
 +++ b/internal/module/util.go
-@@ -150,6 +150,11 @@ func GetResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *Reso
+@@ -169,6 +169,11 @@ func GetResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *Reso
  	case tspath.ExtensionJson:
  		return needResolveJsonModule()
  	default:
@@ -371,16 +372,29 @@ index 30de419a0..1bd3c456e 100644
  	return tspath.ExtensionDts
  }
  
+diff --git a/internal/project/autoimport.go b/internal/project/autoimport.go
+index 9dcc8228f..f863fcbe2 100644
+--- a/internal/project/autoimport.go
++++ b/internal/project/autoimport.go
+@@ -158,7 +158,7 @@ func (a *autoImportRegistryCloneHost) GetSourceFile(fileName string, path tspath
+ 		JSDocParsingMode: ast.JSDocParsingModeParseAll,
+ 	}
+ 	key := NewParseCacheKey(opts, fh.Hash(), fh.Kind())
+-	result := a.parseCache.Load(key, fh)
++	result := a.parseCache.Load(key, ParseCacheArgs{fh: fh, fs: a.fs})
+ 
+ 	a.filesMu.Lock()
+ 	a.files = append(a.files, key)
 diff --git a/internal/project/compilerhost.go b/internal/project/compilerhost.go
-index d36d67593..d9ad39183 100644
+index 1af21a828..14f033f7f 100644
 --- a/internal/project/compilerhost.go
 +++ b/internal/project/compilerhost.go
-@@ -126,7 +126,7 @@ func (c *compilerHost) GetSourceFile(opts ast.SourceFileParseOptions) *ast.Sourc
+@@ -95,7 +95,7 @@ func (c *compilerHost) GetResolvedProjectReference(fileName string, path tspath.
+ func (c *compilerHost) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
  	c.ensureAlive()
- 	c.seenFiles.Add(opts.Path)
- 	if fh := c.fs.GetFileByPath(opts.FileName, opts.Path); fh != nil {
--		return c.builder.parseCache.Acquire(NewParseCacheKey(opts, fh.Hash(), fh.Kind()), fh)
-+		return c.builder.parseCache.Acquire(NewParseCacheKey(opts, fh.Hash(), fh.Kind()), ParseCacheArgs{fh: fh, fs: c.compilerFS})
+ 	if fh := c.sourceFS.GetFileByPath(opts.FileName, opts.Path); fh != nil {
+-		return c.builder.parseCache.Load(NewParseCacheKey(opts, fh.Hash(), fh.Kind()), fh)
++		return c.builder.parseCache.Load(NewParseCacheKey(opts, fh.Hash(), fh.Kind()), ParseCacheArgs{fh: fh, fs: c.sourceFS})
  	}
  	return nil
  }
@@ -427,7 +441,7 @@ index 2ca96a188..d530735de 100644
  		},
  		nil,
 diff --git a/internal/tspath/extension.go b/internal/tspath/extension.go
-index 1b4422e79..03eb6bb93 100644
+index 7b6578363..dea63b2b0 100644
 --- a/internal/tspath/extension.go
 +++ b/internal/tspath/extension.go
 @@ -23,6 +23,7 @@ const (
@@ -435,8 +449,8 @@ index 1b4422e79..03eb6bb93 100644
  
  var (
 +	ExtraExtensions = []string{}
- 	supportedDeclarationExtensions                 = []string{ExtensionDts, ExtensionDcts, ExtensionDmts}
- 	supportedTSImplementationExtensions            = []string{ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
+ 	SupportedDeclarationExtensions                 = []string{ExtensionDts, ExtensionDcts, ExtensionDmts}
+ 	SupportedTSImplementationExtensions            = []string{ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
  	supportedTSExtensionsForExtractExtension       = []string{ExtensionDts, ExtensionDcts, ExtensionDmts, ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
 @@ -37,6 +38,17 @@ var (
  	ExtensionsNotSupportingExtensionlessResolution = []string{ExtensionMts, ExtensionDmts, ExtensionMjs, ExtensionCts, ExtensionDcts, ExtensionCjs}

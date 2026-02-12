@@ -27,42 +27,25 @@ replace (
 )
 
 require (
-	github.com/google/go-cmp v0.7.0
 	github.com/microsoft/typescript-go/shim/ast v0.0.0
-	github.com/microsoft/typescript-go/shim/binder v0.0.0
-	github.com/microsoft/typescript-go/shim/bundled v0.0.0
-	github.com/microsoft/typescript-go/shim/checker v0.0.0
 	github.com/microsoft/typescript-go/shim/compiler v0.0.0
 	github.com/microsoft/typescript-go/shim/core v0.0.0
-	github.com/microsoft/typescript-go/shim/lsp/lsproto v0.0.0
-	github.com/microsoft/typescript-go/shim/project v0.0.0
-	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/microsoft/typescript-go/shim/diagnostics v0.0.0
-	github.com/microsoft/typescript-go/shim/diagnosticwriter v0.0.0
-	github.com/microsoft/typescript-go/shim/fourslash v0.0.0
 	github.com/microsoft/typescript-go/shim/golarext v0.0.0
-	github.com/microsoft/typescript-go/shim/lsp/lsproto v0.0.0
 	github.com/microsoft/typescript-go/shim/parser v0.0.0
-	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0
+	github.com/microsoft/typescript-go/shim/scanner v0.0.0
 	github.com/microsoft/typescript-go/shim/sourcemap v0.0.0
-	github.com/microsoft/typescript-go/shim/testutil v0.0.0
+	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0
 	github.com/microsoft/typescript-go/shim/tspath v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0
-	github.com/microsoft/typescript-go/shim/vfs/cachedvfs v0.0.0
-	github.com/microsoft/typescript-go/shim/vfs/osvfs v0.0.0
-	golang.org/x/text v0.31.0
-	golang.org/x/tools v0.38.0
-	gotest.tools/v3 v3.5.2
+	golang.org/x/text v0.32.0
+	golang.org/x/tools v0.40.0
 )
 
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/microsoft/typescript-go v0.0.0-20251204215308-2ae410164f65 // indirect
-	github.com/peter-evans/patience v0.3.0 // indirect
-	github.com/zeebo/xxh3 v1.0.2 // indirect
-	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 )

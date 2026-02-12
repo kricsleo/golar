@@ -18,6 +18,8 @@ type CompletionsExpectedList = fourslash.CompletionsExpectedList
 type EditRange = fourslash.EditRange
 type ExpectedCompletionEditRange = fourslash.ExpectedCompletionEditRange
 type FourslashTest = fourslash.FourslashTest
+//go:linkname GetDefaultCapabilities github.com/microsoft/typescript-go/internal/fourslash.GetDefaultCapabilities
+func GetDefaultCapabilities() *lsproto.ClientCapabilities
 type Ignored = fourslash.Ignored
 type Marker = fourslash.Marker
 type MarkerInput = fourslash.MarkerInput
