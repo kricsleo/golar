@@ -84,10 +84,10 @@ func NewPlugin(args []string) (*Plugin, error) {
 		for {
 			_, err := io.ReadFull(p.stdout, header[:])
 			if err != nil {
-				// TODO?
-				// if err == io.EOF {
-				// 	return
-				// }
+				if err == io.EOF {
+					// TODO?
+					panic(fmt.Sprintf("plugin %#v exited", args))
+				}
 				panic(err)
 			}
 			msgKind := plugin.MsgKind(header[0])

@@ -1,19 +1,31 @@
-import { svelte2tsx, internalHelpers } from 'svelte2tsx'
 import { createPlugin, type ServiceCodeError } from '@golar/plugin'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
 import util from 'node:util'
 import { sourceMapToMappings } from '@golar/sourcemap'
+import { pathToFileURL } from 'node:url'
 
 const require = createRequire(process.cwd())
 
-const svelteTsxFilesByProject = new Map<string, Promise<string[]>>()
+const svelteTsxFilesByProject = new Map<string, string[]>()
 
-async function importSvelteTsxFiles(
+let packages: {
+	svelte2tsx: typeof import('svelte2tsx')
+	svelte2tsxPath: string
+	svelteMajorVersion: number
+	sveltePath: string
+	svelteCompiler: typeof import('svelte/compiler')
+	ts: typeof import('typescript')
+} | null = null
+
+async function importPackages(
 	cwd: string,
 	configFileName: string | null,
-): Promise<string[]> {
+): Promise<NonNullable<typeof packages>> {
+	if (packages != null) {
+		return packages
+	}
 	const resolvePaths: string[] = []
 	if (configFileName != null) {
 		resolvePaths.push(path.dirname(configFileName))
@@ -24,56 +36,90 @@ async function importSvelteTsxFiles(
 		paths: resolvePaths,
 	})
 	const { default: svelteCompilerPackageJson } = await import(
-		sveltePackageJsonPath,
+		pathToFileURL(sveltePackageJsonPath).toString(),
 		{ with: { type: 'json' } }
 	)
 	const majorVersion = Number.parseInt(
 		svelteCompilerPackageJson.version.split('.')[0]!,
 	)
-	// Copied from packages/language-server/src/plugins/typescript/service.ts
-	// Svelte 4 has some fixes with regards to parsing the generics attribute.
-	// Svelte 5 has new features, but we don't want to add the new compiler into language-tools. In the future it's probably
-	// best to shift more and more of this into user's node_modules for better handling of multiple Svelte versions.
-	// const svelteCompiler =
-	//     majorVersion >= 4
-	//         ? await import(require.resolve('svelte/compiler'))
-	//         : undefined;
+	const svelte2tsxPath = require.resolve('svelte2tsx', {
+		paths: [...resolvePaths, import.meta.dirname],
+	})
+	const [svelteCompiler, svelte2tsx, ts] = await Promise.all([
+		// Copied from packages/language-server/src/plugins/typescript/service.ts
+		// Svelte 4 has some fixes with regards to parsing the generics attribute.
+		// Svelte 5 has new features, but we don't want to add the new compiler into language-tools. In the future it's probably
+		// best to shift more and more of this into user's node_modules for better handling of multiple Svelte versions.
+		majorVersion >= 4
+			? import(
+					pathToFileURL(
+						require.resolve('svelte/compiler', {
+							paths: [...resolvePaths, import.meta.dirname],
+						}),
+					).toString()
+				)
+			: undefined,
+		import(pathToFileURL(svelte2tsxPath).toString()),
+		import('typescript'),
+	])
 
-	const ts = await import('typescript')
-	return internalHelpers.get_global_types(
-		ts.sys,
-		majorVersion === 3,
-		path.dirname(sveltePackageJsonPath),
-		path.dirname(
-			require.resolve('svelte2tsx', {
-				paths: [...resolvePaths, import.meta.dirname],
-			}),
-		),
-		configFileName ?? cwd,
-	)
+	return (packages = {
+		svelte2tsx,
+		svelte2tsxPath: path.dirname(svelte2tsxPath),
+		svelteMajorVersion: majorVersion,
+		sveltePath: path.dirname(sveltePackageJsonPath),
+		svelteCompiler,
+		ts,
+	})
 }
 
 createPlugin({
 	filename: import.meta.filename,
 	extraExtensions: ['.svelte'],
 	async createServiceCode(cwd, configFileName, fileName, sourceText) {
-		const project = `${cwd}::${configFileName}`
-		let svelteTsxFiles: string[]
-		{
-			let files = svelteTsxFilesByProject.get(project)
-			if (files == null) {
-				svelteTsxFilesByProject.set(
-					project,
-					(files = importSvelteTsxFiles(cwd, configFileName)),
-				)
+		const imported = await importPackages(cwd, configFileName).catch((e) =>
+			util.inspect(e),
+		)
+		if (typeof imported === 'string') {
+			return {
+				errors: [
+					{
+						start: 0,
+						end: 0,
+						message: imported,
+					},
+				],
 			}
-			svelteTsxFiles = await files
+		}
+		const {
+			svelte2tsx,
+			svelte2tsxPath,
+			svelteMajorVersion,
+			sveltePath,
+			svelteCompiler,
+			ts,
+		} = imported
+
+		const project = `${cwd}::${configFileName}`
+		let svelteTsxFiles = svelteTsxFilesByProject.get(project)
+		if (svelteTsxFiles == null) {
+			svelteTsxFilesByProject.set(
+				project,
+				(svelteTsxFiles = svelte2tsx.internalHelpers.get_global_types(
+					ts.sys,
+					svelteMajorVersion === 3,
+					sveltePath,
+					svelte2tsxPath,
+					configFileName ?? cwd,
+				)),
+			)
 		}
 
 		try {
-			const tsx = svelte2tsx(sourceText, {
+			const tsx = svelte2tsx.svelte2tsx(sourceText, {
 				isTsFile: true,
 				mode: 'ts',
+				parse: svelteCompiler.parse,
 			})
 
 			return {

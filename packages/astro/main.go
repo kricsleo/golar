@@ -65,6 +65,15 @@ func main() {
 						var err error
 						astroDir, _, err = getAstroInstallation(cwd, configFileName)
 						if err != nil {
+							return &plugin.ServiceCode{
+								Errors: []plugin.ServiceCodeError{
+									{
+										Message: err.Error(),
+										Start: 0,
+										End: 0,
+									},
+								},
+							}
 							panic(err)
 						}
 						astroDirsByProject[project] = astroDir
