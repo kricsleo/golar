@@ -19,6 +19,7 @@ import (
 )
 
 var debug = util.NewDebug("pluginhost")
+var debugVerbose = util.NewDebug("pluginhost:verbose")
 
 type Plugin struct {
 	stdin   io.WriteCloser
@@ -217,6 +218,8 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 			response.ExpectErrorMappings = make([]mapping.ExpectErrorDirectiveMapping, expectErrorMappingsCount)
 			copy(response.ExpectErrorMappings, unsafe.Slice((*mapping.ExpectErrorDirectiveMapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+expectErrorMappingsByteLen]))), expectErrorMappingsCount))
 			offset += expectErrorMappingsByteLen
+
+			debugVerbose.Printf("createServiceCode(%v) returned %#v", fileName, response)
 
 			ch <- response
 		},

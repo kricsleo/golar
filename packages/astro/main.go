@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func main() {
 						}
 						astroDirsByProject[project] = astroDir
 					}
-					astroFooter := []byte("\n\nimport '" + filepath.Join(astroDir, "env.d.ts") + "'\nimport '" + filepath.Join(astroDir, "env.d.ts") + "'\n")
+					astroFooter := fmt.Appendf(nil, "\n\nimport %q\n import %q\n", filepath.Join(astroDir, "env.d.ts"), filepath.Join(astroDir, "env.d.ts"))
 					transformOptions := transform.TransformOptions{
 						Scope:              "xxxxxx",
 						Filename:           fileName,
