@@ -139,6 +139,22 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 	langData := file.GolarLanguageData.(languageData)
 	for _, sourceRange := range langData.sourceMap.ToSourceRange(uint32(diagnostic.Pos()), uint32(diagnostic.End()), true) {
 		diagnostic.SetLocation(core.NewTextRange(int(sourceRange.MappedStart), int(sourceRange.MappedEnd)))
+	MessageChain:
+		for _, d := range diagnostic.MessageChain() {
+			for _, sourceRange := range langData.sourceMap.ToSourceRange(uint32(d.Pos()), uint32(d.End()), true) {
+				d.SetLocation(core.NewTextRange(int(sourceRange.MappedStart), int(sourceRange.MappedEnd)))
+				continue MessageChain
+			}
+			d.SetLocation(core.NewTextRange(0, 0))
+		}
+	RelatedInformation:
+		for _, d := range diagnostic.RelatedInformation() {
+			for _, sourceRange := range langData.sourceMap.ToSourceRange(uint32(d.Pos()), uint32(d.End()), true) {
+				d.SetLocation(core.NewTextRange(int(sourceRange.MappedStart), int(sourceRange.MappedEnd)))
+				continue RelatedInformation
+			}
+			d.SetLocation(core.NewTextRange(0, 0))
+		}
 		return diagnostic
 	}
 
