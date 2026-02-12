@@ -13,12 +13,17 @@ export class Debug {
 	private enabled: boolean
 
 	static create(namespace: string) {
-		return new Debug(namespace, envCompiled ??= compileDebug(process.env.DEBUG))
+		return new Debug(
+			namespace,
+			(envCompiled ??= compileDebug(process.env.DEBUG)),
+		)
 	}
 
 	private constructor(namespace: string, compiled: CompiledDebug) {
 		this.namespace = 'golar:' + namespace
-		this.enabled = !compiled.skips?.test(this.namespace) && compiled.matches?.test(this.namespace) != null
+		this.enabled =
+			!compiled.skips?.test(this.namespace) &&
+			compiled.matches?.test(this.namespace) != null
 	}
 
 	print(...args: string[]): void {
@@ -29,7 +34,10 @@ export class Debug {
 
 	printf(format: string, ...args: unknown[]): void {
 		if (this.enabled) {
-			process.stderr.write(this.prefix() + util.formatWithOptions({ depth: 15 }, format + '\n', ...args))
+			process.stderr.write(
+				this.prefix() +
+					util.formatWithOptions({ depth: 15 }, format + '\n', ...args),
+			)
 		}
 	}
 

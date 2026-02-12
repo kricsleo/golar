@@ -33,7 +33,7 @@ type Plugin struct {
 }
 
 type serviceCodeRequest struct {
-	started time.Time
+	started  time.Time
 	fileName string
 	callback func(payload []byte)
 }
@@ -144,7 +144,7 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 
 	reqId := p.reqId.Add(1)
 	p.createServiceCodeRequests.Store(reqId, serviceCodeRequest{
-		started: time.Now(),
+		started:  time.Now(),
 		fileName: fileName,
 		callback: func(payload []byte) {
 			offset := uint32(0)

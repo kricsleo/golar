@@ -11,8 +11,9 @@ var initialized = false
 var envCompiled = false
 var (
 	envMatches *regexp.Regexp
-	envSkips *regexp.Regexp
+	envSkips   *regexp.Regexp
 )
+
 func init() {
 	initialized = true
 	applyDebugEnv(debuggers)
@@ -131,7 +132,7 @@ func (d Debug) Print(args ...string) {
 
 func (d Debug) Printf(format string, a ...any) {
 	if d.enabled {
-		fmt.Fprintf(os.Stderr, d.prefix()+format + "\n", a...)
+		fmt.Fprintf(os.Stderr, d.prefix()+format+"\n", a...)
 	}
 }
 

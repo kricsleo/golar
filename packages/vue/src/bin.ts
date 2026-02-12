@@ -13,7 +13,11 @@ createVolarPlugin({
 		await import('./patch-language-tools.ts')
 		const patched = performance.now()
 		const { vueLanguagePlugin } = await import('./language-plugin.ts')
-		debug.printf('loaded language plugin +%s (patching took +%s)', ms(performance.now() - started), ms(patched - started))
+		debug.printf(
+			'loaded language plugin +%s (patching took +%s)',
+			ms(performance.now() - started),
+			ms(patched - started),
+		)
 
 		return [vueLanguagePlugin(cwd, configFileName)]
 	},

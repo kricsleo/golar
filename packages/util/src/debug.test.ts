@@ -4,12 +4,12 @@ import { createDebugFromString } from './debug.ts'
 
 function captureStderr(fn: () => void): string {
 	let stderr = ''
-	const spy = vi
-		.spyOn(process.stderr, 'write')
-		.mockImplementation(((chunk: unknown) => {
-			stderr += String(chunk)
-			return true
-		}) as never)
+	const spy = vi.spyOn(process.stderr, 'write').mockImplementation(((
+		chunk: unknown,
+	) => {
+		stderr += String(chunk)
+		return true
+	}) as never)
 
 	try {
 		fn()
@@ -31,9 +31,18 @@ describe('logger', () => {
 
 	it('matches and skips', () => {
 		const output = captureStderr(() => {
-			createDebugFromString('golar:api:*,-golar:api:internal', 'api:users').print('m')
-			createDebugFromString('golar:api:*,-golar:api:internal', 'api:internal').print('s')
-			createDebugFromString('golar:api:*,-golar:api:internal', 'worker:queue').print('u')
+			createDebugFromString(
+				'golar:api:*,-golar:api:internal',
+				'api:users',
+			).print('m')
+			createDebugFromString(
+				'golar:api:*,-golar:api:internal',
+				'api:internal',
+			).print('s')
+			createDebugFromString(
+				'golar:api:*,-golar:api:internal',
+				'worker:queue',
+			).print('u')
 		})
 		expect(output).toBe('golar:api:users m\ngolar:worker:queue u\n')
 	})
@@ -64,10 +73,22 @@ describe('logger', () => {
 
 	it('adds alternation for multiple parts', () => {
 		const output = captureStderr(() => {
-			createDebugFromString('golar:api,golar:worker,-golar:internal,-golar:other', 'api').print('a')
-			createDebugFromString('golar:api,golar:worker,-golar:internal,-golar:other', 'worker').print('w')
-			createDebugFromString('golar:api,golar:worker,-golar:internal,-golar:other', 'internal').print('i')
-			createDebugFromString('golar:api,golar:worker,-golar:internal,-golar:other', 'other').print('o')
+			createDebugFromString(
+				'golar:api,golar:worker,-golar:internal,-golar:other',
+				'api',
+			).print('a')
+			createDebugFromString(
+				'golar:api,golar:worker,-golar:internal,-golar:other',
+				'worker',
+			).print('w')
+			createDebugFromString(
+				'golar:api,golar:worker,-golar:internal,-golar:other',
+				'internal',
+			).print('i')
+			createDebugFromString(
+				'golar:api,golar:worker,-golar:internal,-golar:other',
+				'other',
+			).print('o')
 		})
 		expect(output).toBe('golar:api a\ngolar:worker w\n')
 	})
@@ -82,9 +103,18 @@ describe('logger', () => {
 
 	it('wildcard match with wildcard skip', () => {
 		const output = captureStderr(() => {
-			createDebugFromString('golar:service:*,-golar:service:db*', 'service:web').print('web')
-			createDebugFromString('golar:service:*,-golar:service:db*', 'service:db:read').print('read')
-			createDebugFromString('golar:service:*,-golar:service:db*', 'service:db:write').print('write')
+			createDebugFromString(
+				'golar:service:*,-golar:service:db*',
+				'service:web',
+			).print('web')
+			createDebugFromString(
+				'golar:service:*,-golar:service:db*',
+				'service:db:read',
+			).print('read')
+			createDebugFromString(
+				'golar:service:*,-golar:service:db*',
+				'service:db:write',
+			).print('write')
 		})
 		expect(output).toBe('golar:service:web web\n')
 	})
