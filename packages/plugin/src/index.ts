@@ -124,6 +124,7 @@ export function createPlugin(opts: CreatePluginOptions) {
 			process.stdout.write(initialization)
 		}
 
+		process.stdin.on('end', () => process.exit(0))
 		process.stdin.on('data', (data) => {
 			assert.ok(data instanceof Buffer, 'Data is expected to be buffer')
 			ensureRecvBuffer(recvBufferLen + data.byteLength)
