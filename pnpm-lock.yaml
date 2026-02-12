@@ -67,6 +67,16 @@ importers:
         version: link:../../generated-packages/@golar-astro-win32-x64
 
   packages/golar:
+    dependencies:
+      '@golar/astro':
+        specifier: workspace:*
+        version: link:../astro
+      '@golar/svelte':
+        specifier: workspace:*
+        version: link:../svelte
+      '@golar/vue':
+        specifier: workspace:*
+        version: link:../vue
     optionalDependencies:
       '@golar/darwin-arm64':
         specifier: workspace:*

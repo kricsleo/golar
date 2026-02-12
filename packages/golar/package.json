@@ -29,5 +29,21 @@
 		"@golar/linux-arm64": "workspace:*",
 		"@golar/darwin-x64": "workspace:*",
 		"@golar/darwin-arm64": "workspace:*"
+	},
+	"peerDependencies": {
+		"@golar/astro": "workspace:*",
+		"@golar/svelte": "workspace:*",
+		"@golar/vue": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@golar/astro": {
+			"optional": true
+		},
+		"@golar/svelte": {
+			"optional": true
+		},
+		"@golar/vue": {
+			"optional": true
+		}
 	}
 }
