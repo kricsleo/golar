@@ -84,6 +84,7 @@ createPlugin({
 					'\n\n' +
 					svelteTsxFiles.map((p) => `import ${JSON.stringify(p)}`).join('\n'),
 				scriptKind: 'tsx',
+				declarationFile: fileName.includes('/node_modules/'),
 				mappings: sourceMapToMappings({
 					sourceText,
 					serviceText: tsx.code,
