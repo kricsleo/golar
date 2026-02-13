@@ -200,6 +200,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					mappings,
 					ignoreMappings,
 					expectErrorMappings,
+					ignoreNotMappedDiagnostics: true,
 				}
 			}
 			throw new Error('Unknown language')

@@ -20,13 +20,14 @@ type ServiceCodeError struct {
 }
 
 type ServiceCode struct {
-	Errors              []ServiceCodeError
-	ServiceText         []byte
-	ScriptKind          ScriptKind
-	Mappings            []Mapping
-	IgnoreMappings      []IgnoreDirectiveMapping
-	ExpectErrorMappings []ExpectErrorDirectiveMapping
-	DeclarationFile     bool
+	Errors                     []ServiceCodeError
+	ServiceText                []byte
+	ScriptKind                 ScriptKind
+	Mappings                   []Mapping
+	IgnoreMappings             []IgnoreDirectiveMapping
+	ExpectErrorMappings        []ExpectErrorDirectiveMapping
+	DeclarationFile            bool
+	IgnoreNotMappedDiagnostics bool
 }
 
 type PluginInstance struct {
@@ -71,6 +72,7 @@ type ServiceCodeProperties uint8
 const (
 	ServiceCodePropertiesError ServiceCodeProperties = 1 << iota
 	ServiceCodePropertiesDeclarationFile
+	ServiceCodePropertiesIgnoreNotMappedDiagnostics
 )
 
 type Mapping struct {
@@ -155,6 +157,10 @@ func Run(opts PluginOptions) {
 				res := instance.CreateServiceCode(cwd, configFileName, fileName, sourceText)
 
 				var properties ServiceCodeProperties
+
+				if res.IgnoreNotMappedDiagnostics {
+					properties |= ServiceCodePropertiesIgnoreNotMappedDiagnostics
+				}
 
 				if len(res.Errors) > 0 {
 					properties |= ServiceCodePropertiesError

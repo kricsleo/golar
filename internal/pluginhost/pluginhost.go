@@ -141,6 +141,8 @@ type CreateServiceCodeResponse struct {
 	IgnoreMappings      []mapping.IgnoreDirectiveMapping
 	ExpectErrorMappings []mapping.ExpectErrorDirectiveMapping
 	DeclarationFile     bool
+	// For Volar.js compat
+	IgnoreNotMappedDiagnostics bool
 }
 
 func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName string, sourceText string) <-chan CreateServiceCodeResponse {
@@ -189,9 +191,8 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 				response.ScriptKind = core.ScriptKindTSX
 			}
 
-			if properties&plugin.ServiceCodePropertiesDeclarationFile != 0 {
-				response.DeclarationFile = true
-			}
+			response.DeclarationFile = properties&plugin.ServiceCodePropertiesDeclarationFile != 0
+			response.IgnoreNotMappedDiagnostics = properties&plugin.ServiceCodePropertiesIgnoreNotMappedDiagnostics != 0
 
 			serviceTextLen := binary.LittleEndian.Uint32(payload[offset:])
 			offset += 4

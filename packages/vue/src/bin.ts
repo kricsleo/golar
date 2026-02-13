@@ -1,5 +1,7 @@
 import { createVolarPlugin } from '@golar/volar'
 import { Debug, ms } from '@golar/util'
+import { enableCompileCache } from 'node:module'
+enableCompileCache()
 
 const debug = Debug.create('plugin:vue')
 

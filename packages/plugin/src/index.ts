@@ -14,6 +14,7 @@ const MSG_KIND = {
 const SERVICE_CODE_PROPERTIES = {
 	ERROR: 1 << 0,
 	DECLARATION_FILE: 1 << 1,
+	IGNORE_NOT_MAPPED_DIAGNOSTICS: 1 << 2,
 }
 
 const SCRIPT_KIND = {
@@ -51,17 +52,17 @@ export type ServiceCodeError = {
 }
 
 export type ServiceCode =
-	| ({
+	| {
+			mappings: Mapping[]
+			errors?: never
 			serviceText: string
 			scriptKind: ScriptKind
 			/** @default false */
 			declarationFile?: boolean | undefined
-	  } & {
-			mappings: Mapping[]
-			errors?: never
 			ignoreMappings?: IgnoreDirectiveMapping[] | undefined
 			expectErrorMappings?: ExpectErrorDirectiveMapping[] | undefined
-	  })
+			ignoreNotMappedDiagnostics?: boolean | undefined
+	  }
 	| {
 			mappings?: never
 			errors: ServiceCodeError[]
@@ -256,6 +257,9 @@ export function createPlugin(opts: CreatePluginOptions) {
 
 					if (resp.declarationFile) {
 						properties |= SERVICE_CODE_PROPERTIES.DECLARATION_FILE
+					}
+					if (resp.ignoreNotMappedDiagnostics) {
+						properties |= SERVICE_CODE_PROPERTIES.IGNORE_NOT_MAPPED_DIAGNOSTICS
 					}
 
 					const serviceTextLen = Buffer.byteLength(resp.serviceText)

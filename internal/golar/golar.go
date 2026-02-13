@@ -112,7 +112,7 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 			newFile.GolarLanguageData = file.GolarLanguageData
 			newFile.SetText(sourceText)
 			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, false)
+			return wrapDiagnostics(&newFile, diags, false, resp.IgnoreNotMappedDiagnostics)
 		}
 		file.WrapSemanticDiagnostics = func(diags []*ast.Diagnostic) []*ast.Diagnostic {
 			// TODO: this is hack
@@ -120,7 +120,7 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 			newFile.GolarLanguageData = file.GolarLanguageData
 			newFile.SetText(sourceText)
 			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, true)
+			return wrapDiagnostics(&newFile, diags, true, resp.IgnoreNotMappedDiagnostics)
 		}
 		langData := languageData{
 			sourceText: sourceText,
@@ -136,7 +136,7 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 	return nil
 }
 
-func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Diagnostic {
+func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic, dropUnmatched bool) *ast.Diagnostic {
 	diagnostic.SetFile(file)
 	for _, s := range diagnostic.MessageChain() {
 		s.SetFile(file)
@@ -169,12 +169,16 @@ func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic) *ast.Dia
 		return diagnostic
 	}
 
+	if dropUnmatched {
+		return nil
+	}
+
 	diagnostic.SetLocation(core.NewTextRange(0, 0))
 
 	return diagnostic
 }
 
-func wrapDiagnostics(file *ast.SourceFile, diags []*ast.Diagnostic, collectUnused bool) []*ast.Diagnostic {
+func wrapDiagnostics(file *ast.SourceFile, diags []*ast.Diagnostic, collectUnused bool, dropUnmatched bool) []*ast.Diagnostic {
 	res := []*ast.Diagnostic{}
 	if file.GolarLanguageData == nil {
 		return nil
@@ -185,7 +189,10 @@ func wrapDiagnostics(file *ast.SourceFile, diags []*ast.Diagnostic, collectUnuse
 		if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
 			continue
 		}
-		res = append(res, adjustDiagnostic(file, diag))
+		adjusted := adjustDiagnostic(file, diag, dropUnmatched)
+		if adjusted != nil {
+			res = append(res, adjusted)
+		}
 	}
 	if !collectUnused {
 		return res
