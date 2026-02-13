@@ -1,6 +1,8 @@
 # Golar
 
-Golar is an embedded language framework based on [typescript-go](https://github.com/microsoft/typescript-go). Currently, there [are no movements towards official support of extension languages in typescript-go](https://github.com/microsoft/typescript-go/issues/648).
+Golar is an embedded language framework based on [typescript-go](https://github.com/microsoft/typescript-go). It enables type checking for TypeScript-based languages like `.astro`, `.svelte`, and `.vue` via typescript-go. Its architecture is inspired by [@johnsoncodehk](https://github.com/johnsoncodehk)'s [Volar.js](https://github.com/volarjs/volar.js).
+
+Currently, there [are no movements towards official support of extension languages in typescript-go](https://github.com/microsoft/typescript-go/issues/648).
 
 ## Language support
 
