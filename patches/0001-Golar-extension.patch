@@ -1,4 +1,4 @@
-From 4170292013e8448b2ec229e761d49b58f89beec4 Mon Sep 17 00:00:00 2001
+From dc818f6963e6fa0954a15ba4de931fba1ac23c65 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Mon, 15 Dec 2025 12:37:25 +0300
 Subject: [PATCH] Golar extension
@@ -101,7 +101,7 @@ index 23a4badf3..b7417410e 100644
  	return node.parseOptions.Path
  }
 diff --git a/internal/compiler/program.go b/internal/compiler/program.go
-index 92cc16829..30ce0fd14 100644
+index 92cc16829..c861fae04 100644
 --- a/internal/compiler/program.go
 +++ b/internal/compiler/program.go
 @@ -254,7 +254,14 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
@@ -126,7 +126,7 @@ index 92cc16829..30ce0fd14 100644
 -		return core.Concatenate(file.Diagnostics(), file.JSDiagnostics())
 +		diags := file.Diagnostics()
 +		jsDiags := file.JSDiagnostics()
-+		if file.WrapSemanticDiagnostics != nil {
++		if file.WrapDiagnostics != nil {
 +			diags = file.WrapDiagnostics(diags)
 +			jsDiags = file.WrapDiagnostics(jsDiags)
 +		}
@@ -140,7 +140,7 @@ index 92cc16829..30ce0fd14 100644
  	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
 -		return file.BindDiagnostics()
 +		diags := file.BindDiagnostics()
-+		if file.WrapSemanticDiagnostics != nil {
++		if file.WrapDiagnostics != nil {
 +			diags = file.WrapDiagnostics(diags)
 +		}
 +		return diags
@@ -178,7 +178,7 @@ index 92cc16829..30ce0fd14 100644
  }
  
 diff --git a/internal/execute/incremental/program.go b/internal/execute/incremental/program.go
-index c1e581046..7b575b5e6 100644
+index c1e581046..6650466f9 100644
 --- a/internal/execute/incremental/program.go
 +++ b/internal/execute/incremental/program.go
 @@ -178,8 +178,12 @@ func (p *Program) getSemanticDiagnosticsOfFile(file *ast.SourceFile) []*ast.Diag
@@ -186,9 +186,9 @@ index c1e581046..7b575b5e6 100644
  		panic("After handling all the affected files, there shouldnt be more changes")
  	}
 +	diags := cachedDiagnostics.getDiagnostics(p.program, file)
-+	if file.WrapDiagnostics != nil {
-+		diags = file.WrapDiagnostics(diags)
-+	}
++	// if file.WrapDiagnostics != nil {
++	// 	diags = file.WrapDiagnostics(diags)
++	// }
  	return slices.Concat(
 -		compiler.FilterNoEmitSemanticDiagnostics(cachedDiagnostics.getDiagnostics(p.program, file), p.snapshot.options),
 +		compiler.FilterNoEmitSemanticDiagnostics(diags, p.snapshot.options),
