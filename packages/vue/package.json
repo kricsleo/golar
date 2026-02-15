@@ -8,7 +8,6 @@
 	"scripts": {
 		"build-typescript-lite": "cd ../../thirdparty/typescript && npm install && npx hereby generate-diagnostics && cd - && node ./scripts/build-typescript-lite.ts"
 	},
-	"golarBin": "./dist/bin.js",
 	"files": [
 		"./dist"
 	],

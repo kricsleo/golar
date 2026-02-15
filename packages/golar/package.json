@@ -11,10 +11,10 @@
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/auvred/golar.git",
-		"directory": "packages/plugin"
+		"directory": "packages/golar"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/plugin#readme",
+	"homepage": "https://github.com/auvred/golar/tree/main/packages/golar#readme",
 	"publishConfig": {
 		"access": "public",
 		"bin": "./dist/bin.js",
