@@ -32,11 +32,15 @@
 	},
 	"peerDependencies": {
 		"@golar/astro": "workspace:*",
+		"@golar/ember": "workspace:*",
 		"@golar/svelte": "workspace:*",
 		"@golar/vue": "workspace:*"
 	},
 	"peerDependenciesMeta": {
 		"@golar/astro": {
+			"optional": true
+		},
+		"@golar/ember": {
 			"optional": true
 		},
 		"@golar/svelte": {

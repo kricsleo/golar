@@ -1,0 +1,31 @@
+{
+	"name": "@golar/ember",
+	"version": "0.0.12",
+	"type": "module",
+	"exports": {
+		"./golar-entry": "./src/golar-entry.ts"
+	},
+	"files": [
+		"./dist"
+	],
+	"license": "MIT",
+	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/auvred/golar.git",
+		"directory": "packages/ember"
+	},
+	"bugs": "https://github.com/auvred/golar/issues",
+	"homepage": "https://github.com/auvred/golar/tree/main/packages/ember#readme",
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			"./golar-entry": "./dist/golar-entry.js"
+		}
+	},
+	"dependencies": {
+		"@glint/ember-tsc": "^1.1.1",
+		"@golar/volar": "workspace:*",
+		"@golar/util": "workspace:*"
+	}
+}

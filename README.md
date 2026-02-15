@@ -6,9 +6,10 @@ Currently, there [are no movements towards official support of extension languag
 
 ## Language support
 
-Currently, Golar supports Astro, Svelte, and Vue by integrating their official language tooling:
+Currently, Golar supports Astro, Ember, Svelte, and Vue by integrating their official language tooling:
 
 - Astro: [withastro/compiler](https://github.com/withastro/compiler)
+- Ember: [@glint/ember-tsc](https://github.com/typed-ember/glint/tree/main/packages/core)
 - Svelte: [svelte2tsx](https://github.com/sveltejs/language-tools/tree/master/packages/svelte2tsx)
 - Vue: [@vue/language-core](https://github.com/vuejs/language-tools/tree/master/packages/language-core)
 
@@ -18,6 +19,12 @@ Currently, Golar supports Astro, Svelte, and Vue by integrating their official l
 # for Astro
 npm add -D golar @golar/astro
 npx golar --noEmit
+
+# for Ember
+npm add -D golar @golar/ember
+npx golar --noEmit
+# emit .d.ts files
+npx golar --declaration --emitDeclarationOnly
 
 # for Svelte
 npm add -D golar @golar/svelte

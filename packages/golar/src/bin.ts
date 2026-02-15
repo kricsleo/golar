@@ -24,7 +24,7 @@ await Promise.all(
 			)) {
 				if (
 					(orgName !== '@golar' ||
-						!['astro', 'svelte', 'vue'].includes(packageName)) &&
+						!['astro', 'ember', 'svelte', 'vue'].includes(packageName)) &&
 					!/^golar-plugin(-.+)?$/.exec(packageName)
 				) {
 					continue
