@@ -1,4 +1,4 @@
-From dc818f6963e6fa0954a15ba4de931fba1ac23c65 Mon Sep 17 00:00:00 2001
+From e21127a8e0f4f29c98f07a00ad3bbe5e81bebdf9 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Mon, 15 Dec 2025 12:37:25 +0300
 Subject: [PATCH] Golar extension
@@ -14,14 +14,14 @@ Subject: [PATCH] Golar extension
  internal/ls/diagnostics.go              |  1 +
  internal/ls/hover.go                    |  3 ++-
  internal/ls/lsconv/converters.go        |  2 +-
- internal/module/resolver.go             |  8 +++++++
+ internal/module/resolver.go             | 15 +++++++++++++
  internal/module/util.go                 |  5 +++++
  internal/outputpaths/outputpaths.go     |  5 +++++
  internal/project/autoimport.go          |  2 +-
  internal/project/compilerhost.go        |  2 +-
  internal/project/parsecache.go          | 19 ++++++++++++----
- internal/tspath/extension.go            | 17 ++++++++++++++
- 17 files changed, 131 insertions(+), 19 deletions(-)
+ internal/tspath/extension.go            | 29 ++++++++++++++++++++++++
+ 17 files changed, 150 insertions(+), 19 deletions(-)
  create mode 100644 internal/golarext/golarext.go
 
 diff --git a/cmd/tsgo/lsp.go b/cmd/tsgo/lsp.go
@@ -322,11 +322,20 @@ index 96c0bd352..8a3bc4197 100644
  	case "typescriptreact":
  		return core.ScriptKindTSX
 diff --git a/internal/module/resolver.go b/internal/module/resolver.go
-index d22fa0a97..bb1c61ff6 100644
+index d22fa0a97..14f1d573d 100644
 --- a/internal/module/resolver.go
 +++ b/internal/module/resolver.go
-@@ -1448,6 +1448,14 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
+@@ -1446,8 +1446,23 @@ func (r *resolutionState) tryAddingExtensions(extensionless string, extensions e
+ 				return resolved
+ 			}
  		}
++		if originalExtension == "" {
++			for _, e := range tspath.ExtraExtensionless {
++				if resolved := r.tryExtension(e, extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
++					return resolved
++				}
++			}
++		}
  		return continueSearching()
  	default:
 +		for _, e := range tspath.ExtraExtensions {
@@ -357,7 +366,7 @@ index bb48dedcb..036400eb9 100644
  	}
  }
 diff --git a/internal/outputpaths/outputpaths.go b/internal/outputpaths/outputpaths.go
-index 30de419a0..1bd3c456e 100644
+index 30de419a0..2046d00a9 100644
 --- a/internal/outputpaths/outputpaths.go
 +++ b/internal/outputpaths/outputpaths.go
 @@ -205,6 +205,11 @@ func getDeclarationEmitExtensionForPath(fileName string) string {
@@ -365,7 +374,7 @@ index 30de419a0..1bd3c456e 100644
  		return ".d.json.ts"
  	}
 +	for _, e := range tspath.ExtraExtensions {
-+		if tspath.FileExtensionIs(fileName, e) {
++		if tspath.FileExtensionIs(fileName, e) && !tspath.ShouldRemoveExtension(e) {
 +			return e + tspath.ExtensionDts
 +		}
 +	}
@@ -441,18 +450,19 @@ index 2ca96a188..d530735de 100644
  		},
  		nil,
 diff --git a/internal/tspath/extension.go b/internal/tspath/extension.go
-index 7b6578363..dea63b2b0 100644
+index 7b6578363..60ccd0bb8 100644
 --- a/internal/tspath/extension.go
 +++ b/internal/tspath/extension.go
-@@ -23,6 +23,7 @@ const (
+@@ -23,6 +23,8 @@ const (
  )
  
  var (
 +	ExtraExtensions = []string{}
++	ExtraExtensionless = []string{}
  	SupportedDeclarationExtensions                 = []string{ExtensionDts, ExtensionDcts, ExtensionDmts}
  	SupportedTSImplementationExtensions            = []string{ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
  	supportedTSExtensionsForExtractExtension       = []string{ExtensionDts, ExtensionDcts, ExtensionDmts, ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
-@@ -37,6 +38,17 @@ var (
+@@ -37,12 +39,34 @@ var (
  	ExtensionsNotSupportingExtensionlessResolution = []string{ExtensionMts, ExtensionDmts, ExtensionMjs, ExtensionCts, ExtensionDcts, ExtensionCjs}
  )
  
@@ -467,15 +477,32 @@ index 7b6578363..dea63b2b0 100644
 +	SupportedTSExtensionsWithJsonFlat = append(SupportedTSExtensionsWithJsonFlat, ext)
 +}
 +
++func RegisterSupportedExtensionless(ext string) {
++	ExtraExtensionless = append(ExtraExtensionless, ext)
++}
++
  func ExtensionIsTs(ext string) bool {
  	return ext == ExtensionTs || ext == ExtensionTsx || ext == ExtensionDts || ext == ExtensionMts || ext == ExtensionDmts || ext == ExtensionCts || ext == ExtensionDcts || len(ext) >= 7 && ext[:3] == ".d." && ext[len(ext)-3:] == ".ts"
  }
-@@ -134,6 +146,11 @@ func GetDeclarationEmitExtensionForPath(path string) string {
+ 
+ var extensionsToRemove = []string{ExtensionDts, ExtensionDmts, ExtensionDcts, ExtensionMjs, ExtensionMts, ExtensionCjs, ExtensionCts, ExtensionTs, ExtensionJs, ExtensionTsx, ExtensionJsx, ExtensionJson}
+ 
++func RegisterExtensionToRemove(ext string) {
++	extensionsToRemove = append(extensionsToRemove, ext)
++}
++func ShouldRemoveExtension(ext string) bool {
++	return slices.Contains(extensionsToRemove, ext)
++}
++
+ func RemoveFileExtension(path string) string {
+ 	// Remove any known extension even if it has more than one dot
+ 	for _, ext := range extensionsToRemove {
+@@ -134,6 +158,11 @@ func GetDeclarationEmitExtensionForPath(path string) string {
  	case FileExtensionIsOneOf(path, []string{ExtensionJson}):
  		return `.d.json.ts` // Drive-by redefinition of json declaration file output name so if it's ever enabled, it behaves well
  	default:
 +		for _, e := range ExtraExtensions {
-+			if FileExtensionIs(path, e) {
++			if FileExtensionIs(path, e) && !slices.Contains(extensionsToRemove, e) {
 +				return e + ExtensionDts
 +			}
 +		}

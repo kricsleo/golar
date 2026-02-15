@@ -70,12 +70,16 @@ export type ServiceCode =
 
 export type Promisable<T> = T | Promise<T>
 
+export type Extension = {
+	/** Include the leading dot, e.g. '.vue'. */
+	extension: string
+	stripFromDeclarationFileName: boolean
+	allowExtensionlessImports: boolean
+}
+
 export type CreatePluginOptions = {
 	filename: string
-	/**
-	 * @example ['.vue']
-	 */
-	extraExtensions?: string[] | undefined
+	extensions?: Extension[] | undefined
 	createServiceCode: (
 		cwd: string,
 		configFileName: string | null,
@@ -118,7 +122,7 @@ export function createPlugin(opts: CreatePluginOptions) {
 		{
 			const initialization = JSON.stringify({
 				protocolVersion: PROTOCOL_VERSION,
-				extraExtensions: opts.extraExtensions ?? [],
+				extensions: opts.extensions ?? [],
 			})
 			recvBuffer.writeUint32LE(Buffer.byteLength(initialization))
 			process.stdout.write(recvBuffer.subarray(0, 4))

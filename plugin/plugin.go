@@ -34,12 +34,18 @@ type PluginInstance struct {
 	CreateServiceCode func(cwd, configFileName, fileName string, sourceText string) *ServiceCode
 }
 
+type Extension struct {
+	// Example: ".vue" (include the leading dot)
+	Extension                    string `json:"extension"`
+	StripFromDeclarationFileName bool   `json:"stripFromDeclarationFileName"`
+	AllowExtensionlessImports    bool   `json:"allowExtensionlessImports"`
+}
+
 type PluginOptions struct {
-	Input  io.Reader
-	Output io.Writer
-	// Example: [".vue"]
-	ExtraExtensions []string
-	Setup           func() PluginInstance
+	Input      io.Reader
+	Output     io.Writer
+	Extensions []Extension
+	Setup      func() PluginInstance
 }
 
 func ensureCap(b []byte, needed uint32) []byte {
@@ -95,8 +101,8 @@ type ExpectErrorDirectiveMapping struct {
 }
 
 type InitializationMessage struct {
-	ProtocolVersion uint32   `json:"protocolVersion"`
-	ExtraExtensions []string `json:"extraExtensions"`
+	ProtocolVersion uint32      `json:"protocolVersion"`
+	Extensions      []Extension `json:"extensions"`
 }
 
 func Run(opts PluginOptions) {
@@ -104,12 +110,13 @@ func Run(opts PluginOptions) {
 	var recvBuf []byte
 
 	{
-		if opts.ExtraExtensions == nil {
-			opts.ExtraExtensions = []string{}
+		extensions := slices.Clone(opts.Extensions)
+		if extensions == nil {
+			extensions = []Extension{}
 		}
 		initialization, err := json.Marshal(InitializationMessage{
 			ProtocolVersion: ProtocolVersion,
-			ExtraExtensions: opts.ExtraExtensions,
+			Extensions:      extensions,
 		})
 		if err != nil {
 			panic(err)

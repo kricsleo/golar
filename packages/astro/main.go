@@ -51,9 +51,14 @@ func main() {
 	}
 
 	plugin.Run(plugin.PluginOptions{
-		Input:           os.Stdin,
-		Output:          os.Stdout,
-		ExtraExtensions: []string{".astro"},
+		Input:  os.Stdin,
+		Output: os.Stdout,
+		Extensions: []plugin.Extension{
+			{
+				Extension:                 ".astro",
+				AllowExtensionlessImports: false,
+			},
+		},
 		Setup: func() plugin.PluginInstance {
 			astroDirsByProject := map[projectKey]string{}
 
@@ -69,8 +74,8 @@ func main() {
 								Errors: []plugin.ServiceCodeError{
 									{
 										Message: err.Error(),
-										Start: 0,
-										End: 0,
+										Start:   0,
+										End:     0,
 									},
 								},
 							}

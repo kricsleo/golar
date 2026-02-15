@@ -54,6 +54,7 @@ const ExtensionTs = tspath.ExtensionTs
 const ExtensionTsBuildInfo = tspath.ExtensionTsBuildInfo
 const ExtensionTsx = tspath.ExtensionTsx
 var ExtensionsNotSupportingExtensionlessResolution = tspath.ExtensionsNotSupportingExtensionlessResolution
+var ExtraExtensionless = tspath.ExtraExtensionless
 var ExtraExtensions = tspath.ExtraExtensions
 //go:linkname FileExtensionIs github.com/microsoft/typescript-go/internal/tspath.FileExtensionIs
 func FileExtensionIs(path string, extension string) bool
@@ -132,8 +133,12 @@ type Path = tspath.Path
 func PathIsAbsolute(path string) bool
 //go:linkname PathIsRelative github.com/microsoft/typescript-go/internal/tspath.PathIsRelative
 func PathIsRelative(path string) bool
+//go:linkname RegisterExtensionToRemove github.com/microsoft/typescript-go/internal/tspath.RegisterExtensionToRemove
+func RegisterExtensionToRemove(ext string)
 //go:linkname RegisterSupportedExtension github.com/microsoft/typescript-go/internal/tspath.RegisterSupportedExtension
 func RegisterSupportedExtension(ext string)
+//go:linkname RegisterSupportedExtensionless github.com/microsoft/typescript-go/internal/tspath.RegisterSupportedExtensionless
+func RegisterSupportedExtensionless(ext string)
 //go:linkname RemoveExtension github.com/microsoft/typescript-go/internal/tspath.RemoveExtension
 func RemoveExtension(path string, extension string) string
 //go:linkname RemoveFileExtension github.com/microsoft/typescript-go/internal/tspath.RemoveFileExtension
@@ -146,6 +151,8 @@ func RemoveTrailingDirectorySeparators(path string) string
 func ResolvePath(path string, paths ...string) string
 //go:linkname ResolveTripleslashReference github.com/microsoft/typescript-go/internal/tspath.ResolveTripleslashReference
 func ResolveTripleslashReference(moduleName string, containingFile string) string
+//go:linkname ShouldRemoveExtension github.com/microsoft/typescript-go/internal/tspath.ShouldRemoveExtension
+func ShouldRemoveExtension(ext string) bool
 //go:linkname SplitVolumePath github.com/microsoft/typescript-go/internal/tspath.SplitVolumePath
 func SplitVolumePath(path string) (volume string, rest string, ok bool)
 //go:linkname StartsWithDirectory github.com/microsoft/typescript-go/internal/tspath.StartsWithDirectory

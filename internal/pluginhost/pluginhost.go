@@ -30,7 +30,7 @@ type Plugin struct {
 	reqId                     atomic.Uint64
 	createServiceCodeRequests sync.Map
 
-	ExtraExtensions []string
+	Extensions []plugin.Extension
 }
 
 type serviceCodeRequest struct {
@@ -77,7 +77,7 @@ func NewPlugin(args []string) (*Plugin, error) {
 	if initialization.ProtocolVersion != plugin.ProtocolVersion {
 		panic(fmt.Sprintf("plugin protocol version mismatch: server=%d client=%d", plugin.ProtocolVersion, initialization.ProtocolVersion))
 	}
-	p.ExtraExtensions = initialization.ExtraExtensions
+	p.Extensions = initialization.Extensions
 	debug.Printf("initialized %#v plugin; initialization: %#v; +%v", args, initialization, time.Since(t))
 
 	go func() {

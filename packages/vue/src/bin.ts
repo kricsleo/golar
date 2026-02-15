@@ -7,7 +7,13 @@ const debug = Debug.create('plugin:vue')
 
 createVolarPlugin({
 	filename: import.meta.filename,
-	extraFileExtensions: ['.vue'],
+	extensions: [
+		{
+			extension: '.vue',
+			stripFromDeclarationFileName: false,
+			allowExtensionlessImports: false,
+		},
+	],
 	languagePlugins: async (cwd, configFileName) => {
 		const started = performance.now()
 		await import('./patch-language-tools.ts')

@@ -2,6 +2,7 @@
 
 import {
 	createPlugin,
+	type Extension,
 	type ExpectErrorDirectiveMapping,
 	type IgnoreDirectiveMapping,
 	type Mapping,
@@ -17,10 +18,7 @@ export type VolarLanguagePlugin = LanguagePlugin<string> & {
 }
 export type CreateVolarPluginOptions = {
 	filename: string
-	/**
-	 * @example ['.vue']
-	 */
-	extraFileExtensions: string[]
+	extensions: Extension[]
 	languagePlugins:
 		| VolarLanguagePlugin[]
 		| ((
@@ -36,7 +34,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 	>()
 	createPlugin({
 		filename: opts.filename,
-		extraExtensions: opts.extraFileExtensions,
+		extensions: opts.extensions,
 		async createServiceCode(cwd, configFileName, fileName, sourceText) {
 			let languagePlugins: VolarLanguagePlugin[]
 			if (Array.isArray(opts.languagePlugins)) {

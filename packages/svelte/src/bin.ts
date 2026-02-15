@@ -75,7 +75,13 @@ async function importPackages(
 
 createPlugin({
 	filename: import.meta.filename,
-	extraExtensions: ['.svelte'],
+	extensions: [
+		{
+			extension: '.svelte',
+			stripFromDeclarationFileName: false,
+			allowExtensionlessImports: false,
+		},
+	],
 	async createServiceCode(cwd, configFileName, fileName, sourceText) {
 		const imported = await importPackages(cwd, configFileName).catch((e) =>
 			util.inspect(e),

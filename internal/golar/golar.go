@@ -82,9 +82,15 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		for _, ext := range plugin.ExtraExtensions {
-			tspath.RegisterSupportedExtension(ext)
-			pluginByExtension[ext] = plugin
+		for _, ext := range plugin.Extensions {
+			tspath.RegisterSupportedExtension(ext.Extension)
+			pluginByExtension[ext.Extension] = plugin
+			if ext.AllowExtensionlessImports {
+				tspath.RegisterSupportedExtensionless(ext.Extension)
+			}
+			if ext.StripFromDeclarationFileName {
+				tspath.RegisterExtensionToRemove(ext.Extension)
+			}
 		}
 	}
 }
