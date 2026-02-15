@@ -2,7 +2,7 @@
 	"packageManager": "pnpm@10.28.0",
 	"type": "module",
 	"private": true,
-	"version": "0.0.12",
+	"version": "0.0.13",
 	"scripts": {
 		"build": "tsdown",
 		"build-typescript-lite": "pnpm -C packages/vue build-typescript-lite"
