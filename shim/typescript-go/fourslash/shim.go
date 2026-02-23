@@ -17,6 +17,7 @@ type CompletionsExpectedItems = fourslash.CompletionsExpectedItems
 type CompletionsExpectedList = fourslash.CompletionsExpectedList
 type EditRange = fourslash.EditRange
 type ExpectedCompletionEditRange = fourslash.ExpectedCompletionEditRange
+type FoldingRangeLineExpected = fourslash.FoldingRangeLineExpected
 type FourslashTest = fourslash.FourslashTest
 //go:linkname GetDefaultCapabilities github.com/microsoft/typescript-go/internal/fourslash.GetDefaultCapabilities
 func GetDefaultCapabilities() *lsproto.ClientCapabilities

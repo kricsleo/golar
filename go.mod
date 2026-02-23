@@ -1,6 +1,6 @@
 module github.com/auvred/golar
 
-go 1.25.0
+go 1.26
 
 replace (
 	github.com/microsoft/typescript-go/shim/ast => ./shim/typescript-go/ast

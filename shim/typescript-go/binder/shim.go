@@ -23,6 +23,7 @@ const ContainerFlagsIsInterface = binder.ContainerFlagsIsInterface
 const ContainerFlagsIsObjectLiteralOrClassExpressionMethodOrAccessor = binder.ContainerFlagsIsObjectLiteralOrClassExpressionMethodOrAccessor
 const ContainerFlagsIsThisContainer = binder.ContainerFlagsIsThisContainer
 const ContainerFlagsNone = binder.ContainerFlagsNone
+const ContainerFlagsPropagatesThisKeyword = binder.ContainerFlagsPropagatesThisKeyword
 type ExpandoAssignmentInfo = binder.ExpandoAssignmentInfo
 //go:linkname FindUseStrictPrologue github.com/microsoft/typescript-go/internal/binder.FindUseStrictPrologue
 func FindUseStrictPrologue(sourceFile *ast.SourceFile, statements []*ast.Node) *ast.Node

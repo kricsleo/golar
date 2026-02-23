@@ -1,6 +1,6 @@
 module github.com/auvred/golar/astro
 
-go 1.25.0
+go 1.26
 
 replace (
 	github.com/withastro/compiler/shim => ../../shim/astro-compiler/internal

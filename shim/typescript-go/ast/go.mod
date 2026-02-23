@@ -1,3 +1,3 @@
 module github.com/microsoft/typescript-go/shim/ast
 
-go 1.25
+go 1.26
