@@ -10,6 +10,7 @@ import PluginVueTsx from '@vue/language-core/lib/plugins/vue-tsx.js'
 import PluginFileVue from '@vue/language-core/lib/plugins/file-vue.js'
 import PluginVueScriptJs from '@vue/language-core/lib/plugins/vue-script-js.js'
 import PluginVueTemplateHtml from '@vue/language-core/lib/plugins/vue-template-html.js'
+import PluginVueStyleCSS from '@vue/language-core/lib/plugins/vue-style-css.js'
 import type { VolarLanguagePlugin } from '@golar/volar'
 
 export function vueLanguagePlugin(
@@ -25,6 +26,7 @@ export function vueLanguagePlugin(
 		PluginFileVue,
 		PluginVueScriptJs,
 		PluginVueTemplateHtml,
+		PluginVueStyleCSS,
 	].flatMap(({ default: ctor }) =>
 		ctor({
 			modules: {
