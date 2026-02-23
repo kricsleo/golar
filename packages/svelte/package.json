@@ -1,6 +1,6 @@
 {
 	"name": "@golar/svelte",
-	"version": "0.0.13",
+	"version": "0.0.14",
 	"type": "module",
 	"exports": {
 		"./golar-entry": "./src/golar-entry.ts"
