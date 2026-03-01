@@ -1,3 +1,6 @@
 packages:
+  - e2e/all-languages/fixture
+  - e2e/ember-emit/fixture
+  - e2e/vue-emit/fixture
   - packages/*
   - generated-packages/* # used in gen-npm-packages.ts
