@@ -10,11 +10,11 @@ import (
 
 	"github.com/auvred/golar/plugin"
 
-	"github.com/withastro/compiler/shim"
-	"github.com/withastro/compiler/shim/handler"
-	"github.com/withastro/compiler/shim/loc"
-	"github.com/withastro/compiler/shim/printer"
-	"github.com/withastro/compiler/shim/transform"
+	"github.com/withastro/compiler/pkg"
+	"github.com/withastro/compiler/pkg/handler"
+	"github.com/withastro/compiler/pkg/loc"
+	"github.com/withastro/compiler/pkg/printer"
+	"github.com/withastro/compiler/pkg/transform"
 )
 
 func getAstroInstallation(cwd, configFileName string) (string, string, error) {
@@ -79,7 +79,6 @@ func main() {
 									},
 								},
 							}
-							panic(err)
 						}
 						astroDirsByProject[project] = astroDir
 					}
@@ -101,7 +100,7 @@ func main() {
 
 					printed := printer.PrintToTSX(sourceText, doc, tsxOptions, transformOptions, h)
 
-					errs := handler.Handler_errors(h)
+					errs := h.ErrorsRaw()
 					if len(errs) > 0 {
 						result := &plugin.ServiceCode{}
 						for _, err := range errs {

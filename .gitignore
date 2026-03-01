@@ -1,3 +1,4 @@
 node_modules/
 dist/
-/golar-bin
+/golar
+/packages/vue/src/typescript-lite.js

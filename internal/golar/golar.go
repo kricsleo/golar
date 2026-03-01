@@ -1,34 +1,23 @@
 package golar
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/internal/pluginhost"
-	"github.com/auvred/golar/internal/utils"
 
-	"github.com/microsoft/typescript-go/shim/ast"
-	"github.com/microsoft/typescript-go/shim/compiler"
-	"github.com/microsoft/typescript-go/shim/core"
-	"github.com/microsoft/typescript-go/shim/diagnostics"
-	"github.com/microsoft/typescript-go/shim/golarext"
-	"github.com/microsoft/typescript-go/shim/parser"
-	"github.com/microsoft/typescript-go/shim/tsoptions"
-	"github.com/microsoft/typescript-go/shim/tspath"
-	"github.com/microsoft/typescript-go/shim/vfs"
+	"github.com/microsoft/typescript-go/pkg/ast"
+	"github.com/microsoft/typescript-go/pkg/compiler"
+	"github.com/microsoft/typescript-go/pkg/core"
+	"github.com/microsoft/typescript-go/pkg/diagnostics"
+	"github.com/microsoft/typescript-go/pkg/parser"
+	"github.com/microsoft/typescript-go/pkg/tsoptions"
+	"github.com/microsoft/typescript-go/pkg/tspath"
 )
 
-var pluginErrorDiagnostic = &diagnostics.Message{}
-
-func init() {
-	diagnostics.Message_Set_code(pluginErrorDiagnostic, 1_000_000)
-	diagnostics.Message_Set_category(pluginErrorDiagnostic, diagnostics.CategoryError)
-	diagnostics.Message_Set_key(pluginErrorDiagnostic, "plugin_error_diagnostic")
-	diagnostics.Message_Set_text(pluginErrorDiagnostic, "{0}")
-}
+var pluginErrorDiagnostic = diagnostics.NewMessage(1_000_000, diagnostics.CategoryError, "plugin_error_diagnostic", "{0}")
 
 type compilerHostProxy struct {
 	compiler.CompilerHost
@@ -225,34 +214,4 @@ func positionToService(file *ast.SourceFile, pos int) int {
 
 func init() {
 	compiler.GolarExt.WrapCompilerHost = wrapCompilerHost
-	// golarext.GolarCallbacks.ParseSourceFile = parseFile
-	golarext.GolarCallbacks.PositionToService = positionToService
-}
-
-func WrapFS(fs vfs.FS) vfs.FS {
-	return utils.NewOverlayVFS(fs, map[string]string{
-		// vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
-	})
-}
-
-func WrapFourslashFS(globalOptions map[string]string, fs vfs.FS) vfs.FS {
-	overlay := map[string]string{
-		// vue_codegen.GlobalTypesPath: vue_codegen.GlobalTypes,
-	}
-	if extraFiles := globalOptions["golarextrafiles"]; extraFiles != "" {
-		for pair := range strings.SplitSeq(extraFiles, "\x1f") {
-			if pair == "" {
-				continue
-			}
-			parsedPair := strings.Split(pair, "\x1e")
-			realPath := parsedPair[0]
-			virtualPath := parsedPair[1]
-			bytes, err := os.ReadFile(realPath)
-			if err != nil {
-				panic(fmt.Sprintf("error reading %v: %v", realPath, err))
-			}
-			overlay[virtualPath] = string(bytes)
-		}
-	}
-	return utils.NewOverlayVFS(fs, overlay)
 }

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/microsoft/typescript-go/shim/tspath"
-	"github.com/microsoft/typescript-go/shim/vfs"
+	"github.com/microsoft/typescript-go/pkg/tspath"
+	"github.com/microsoft/typescript-go/pkg/vfs"
 )
 
 const GolarVirtualScheme = "golar-virtual:///"

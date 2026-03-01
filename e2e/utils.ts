@@ -20,7 +20,7 @@ export async function runGolar(opts: {
 		opts.plugins.vue && [process.execPath, path.join(repoRoot, 'packages', 'vue', 'src', 'bin.ts')],
 	].filter(cmd => !!cmd).map(cmd => cmd.join('\x1f')).join('\x1e')
 
-	return await spawn(path.join(repoRoot, 'golar-bin'), opts.args, {
+	return await spawn(path.join(repoRoot, 'golar'), opts.args, {
 		env: {
 			GOLAR_PLUGINS: plugins
 		},

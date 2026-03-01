@@ -1,6 +1,6 @@
 package mapping
 
-import "github.com/microsoft/typescript-go/shim/core"
+import "github.com/microsoft/typescript-go/pkg/core"
 
 type IgnoreDirectiveMapping struct {
 	ServiceOffset uint32

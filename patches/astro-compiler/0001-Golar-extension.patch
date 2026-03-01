@@ -1,0 +1,27 @@
+From 921082e87533d169ad1d596ee299938afa4790b8 Mon Sep 17 00:00:00 2001
+From: auvred <aauvred@gmail.com>
+Date: Sun, 1 Mar 2026 15:12:17 +0300
+Subject: [PATCH] Golar extension
+
+---
+ pkg/handler/handler.go | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/pkg/handler/handler.go b/pkg/handler/handler.go
+index 332f63b..8c365a8 100644
+--- a/pkg/handler/handler.go
++++ b/pkg/handler/handler.go
+@@ -50,6 +50,10 @@ func (h *Handler) AppendHint(err error) {
+ 	h.hints = append(h.hints, err)
+ }
+ 
++func (h *Handler) ErrorsRaw() []error {
++	return h.errors
++}
++
+ func (h *Handler) Errors() []loc.DiagnosticMessage {
+ 	msgs := make([]loc.DiagnosticMessage, 0)
+ 	for _, err := range h.errors {
+-- 
+2.51.0
+

@@ -3,23 +3,25 @@ module github.com/auvred/golar/astro
 go 1.26
 
 replace (
-	github.com/withastro/compiler/shim => ../../shim/astro-compiler/internal
-	github.com/withastro/compiler/shim/transform => ../../shim/astro-compiler/transform
-	github.com/withastro/compiler/shim/handler => ../../shim/astro-compiler/handler
-	github.com/withastro/compiler/shim/loc => ../../shim/astro-compiler/loc
-	github.com/withastro/compiler/shim/printer => ../../shim/astro-compiler/printer
-
-	// TODO:
-	github.com/auvred/golar/plugin => ../..
+	github.com/auvred/golar => ../..
+	github.com/microsoft/typescript-go => ../../thirdparty/typescript-go
+	github.com/withastro/compiler => ../../thirdparty/astro-compiler
 )
 
 require (
-	github.com/withastro/compiler/shim v0.0.0
-	github.com/withastro/compiler/shim/transform v0.0.0
-	github.com/withastro/compiler/shim/handler v0.0.0
-	github.com/withastro/compiler/shim/loc v0.0.0
-	github.com/withastro/compiler/shim/printer v0.0.0
-
-	github.com/auvred/golar/plugin v0.0.0
+	github.com/auvred/golar v0.0.0
+	github.com/withastro/compiler v0.0.0
 )
 
+require (
+	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
+	github.com/iancoleman/strcase v0.2.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
+	github.com/microsoft/typescript-go v0.0.0 // indirect
+	github.com/tdewolff/parse/v2 v2.6.4 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
+	golang.org/x/net v0.0.0-20221004154528-8021a29435af // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
+)

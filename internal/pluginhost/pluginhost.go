@@ -15,7 +15,7 @@ import (
 	"github.com/auvred/golar/internal/mapping"
 	"github.com/auvred/golar/plugin"
 	"github.com/auvred/golar/util"
-	"github.com/microsoft/typescript-go/shim/core"
+	"github.com/microsoft/typescript-go/pkg/core"
 )
 
 var debug = util.NewDebug("pluginhost")

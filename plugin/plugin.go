@@ -8,9 +8,9 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/microsoft/typescript-go/shim/core"
-	"github.com/microsoft/typescript-go/shim/scanner"
-	"github.com/microsoft/typescript-go/shim/sourcemap"
+	"github.com/microsoft/typescript-go/pkg/core"
+	"github.com/microsoft/typescript-go/pkg/scanner"
+	"github.com/microsoft/typescript-go/pkg/sourcemap"
 )
 
 type ServiceCodeError struct {
@@ -298,12 +298,11 @@ func SourceMapToMappings(sourceText string, serviceText string, sourceMap string
 		if decoded == nil {
 			continue
 		}
-		genOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
+		// TODO: we want utf8 offsets, not utf16!!!
+		genOffset := uint32(scanner.ComputePositionOfLineAndByteOffset(
 			serviceLineMap,
 			decoded.GeneratedLine,
-			decoded.GeneratedCharacter,
-			&serviceText,
-			false,
+			int(decoded.GeneratedCharacter),
 		))
 		if current != nil {
 			length := genOffset - current.genOffset
@@ -351,12 +350,11 @@ func SourceMapToMappings(sourceText string, serviceText string, sourceMap string
 			if decoded.SourceIndex != 0 {
 				continue
 			}
-			sourceOffset := uint32(scanner.ComputePositionOfLineAndCharacterEx(
+			// TODO: we want utf8 offsets, not utf16!!!
+			sourceOffset := uint32(scanner.ComputePositionOfLineAndByteOffset(
 				sourceLineMap,
 				decoded.SourceLine,
-				decoded.SourceCharacter,
-				&sourceText,
-				true,
+				int(decoded.SourceCharacter),
 			))
 			current = &currentMapping{
 				genOffset:    genOffset,

@@ -1,32 +1,31 @@
 {
 	"exclude": ["./thirdparty"],
-  "compilerOptions": {
-    "allowUnreachableCode": false,
-    "allowUnusedLabels": false,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "strict": true,
+	"compilerOptions": {
+		"allowUnreachableCode": false,
+		"allowUnusedLabels": false,
+		"exactOptionalPropertyTypes": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noUncheckedIndexedAccess": true,
+		"strict": true,
 
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolveJsonModule": true,
-    "types": ["node"],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"resolveJsonModule": true,
+		"types": ["node"],
 
-    "noEmit": true,
+		"noEmit": true,
 
-    "verbatimModuleSyntax": true,
+		"verbatimModuleSyntax": true,
 		"erasableSyntaxOnly": true,
 
-    "lib": ["esnext"],
-    "moduleDetection": "force",
-    "target": "esnext",
+		"lib": ["esnext"],
+		"moduleDetection": "force",
+		"target": "esnext",
 
-    "noErrorTruncation": true,
+		"noErrorTruncation": true,
 		"rewriteRelativeImportExtensions": true,
 
-    "skipLibCheck": true
-  },
-
+		"skipLibCheck": true
+	}
 }
