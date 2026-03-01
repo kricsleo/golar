@@ -15,7 +15,7 @@ test('vue emit', async () => {
 		args: ['--declaration', '--emitDeclarationOnly'],
 		plugins: {
 			vue: true,
-		}
+		},
 	})
 	expect(res).not.instanceof(SubprocessError)
 

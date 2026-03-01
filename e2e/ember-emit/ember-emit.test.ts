@@ -15,17 +15,13 @@ test('ember emit', async () => {
 		args: ['--declaration', '--emitDeclarationOnly'],
 		plugins: {
 			ember: true,
-		}
+		},
 	})
 	console.log(res.output)
 	expect(res).not.instanceof(SubprocessError)
 
 	const entries = await fs.readdir(distDir)
-	expect(entries).toStrictEqual([
-		'comp.d.ts',
-		'index.d.ts',
-		'parent-comp.d.ts',
-	])
+	expect(entries).toStrictEqual(['comp.d.ts', 'index.d.ts', 'parent-comp.d.ts'])
 
 	const comp = await fs.readFile(path.join(distDir, 'comp.d.ts'), 'utf8')
 	expect(comp).toMatchInlineSnapshot(`

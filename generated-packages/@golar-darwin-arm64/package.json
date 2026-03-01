@@ -1,26 +1,26 @@
 {
-  "version": "0.0.14",
-  "type": "module",
-  "license": "MIT",
-  "author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
-  "repository": "github:auvred/golar",
-  "bugs": "https://github.com/auvred/golar/issues",
-  "homepage": "https://github.com/auvred/golar#readme",
-  "publishConfig": {
-    "access": "public",
-    "executableFiles": [
-      "./golar"
-    ]
-  },
-  "name": "@golar/darwin-arm64",
-  "preferUnplugged": true,
-  "files": [
-    "./golar"
-  ],
-  "os": [
-    "darwin"
-  ],
-  "cpu": [
-    "arm64"
-  ]
+	"version": "0.0.14",
+	"type": "module",
+	"license": "MIT",
+	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+	"repository": "github:auvred/golar",
+	"bugs": "https://github.com/auvred/golar/issues",
+	"homepage": "https://github.com/auvred/golar#readme",
+	"publishConfig": {
+		"access": "public",
+		"executableFiles": [
+			"./golar"
+		]
+	},
+	"name": "@golar/darwin-arm64",
+	"preferUnplugged": true,
+	"files": [
+		"./golar"
+	],
+	"os": [
+		"darwin"
+	],
+	"cpu": [
+		"arm64"
+	]
 }

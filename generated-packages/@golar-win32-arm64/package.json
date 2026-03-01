@@ -1,26 +1,26 @@
 {
-  "version": "0.0.14",
-  "type": "module",
-  "license": "MIT",
-  "author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
-  "repository": "github:auvred/golar",
-  "bugs": "https://github.com/auvred/golar/issues",
-  "homepage": "https://github.com/auvred/golar#readme",
-  "publishConfig": {
-    "access": "public",
-    "executableFiles": [
-      "./golar.exe"
-    ]
-  },
-  "name": "@golar/win32-arm64",
-  "preferUnplugged": true,
-  "files": [
-    "./golar.exe"
-  ],
-  "os": [
-    "win32"
-  ],
-  "cpu": [
-    "arm64"
-  ]
+	"version": "0.0.14",
+	"type": "module",
+	"license": "MIT",
+	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
+	"repository": "github:auvred/golar",
+	"bugs": "https://github.com/auvred/golar/issues",
+	"homepage": "https://github.com/auvred/golar#readme",
+	"publishConfig": {
+		"access": "public",
+		"executableFiles": [
+			"./golar.exe"
+		]
+	},
+	"name": "@golar/win32-arm64",
+	"preferUnplugged": true,
+	"files": [
+		"./golar.exe"
+	],
+	"os": [
+		"win32"
+	],
+	"cpu": [
+		"arm64"
+	]
 }

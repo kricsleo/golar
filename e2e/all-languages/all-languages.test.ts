@@ -13,7 +13,7 @@ test('all languages', async () => {
 			ember: true,
 			svelte: true,
 			vue: true,
-		}
+		},
 	})
 
 	expect(res).instanceof(SubprocessError)

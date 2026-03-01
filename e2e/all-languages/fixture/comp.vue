@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-	const vue: string = 123
+const vue: string = 123
 </script>
 
 <template>

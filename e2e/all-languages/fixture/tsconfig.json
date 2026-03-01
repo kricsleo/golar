@@ -2,6 +2,6 @@
 	"compilerOptions": {
 		"jsx": "preserve",
 		"skipLibCheck": true,
-		"types": [],
+		"types": []
 	}
 }
