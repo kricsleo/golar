@@ -13,6 +13,51 @@ import PluginVueTemplateHtml from '@vue/language-core/lib/plugins/vue-template-h
 import PluginVueStyleCSS from '@vue/language-core/lib/plugins/vue-style-css.js'
 import type { VolarLanguagePlugin } from '@golar/volar'
 
+const SUPPRESSED_DIAGNOSTIC_CODES = [2339, 2551, 2353, 2561, 6133] as const
+
+class GolarVueVirtualCode extends VueVirtualCode {
+	override get embeddedCodes() {
+		const embeddedCodes = super.embeddedCodes
+		const walk = (code: (typeof embeddedCodes)[number]) => {
+			for (const m of code.mappings) {
+				const data = m.data as {
+					verification?: unknown
+					__suppressedDiagnostics?: number[]
+				}
+				if (data.__suppressedDiagnostics != null) {
+					continue
+				}
+				if (
+					data.verification == null ||
+					typeof data.verification !== 'object' ||
+					!('shouldReport' in data.verification) ||
+					typeof data.verification.shouldReport !== 'function'
+				) {
+					continue
+				}
+
+				const shouldReport = data.verification.shouldReport as (
+					source: string | undefined,
+					code: string | number,
+				) => boolean
+				const suppressed = SUPPRESSED_DIAGNOSTIC_CODES.filter(
+					(code) => !shouldReport(undefined, code),
+				)
+				if (suppressed.length) {
+					data.__suppressedDiagnostics = [...suppressed]
+				}
+			}
+			for (const child of code.embeddedCodes ?? []) {
+				walk(child)
+			}
+		}
+		for (const code of embeddedCodes) {
+			walk(code)
+		}
+		return embeddedCodes
+	}
+}
+
 export function vueLanguagePlugin(
 	cwd: string,
 	configFileName: string | null,
@@ -42,7 +87,7 @@ export function vueLanguagePlugin(
 			return scriptId.endsWith('.vue') ? 'vue' : undefined
 		},
 		createVirtualCode(scriptId, languageId, snapshot) {
-			return new VueVirtualCode(
+			return new GolarVueVirtualCode(
 				scriptId,
 				languageId,
 				snapshot,

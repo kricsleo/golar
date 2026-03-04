@@ -3,6 +3,7 @@ package golar
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
@@ -181,6 +182,16 @@ func wrapDiagnostics(file *ast.SourceFile, diags []*ast.Diagnostic, collectUnuse
 	langData := file.GolarLanguageData.(languageData)
 	directiveMap := mapping.NewDirectiveMap(langData.ignoreDirectives, langData.expectErrorDirectives)
 	for _, diag := range diags {
+		if langData.sourceMap.AnySourceRangeMatch(
+			uint32(diag.Pos()),
+			uint32(diag.End()),
+			true,
+			func(m *mapping.Mapping) bool {
+				return slices.Contains(m.SuppressedDiagnostics, uint32(diag.Code()))
+			},
+		) {
+			continue
+		}
 		if directiveMap.IsServiceRangeIgnored(diag.Loc()) {
 			continue
 		}

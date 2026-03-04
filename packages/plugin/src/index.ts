@@ -4,7 +4,7 @@ import assert from 'node:assert'
 import worker_threads from 'node:worker_threads'
 
 const HEADER_SIZE = 5
-const PROTOCOL_VERSION = 1
+const PROTOCOL_VERSION = 2
 
 const MSG_KIND = {
 	CREATE_SERVICE_CODE: 0,
@@ -29,6 +29,7 @@ export type Mapping = {
 	serviceOffset: number
 	sourceLength: number
 	serviceLength?: number | undefined
+	suppressedDiagnostics?: number[] | undefined
 }
 
 export type IgnoreDirectiveMapping = {
@@ -269,7 +270,11 @@ export function createPlugin(opts: CreatePluginOptions) {
 					}
 
 					const serviceTextLen = Buffer.byteLength(resp.serviceText)
-					const mappingsLen = resp.mappings.length * (4 * 4)
+					const mappingsLen = resp.mappings.reduce(
+						(sum, m) =>
+							sum + 4 * 5 + 4 * (m.suppressedDiagnostics?.length ?? 0),
+						0,
+					)
 					const ignoreMappingsLen = (resp.ignoreMappings?.length ?? 0) * (4 * 2)
 					const expectErrorMappingsLen =
 						(resp.expectErrorMappings?.length ?? 0) * (4 * 4)
@@ -349,6 +354,11 @@ export function createPlugin(opts: CreatePluginOptions) {
 							)! - serviceOffsetUtf8,
 							offset,
 						)
+						const suppressedDiagnostics = m.suppressedDiagnostics ?? []
+						offset = writeUint32(suppressedDiagnostics.length, offset)
+						for (const code of suppressedDiagnostics) {
+							offset = writeUint32(code, offset)
+						}
 					}
 
 					offset = sendBuffer.writeUInt32LE(

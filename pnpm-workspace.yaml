@@ -3,5 +3,6 @@ packages:
   - e2e/ember-emit/fixture
   - e2e/vue-emit/fixture
   - e2e/vue-expect-error/fixture
+  - e2e/vue-unknown-component/fixture
   - packages/*
   - generated-packages/* # used in gen-npm-packages.ts

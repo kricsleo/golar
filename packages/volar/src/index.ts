@@ -135,6 +135,14 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 				const expectErrorMappings: ExpectErrorDirectiveMapping[] = []
 
 				const mappings = verificationMappings.flatMap((m): Mapping[] => {
+					const mappingData = m.data as {
+						__suppressedDiagnostics?: number[]
+					}
+					const suppressedDiagnostics = Array.isArray(
+						mappingData.__suppressedDiagnostics,
+					)
+						? mappingData.__suppressedDiagnostics
+						: undefined
 					return m.sourceOffsets.map((sourceOffset, i): Mapping => {
 						const generatedOffset = m.generatedOffsets[i]!
 						const sourceLength = m.lengths[i]!
@@ -173,6 +181,9 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 							serviceOffset: generatedOffset,
 							sourceLength,
 							serviceLength: generatedLength,
+							suppressedDiagnostics: suppressedDiagnostics?.length
+								? [...suppressedDiagnostics]
+								: undefined,
 						}
 					})
 				})

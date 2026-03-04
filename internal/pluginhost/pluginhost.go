@@ -200,11 +200,27 @@ func (p *Plugin) CreateServiceCode(cwd string, configFileName string, fileName s
 			offset += serviceTextLen
 
 			mappingsCount := binary.LittleEndian.Uint32(payload[offset:])
-			mappingsByteLen := mappingsCount * uint32(unsafe.Sizeof(mapping.Mapping{}))
 			offset += 4
 			response.Mappings = make([]mapping.Mapping, mappingsCount)
-			copy(response.Mappings, unsafe.Slice((*mapping.Mapping)(unsafe.Pointer(unsafe.SliceData(payload[offset:offset+mappingsByteLen]))), mappingsCount))
-			offset += mappingsByteLen
+			for i := range mappingsCount {
+				response.Mappings[i].SourceOffset = binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				response.Mappings[i].ServiceOffset = binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				response.Mappings[i].SourceLength = binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				response.Mappings[i].ServiceLength = binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				suppressedDiagnosticsCount := binary.LittleEndian.Uint32(payload[offset:])
+				offset += 4
+				if suppressedDiagnosticsCount > 0 {
+					response.Mappings[i].SuppressedDiagnostics = make([]uint32, suppressedDiagnosticsCount)
+					for j := range suppressedDiagnosticsCount {
+						response.Mappings[i].SuppressedDiagnostics[j] = binary.LittleEndian.Uint32(payload[offset:])
+						offset += 4
+					}
+				}
+			}
 
 			ignoreMappingsCount := binary.LittleEndian.Uint32(payload[offset:])
 			ignoreMappingsByteLen := ignoreMappingsCount * uint32(unsafe.Sizeof(mapping.IgnoreDirectiveMapping{}))

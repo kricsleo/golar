@@ -14,10 +14,11 @@ const (
 )
 
 type Mapping struct {
-	SourceOffset  uint32
-	ServiceOffset uint32
-	SourceLength  uint32
-	ServiceLength uint32
+	SourceOffset          uint32
+	ServiceOffset         uint32
+	SourceLength          uint32
+	ServiceLength         uint32
+	SuppressedDiagnostics []uint32
 }
 
 type MappingMemo struct {
@@ -53,6 +54,55 @@ func (m *SourceMap) ToSourceRange(
 	fallbackToAnyMatch bool,
 ) []MappedRange {
 	return m.findMatchingStartEnd(serviceStart, serviceEnd, fallbackToAnyMatch, ServiceOffsets)
+}
+
+func (m *SourceMap) AnySourceRangeMatch(
+	serviceStart uint32,
+	serviceEnd uint32,
+	fallbackToAnyMatch bool,
+	filter func(*Mapping) bool,
+) bool {
+	if filter == nil {
+		return len(m.findMatchingStartEnd(serviceStart, serviceEnd, fallbackToAnyMatch, ServiceOffsets)) > 0
+	}
+
+	mappedStarts := make([]MappedLocation, 0)
+	endMatches := make([]MappedLocation, 0)
+
+	for _, mappedStart := range m.findMatchingOffsets(serviceStart, ServiceOffsets) {
+		if !filter(mappedStart.Mapping) {
+			continue
+		}
+		mappedStarts = append(mappedStarts, mappedStart)
+		mapping := mappedStart.Mapping
+		if _, ok := TranslateOffset(
+			serviceEnd,
+			mapping.ServiceOffset,
+			mapping.SourceOffset,
+			getLength(mapping, ServiceOffsets),
+			getLength(mapping, SourceOffsets),
+		); ok {
+			return true
+		}
+	}
+
+	if !fallbackToAnyMatch {
+		return false
+	}
+
+	endMatches = m.findMatchingOffsets(serviceEnd, ServiceOffsets)
+	for _, mappedStart := range mappedStarts {
+		for _, mappedEnd := range endMatches {
+			if mappedEnd.Offset < mappedStart.Offset {
+				continue
+			}
+			if filter(mappedEnd.Mapping) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (m *SourceMap) ToServiceRange(

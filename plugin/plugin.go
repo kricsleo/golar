@@ -71,7 +71,7 @@ const (
 	MsgKindCreateServiceCodeResponse
 )
 
-const ProtocolVersion uint32 = 1
+const ProtocolVersion uint32 = 2
 
 type ServiceCodeProperties uint8
 
@@ -82,10 +82,11 @@ const (
 )
 
 type Mapping struct {
-	SourceOffset  uint32
-	ServiceOffset uint32
-	SourceLength  uint32
-	ServiceLength uint32
+	SourceOffset          uint32
+	ServiceOffset         uint32
+	SourceLength          uint32
+	ServiceLength         uint32
+	SuppressedDiagnostics []uint32
 }
 
 type IgnoreDirectiveMapping struct {
@@ -199,7 +200,10 @@ func Run(opts PluginOptions) {
 						offset += 4
 					}
 				} else {
-					mappingsByteLen := len(res.Mappings) * int(unsafe.Sizeof(Mapping{}))
+					mappingsByteLen := 0
+					for _, m := range res.Mappings {
+						mappingsByteLen += (4 * 5) + (4 * len(m.SuppressedDiagnostics))
+					}
 					ignoreMappingsByteLen := len(res.IgnoreMappings) * int(unsafe.Sizeof(IgnoreDirectiveMapping{}))
 					expectErrorMappingsByteLen := len(res.ExpectErrorMappings) * int(unsafe.Sizeof(ExpectErrorDirectiveMapping{}))
 					responsePayloadLen := uint32(8 + 1 + 1 + 4 + len(res.ServiceText) + 4 + mappingsByteLen + 4 + ignoreMappingsByteLen + 4 + expectErrorMappingsByteLen)
@@ -225,11 +229,21 @@ func Run(opts PluginOptions) {
 					offset += uint32(len(res.ServiceText))
 					binary.LittleEndian.PutUint32(sendBuf[offset:], uint32(len(res.Mappings)))
 					offset += 4
-					if len(res.Mappings) > 0 {
-						byteLen := len(res.Mappings) * int(unsafe.Sizeof(Mapping{}))
-						bytes := unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(res.Mappings))), byteLen)
-						copy(sendBuf[offset:], bytes)
-						offset += uint32(len(bytes))
+					for _, m := range res.Mappings {
+						binary.LittleEndian.PutUint32(sendBuf[offset:], m.SourceOffset)
+						offset += 4
+						binary.LittleEndian.PutUint32(sendBuf[offset:], m.ServiceOffset)
+						offset += 4
+						binary.LittleEndian.PutUint32(sendBuf[offset:], m.SourceLength)
+						offset += 4
+						binary.LittleEndian.PutUint32(sendBuf[offset:], m.ServiceLength)
+						offset += 4
+						binary.LittleEndian.PutUint32(sendBuf[offset:], uint32(len(m.SuppressedDiagnostics)))
+						offset += 4
+						for _, code := range m.SuppressedDiagnostics {
+							binary.LittleEndian.PutUint32(sendBuf[offset:], code)
+							offset += 4
+						}
 					}
 					binary.LittleEndian.PutUint32(sendBuf[offset:], uint32(len(res.IgnoreMappings)))
 					offset += 4

@@ -44,6 +44,18 @@ importers:
         specifier: ^3.5.29
         version: 3.5.29(typescript@5.9.3)
 
+  e2e/vue-expect-error/fixture:
+    dependencies:
+      vue:
+        specifier: ^3.5.29
+        version: 3.5.29(typescript@5.9.3)
+
+  e2e/vue-unknown-component/fixture:
+    dependencies:
+      vue:
+        specifier: ^3.5.29
+        version: 3.5.29(typescript@5.9.3)
+
   generated-packages/@golar-astro-darwin-arm64: {}
 
   generated-packages/@golar-astro-darwin-x64: {}
