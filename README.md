@@ -33,6 +33,8 @@ npx golar --noEmit
 # for Vue
 npm add -D golar @golar/vue
 npx golar --noEmit
+# for Nuxt projects whose root tsconfig.json contains a "references" field
+npx golar --build --noEmit
 # emit .vue.d.ts files
 npx golar --declaration --emitDeclarationOnly
 ```
