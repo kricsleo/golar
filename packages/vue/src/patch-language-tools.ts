@@ -32,13 +32,16 @@ patchFile('@vue/language-core/lib/codegen/template/context.js', (src) => {
 		src,
 		'function resolveCodeFeatures',
 		(s) => `${s}(...args) {
-		const features = _resolveCodeFeatures(...args)
+		let features = _resolveCodeFeatures(...args)
 		const data = stack.at(-1)
 		if (data?.expectError != null) {
-			features.__expectErrorCommentLoc = [
-				(options?.template?.startTagEnd ?? 0) + data.expectError.node.loc.start.offset,
-				(options?.template?.startTagEnd ?? 0) + data.expectError.node.loc.end.offset,
-			]
+			features = {
+				...feature,
+				__expectErrorCommentLoc: [
+					(options?.template?.startTagEnd ?? 0) + data.expectError.node.loc.start.offset,
+					(options?.template?.startTagEnd ?? 0) + data.expectError.node.loc.end.offset,
+				],
+			}
 		}
 		return features
 	}
