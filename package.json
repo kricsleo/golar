@@ -4,8 +4,9 @@
 	"private": true,
 	"version": "0.0.14",
 	"scripts": {
-		"build": "tsdown && node ./tools/build.ts",
-		"build-typescript-lite": "pnpm -C packages/vue build-typescript-lite"
+		"build:packages": "tsdown",
+		"build:bin": "node ./tools/build.ts",
+		"build:typescript-lite": "pnpm -C packages/vue build-typescript-lite"
 	},
 	"devDependencies": {
 		"@types/node": "^25.0.8",

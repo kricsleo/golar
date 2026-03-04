@@ -82,8 +82,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build-typescript-lite
+      - run: pnpm build:typescript-lite
 
-      - run: pnpm build
+      - run: pnpm build:packages
 
       - run: pnpm publish --provenance --recursive --no-git-checks
