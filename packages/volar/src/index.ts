@@ -104,6 +104,14 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 				)
 				const sourceOffsets = new Set<number>()
 				const serviceOffsets = new Set<number>()
+				const expectErrorGroups = new Map<
+					string,
+					{
+						sourceOffset: number
+						sourceLength: number
+						serviceRanges: [number, number][]
+					}
+				>()
 
 				for (const m of verificationMappings) {
 					for (const [i, offset] of m.sourceOffsets.entries()) {
@@ -143,12 +151,21 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 								number,
 								number,
 							]
-							expectErrorMappings.push({
-								sourceOffset: start,
-								serviceOffset: generatedOffset,
-								sourceLength: end - start,
-								serviceLength: generatedLength,
-							})
+							const sourceLength = end - start
+							const key = `${start}:${sourceLength}`
+							let group = expectErrorGroups.get(key)
+							if (group == null) {
+								group = {
+									sourceOffset: start,
+									sourceLength,
+									serviceRanges: [],
+								}
+								expectErrorGroups.set(key, group)
+							}
+							group.serviceRanges.push([
+								generatedOffset,
+								generatedOffset + generatedLength,
+							])
 						}
 
 						return {
@@ -191,6 +208,26 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					serviceOffset: cursor,
 					serviceLength: serviceText.length - cursor,
 				})
+
+				for (const group of expectErrorGroups.values()) {
+					if (group.serviceRanges.length === 0) {
+						continue
+					}
+
+					let start = Number.POSITIVE_INFINITY
+					let end = Number.NEGATIVE_INFINITY
+					for (const [s, e] of group.serviceRanges) {
+						start = Math.min(start, s)
+						end = Math.max(end, e)
+					}
+
+					expectErrorMappings.push({
+						sourceOffset: group.sourceOffset,
+						serviceOffset: start,
+						sourceLength: group.sourceLength,
+						serviceLength: Math.max(end - start, 0),
+					})
+				}
 
 				return {
 					serviceText,
