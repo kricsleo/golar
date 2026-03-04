@@ -1,4 +1,4 @@
-From 19a44289c5753c0999e38119feb382e01709c0cc Mon Sep 17 00:00:00 2001
+From 95aa4ae8c27f0e5a52cdd1e8b3607cb38bb19e50 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Sun, 1 Mar 2026 12:22:09 +0300
 Subject: [PATCH] Golar extension
@@ -9,10 +9,10 @@ Subject: [PATCH] Golar extension
  pkg/compiler/program.go        | 31 +++++++++++++++++++++++++++++--
  pkg/diagnostics/diagnostics.go |  9 +++++++++
  pkg/module/resolver.go         | 15 +++++++++++++++
- pkg/module/util.go             |  5 +++++
+ pkg/module/util.go             | 10 ++++++++++
  pkg/outputpaths/outputpaths.go |  5 +++++
  pkg/tspath/extension.go        | 28 ++++++++++++++++++++++++++++
- 8 files changed, 104 insertions(+), 2 deletions(-)
+ 8 files changed, 109 insertions(+), 2 deletions(-)
 
 diff --git a/cmd/tsgo/main.go b/cmd/tsgo/main.go
 index 03bcb5064..65d452bf5 100644
@@ -27,7 +27,7 @@ index 03bcb5064..65d452bf5 100644
  )
  
 diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
-index 0e1f89740..d91be6626 100644
+index 3baeb937a..168ac4fe1 100644
 --- a/pkg/ast/ast.go
 +++ b/pkg/ast/ast.go
 @@ -10967,6 +10967,10 @@ type SourceFile struct {
@@ -41,7 +41,7 @@ index 0e1f89740..d91be6626 100644
  	// Fields set by NewSourceFile
  	fileName       string // For debugging convenience
  	parseOptions   SourceFileParseOptions
-@@ -11053,10 +11057,18 @@ func (node *SourceFile) Text() string {
+@@ -11059,10 +11063,18 @@ func (node *SourceFile) Text() string {
  	return node.text
  }
  
@@ -61,7 +61,7 @@ index 0e1f89740..d91be6626 100644
  	return node.parseOptions.Path
  }
 diff --git a/pkg/compiler/program.go b/pkg/compiler/program.go
-index 14d7cd309..71afa1bd9 100644
+index 15fda0d5d..a7cd3bfd8 100644
 --- a/pkg/compiler/program.go
 +++ b/pkg/compiler/program.go
 @@ -253,7 +253,15 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
@@ -118,7 +118,7 @@ index 14d7cd309..71afa1bd9 100644
  	return filtered
  }
  
-@@ -1131,6 +1152,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1139,6 +1160,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  
  	isPlainJS := ast.IsPlainJSFile(sourceFile, compilerOptions.CheckJs)
  	if isPlainJS {
@@ -128,7 +128,7 @@ index 14d7cd309..71afa1bd9 100644
  		return core.Filter(diags, func(d *ast.Diagnostic) bool {
  			return plainJSErrors.Has(d.Code())
  		})
-@@ -1150,6 +1174,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1158,6 +1182,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  			filtered = append(filtered, ast.NewDiagnostic(sourceFile, directive.Loc, diagnostics.Unused_ts_expect_error_directive))
  		}
  	}
@@ -187,7 +187,7 @@ index 73af6a1a9..cb67b3bf9 100644
  			if resolved := r.tryExtension(".d"+originalExtension+".ts", extensionless, false, onlyRecordFailures); !resolved.shouldContinueSearching() {
  				return resolved
 diff --git a/pkg/module/util.go b/pkg/module/util.go
-index fe0e514e2..224f64b28 100644
+index fe0e514e2..f88e5ba91 100644
 --- a/pkg/module/util.go
 +++ b/pkg/module/util.go
 @@ -169,6 +169,11 @@ func GetResolutionDiagnostic(options *core.CompilerOptions, resolvedModule *Reso
@@ -200,6 +200,18 @@ index fe0e514e2..224f64b28 100644
 +			}
 +		}
  		return needAllowArbitraryExtensions()
+ 	}
+ }
+@@ -192,6 +197,11 @@ func TryGetJSExtensionForFile(fileName string, options *core.CompilerOptions) st
+ 	case tspath.ExtensionDcts, tspath.ExtensionCts, tspath.ExtensionCjs:
+ 		return tspath.ExtensionCjs
+ 	default:
++		for _, e := range tspath.ExtraExtensions {
++			if strings.HasSuffix(fileName, e) {
++				return e
++			}
++		}
+ 		return ""
  	}
  }
 diff --git a/pkg/outputpaths/outputpaths.go b/pkg/outputpaths/outputpaths.go
