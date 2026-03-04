@@ -30,7 +30,7 @@
 		"@golar/volar": "workspace:*",
 		"@golar/util": "workspace:*",
 		"@vue/compiler-dom": "^3.5.0",
-		"@vue/language-core": "3.2.2"
+		"@vue/language-core": "3.2.5"
 	},
 	"devDependencies": {
 		"@vue/compiler-sfc": "^3.5.27",
