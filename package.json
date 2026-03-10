@@ -2,7 +2,7 @@
 	"packageManager": "pnpm@10.28.0",
 	"type": "module",
 	"private": true,
-	"version": "0.0.15",
+	"version": "0.0.16",
 	"scripts": {
 		"build:packages": "tsdown",
 		"build:bin": "node ./tools/build.ts",
