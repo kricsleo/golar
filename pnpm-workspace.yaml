@@ -1,4 +1,5 @@
 packages:
+  - docs
   - e2e/all-languages/fixture
   - e2e/ember-emit/fixture
   - e2e/vue-emit/fixture
