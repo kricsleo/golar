@@ -1,11 +1,11 @@
-[submodule "typescript-go"]
+[submodule "thirdparty/typescript-go"]
 	path = thirdparty/typescript-go
 	url = https://github.com/microsoft/typescript-go
-[submodule "astro-compiler"]
+[submodule "thirdpartyastro-compiler"]
 	path = thirdparty/astro-compiler
 	url = https://github.com/withastro/compiler
 	shallow = true
-[submodule "vendor/typescript"]
+[submodule "thirdparty/typescript"]
 	path = thirdparty/typescript
 	url = https://github.com/microsoft/typescript
 	shallow = true
