@@ -10,8 +10,7 @@ export async function resetSubmodule(dir: string) {
 		stdio: 'inherit',
 	}).catch(() => {})
 
-	await spawn('git', ['reset', '--hard', 'origin/main'], {
-		cwd: dir,
+	await spawn('git', ['submodule', 'update', dir], {
 		stdio: 'inherit',
 	})
 
