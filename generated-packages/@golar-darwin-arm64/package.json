@@ -1,5 +1,5 @@
 {
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"type": "module",
 	"license": "MIT",
 	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
@@ -7,15 +7,12 @@
 	"bugs": "https://github.com/auvred/golar/issues",
 	"homepage": "https://github.com/auvred/golar#readme",
 	"publishConfig": {
-		"access": "public",
-		"executableFiles": [
-			"./golar"
-		]
+		"access": "public"
 	},
 	"name": "@golar/darwin-arm64",
 	"preferUnplugged": true,
 	"files": [
-		"./golar"
+		"./golar.node"
 	],
 	"os": [
 		"darwin"

@@ -1,9 +1,9 @@
 {
 	"name": "@golar/astro",
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"type": "module",
 	"exports": {
-		"./golar-entry": "./src/golar-entry.ts"
+		".": "./src/index.ts"
 	},
 	"files": [
 		"./dist"
@@ -20,12 +20,14 @@
 	"publishConfig": {
 		"access": "public",
 		"exports": {
-			"./golar-entry": "./dist/golar-entry.js"
+			".": "./dist/index.js"
 		}
+	},
+	"dependencies": {
+		"golar": "workspace:*"
 	},
 	"optionalDependencies": {
 		"@golar/astro-win32-x64": "workspace:*",
-		"@golar/astro-win32-arm64": "workspace:*",
 		"@golar/astro-linux-x64": "workspace:*",
 		"@golar/astro-linux-arm64": "workspace:*",
 		"@golar/astro-darwin-x64": "workspace:*",

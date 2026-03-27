@@ -1,4 +1,4 @@
 <script setup lang="ts">
-defineProps<{ foo: string }>()
+	defineProps<{ foo: string }>()
 </script>
 <template><div /></template>

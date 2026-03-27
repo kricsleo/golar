@@ -1,0 +1,100 @@
+From 413c7258e8d1dd2619974386af0704a5e4269b61 Mon Sep 17 00:00:00 2001
+From: auvred <aauvred@gmail.com>
+Date: Fri, 6 Mar 2026 13:17:31 +0300
+Subject: [PATCH 2/3] Export internals
+
+---
+ pkg/ast/ast.go         |  4 ++++
+ pkg/ast/ids.go         |  2 +-
+ pkg/checker/checker.go |  2 +-
+ pkg/checker/exports.go | 12 ++++++++++++
+ pkg/checker/types.go   |  4 ++++
+ 5 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
+index 783a056dc..ffcb8c269 100644
+--- a/pkg/ast/ast.go
++++ b/pkg/ast/ast.go
+@@ -242,6 +242,10 @@ type Node struct {
+ 	data   nodeData
+ }
+ 
++func (n *Node) Data() nodeData {
++	return n.data
++}
++
+ // Node accessors. Some accessors are implemented as methods on NodeData, others are implemented though
+ // type switches. Either approach is fine. Interface methods are likely more performant, but have higher
+ // code size costs because we have hundreds of implementations of the NodeData interface.
+diff --git a/pkg/ast/ids.go b/pkg/ast/ids.go
+index 63e415deb..482ee0c24 100644
+--- a/pkg/ast/ids.go
++++ b/pkg/ast/ids.go
+@@ -2,5 +2,5 @@ package ast
+ 
+ type (
+ 	NodeId   uint64
+-	SymbolId uint64
++	SymbolId uint32
+ )
+diff --git a/pkg/checker/checker.go b/pkg/checker/checker.go
+index 1847abf93..3abcac418 100644
+--- a/pkg/checker/checker.go
++++ b/pkg/checker/checker.go
+@@ -16918,7 +16918,7 @@ func (b *keyBuilder) writeInt(value int) {
+ }
+ 
+ func (b *keyBuilder) writeSymbol(s *ast.Symbol) {
+-	hashWrite64(&b.h, ast.GetSymbolId(s))
++	hashWrite32(&b.h, ast.GetSymbolId(s))
+ }
+ 
+ func (b *keyBuilder) writeType(t *Type) {
+diff --git a/pkg/checker/exports.go b/pkg/checker/exports.go
+index 5aa597602..185f9fcdc 100644
+--- a/pkg/checker/exports.go
++++ b/pkg/checker/exports.go
+@@ -6,6 +6,14 @@ import (
+ 	"github.com/microsoft/typescript-go/pkg/diagnostics"
+ )
+ 
++func (c *Checker) IsArrayOrTupleType(t *Type) bool {
++	return c.isArrayOrTupleType(t)
++}
++
++func (c *Checker) GetRegExpType() *Type {
++	return c.globalRegExpType
++}
++
+ func (c *Checker) GetStringType() *Type {
+ 	return c.stringType
+ }
+@@ -110,6 +118,10 @@ func (c *Checker) GetPropertyOfType(t *Type, name string) *ast.Symbol {
+ 	return c.getPropertyOfType(t, name)
+ }
+ 
++func (c *Checker) GetPropertyNameForKnownSymbolName(symbolName string) string {
++	return c.getPropertyNameForKnownSymbolName(symbolName)
++}
++
+ func (c *Checker) TypeHasCallOrConstructSignatures(t *Type) bool {
+ 	return c.typeHasCallOrConstructSignatures(t)
+ }
+diff --git a/pkg/checker/types.go b/pkg/checker/types.go
+index 9f91e89da..00ecc7764 100644
+--- a/pkg/checker/types.go
++++ b/pkg/checker/types.go
+@@ -546,6 +546,10 @@ func (t *Type) Id() TypeId {
+ 	return t.id
+ }
+ 
++func (t *Type) Alias() *TypeAlias {
++	return t.alias
++}
++
+ func (t *Type) Flags() TypeFlags {
+ 	return t.flags
+ }
+-- 
+2.53.0
+

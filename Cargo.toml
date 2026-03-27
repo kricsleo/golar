@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "e2e/lint-typecheck/fixture/rust-addon"]
+
+[workspace.package]
+edition = "2024"
+
+authors = ["auvred <aauvred@gmail.com>"]
+homepage = "https://golar.dev"
+license = "MIT"
+repository = "https://github.com/auvred/golar"
+description = "Embedded language tooling orchestrator based on typescript-go"

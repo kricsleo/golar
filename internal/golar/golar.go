@@ -1,20 +1,20 @@
 package golar
 
 import (
-	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/auvred/golar/internal/mapping"
-	"github.com/auvred/golar/internal/pluginhost"
+	"github.com/auvred/golar/internal/tscodegenplugin"
+	"github.com/auvred/golar/internal/utils"
+	"github.com/zeebo/xxh3"
 
 	"github.com/microsoft/typescript-go/pkg/ast"
+	"github.com/microsoft/typescript-go/pkg/collections"
 	"github.com/microsoft/typescript-go/pkg/compiler"
 	"github.com/microsoft/typescript-go/pkg/core"
 	"github.com/microsoft/typescript-go/pkg/diagnostics"
 	"github.com/microsoft/typescript-go/pkg/parser"
-	"github.com/microsoft/typescript-go/pkg/tsoptions"
 	"github.com/microsoft/typescript-go/pkg/tspath"
 )
 
@@ -22,7 +22,8 @@ var pluginErrorDiagnostic = diagnostics.NewMessage(1_000_000, diagnostics.Catego
 
 type compilerHostProxy struct {
 	compiler.CompilerHost
-	config *tsoptions.ParsedCommandLine
+	configName      string
+	sourceFileCache *collections.SyncMap[xxh3.Uint128, *ast.SourceFile]
 }
 
 type languageData struct {
@@ -32,55 +33,64 @@ type languageData struct {
 	expectErrorDirectives []mapping.ExpectErrorDirectiveMapping
 }
 
+func bool2byte(x bool) byte {
+	var res byte
+	if x {
+		res = 1
+	}
+	return res
+}
+
 func (h *compilerHostProxy) GetSourceFile(opts ast.SourceFileParseOptions) *ast.SourceFile {
+	// FS is cached in single run
 	sourceText, ok := h.CompilerHost.FS().ReadFile(opts.FileName)
 	if !ok {
 		return nil
 	}
-	res := h.parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
-	if res != nil {
-		return res
-	}
-	return h.CompilerHost.GetSourceFile(opts)
-}
 
-func wrapCompilerHost(config *tsoptions.ParsedCommandLine, host compiler.CompilerHost) compiler.CompilerHost {
-	return &compilerHostProxy{host, config}
-}
+	var hash xxh3.Hasher128
+	hash.WriteString(opts.FileName)
+	hash.WriteString(string(opts.Path))
+	hash.Write([]byte{bool2byte(opts.ExternalModuleIndicatorOptions.JSX)<<1 | bool2byte(opts.ExternalModuleIndicatorOptions.Force)})
+	hash.WriteString(h.configName)
 
-var pluginByExtension = map[string]*pluginhost.Plugin{}
+	key := hash.Sum128()
 
-func init() {
-	plugins, ok := os.LookupEnv("GOLAR_PLUGINS")
-	if !ok || plugins == "" {
-		return
+	if h.sourceFileCache != nil {
+		if cached, ok := h.sourceFileCache.Load(key); ok {
+			return cached
+		}
 	}
 
-	for pluginCommand := range strings.SplitSeq(plugins, "\x1e") {
-		if pluginCommand == "" {
-			continue
-		}
-		args := []string{}
-		for arg := range strings.SplitSeq(pluginCommand, "\x1f") {
-			args = append(args, arg)
-		}
-		if len(args) == 0 || args[0] == "" {
-			continue
-		}
+	sourceFile := h.parseFile(opts, sourceText, core.GetScriptKindFromFileName(opts.FileName))
+	if sourceFile == nil {
+		return h.CompilerHost.GetSourceFile(opts)
+	}
+	if h.sourceFileCache != nil {
+		sourceFile, _ = h.sourceFileCache.LoadOrStore(key, sourceFile)
+	}
+	return sourceFile
+}
 
-		plugin, err := pluginhost.NewPlugin(args)
-		if err != nil {
-			panic(err)
+func NewCompilerHost(base compiler.CompilerHost, configName string, sourceFileCache *collections.SyncMap[xxh3.Uint128, *ast.SourceFile]) compiler.CompilerHost {
+	return &compilerHostProxy{
+		CompilerHost:    base,
+		configName:      configName,
+		sourceFileCache: sourceFileCache,
+	}
+}
+
+var pluginByExtension = map[string]tscodegenplugin.Plugin{}
+
+func RegisterCodegenPlugin(plugin tscodegenplugin.Plugin) {
+	for _, ext := range plugin.Extensions() {
+		tspath.RegisterSupportedExtension(ext.Extension)
+		pluginByExtension[ext.Extension] = plugin
+		if ext.AllowExtensionlessImports {
+			tspath.RegisterSupportedExtensionless(ext.Extension)
 		}
-		for _, ext := range plugin.Extensions {
-			tspath.RegisterSupportedExtension(ext.Extension)
-			pluginByExtension[ext.Extension] = plugin
-			if ext.AllowExtensionlessImports {
-				tspath.RegisterSupportedExtensionless(ext.Extension)
-			}
-			if ext.StripFromDeclarationFileName {
-				tspath.RegisterExtensionToRemove(ext.Extension)
-			}
+		if ext.StripFromDeclarationFileName {
+			tspath.RegisterExtensionToRemove(ext.Extension)
 		}
 	}
 }
@@ -88,7 +98,12 @@ func init() {
 func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceText string, scriptKind core.ScriptKind) *ast.SourceFile {
 	ext := filepath.Ext(opts.FileName)
 	if plugin, ok := pluginByExtension[ext]; ok {
-		resp := <-plugin.CreateServiceCode(h.GetCurrentDirectory(), h.config.ConfigName(), opts.FileName, sourceText)
+		resp := plugin.CreateServiceCode(tscodegenplugin.CreateServiceCodeRequest{
+			Cwd:            h.GetCurrentDirectory(),
+			ConfigFileName: h.configName,
+			FileName:       opts.FileName,
+			SourceText:     sourceText,
+		})
 		if resp.Errors != nil {
 			file := ast.SourceFile{}
 			file.SetText(sourceText)
@@ -104,19 +119,12 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 		file := parser.ParseSourceFile(opts, resp.ServiceText, resp.ScriptKind)
 		file.IsDeclarationFile = resp.DeclarationFile
 		file.WrapDiagnostics = func(diags []*ast.Diagnostic) []*ast.Diagnostic {
-			newFile := ast.SourceFile{}
-			newFile.GolarLanguageData = file.GolarLanguageData
-			newFile.SetText(sourceText)
-			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, false, resp.IgnoreNotMappedDiagnostics)
+			newFile := ReportingSourceFile(file)
+			return wrapDiagnostics(newFile, diags, false, resp.IgnoreNotMappedDiagnostics)
 		}
 		file.WrapSemanticDiagnostics = func(diags []*ast.Diagnostic) []*ast.Diagnostic {
-			// TODO: this is hack
-			newFile := ast.SourceFile{}
-			newFile.GolarLanguageData = file.GolarLanguageData
-			newFile.SetText(sourceText)
-			newFile.SetParseOptions(file.ParseOptions())
-			return wrapDiagnostics(&newFile, diags, true, resp.IgnoreNotMappedDiagnostics)
+			newFile := ReportingSourceFile(file)
+			return wrapDiagnostics(newFile, diags, true, resp.IgnoreNotMappedDiagnostics)
 		}
 		langData := languageData{
 			sourceText: sourceText,
@@ -130,6 +138,31 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 	}
 
 	return nil
+}
+
+func ServiceToSource(file *ast.SourceFile, loc core.TextRange) (core.TextRange, bool) {
+	if file.GolarLanguageData == nil {
+		return loc, true
+	}
+	langData := file.GolarLanguageData.(languageData)
+	for _, sourceRange := range langData.sourceMap.ToSourceRange(uint32(loc.Pos()), uint32(loc.End()), true) {
+		return core.NewTextRange(int(sourceRange.MappedStart), int(sourceRange.MappedEnd)), true
+	}
+	return loc, false
+}
+
+func ReportingSourceFile(file *ast.SourceFile) *ast.SourceFile {
+	if file.GolarLanguageData == nil {
+		return file
+	}
+
+	langData := file.GolarLanguageData.(languageData)
+	newFile := ast.SourceFile{}
+	newFile.GolarLanguageData = langData
+	newFile.SetText(langData.sourceText)
+	newFile.SetParseOptions(file.ParseOptions())
+
+	return &newFile
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic, dropUnmatched bool) *ast.Diagnostic {
@@ -224,5 +257,10 @@ func positionToService(file *ast.SourceFile, pos int) int {
 }
 
 func init() {
-	compiler.GolarExt.WrapCompilerHost = wrapCompilerHost
+	compiler.GolarExt.WrapCompilerHost = func(base compiler.CompilerHost, configName string) compiler.CompilerHost {
+		if _, ok := base.(*utils.IndexedCompilerHost); ok {
+			return base
+		}
+		return utils.NewIndexedCompilerHost(NewCompilerHost(base, configName, nil))
+	}
 }

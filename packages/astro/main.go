@@ -53,12 +53,6 @@ func main() {
 	plugin.Run(plugin.PluginOptions{
 		Input:  os.Stdin,
 		Output: os.Stdout,
-		Extensions: []plugin.Extension{
-			{
-				Extension:                 ".astro",
-				AllowExtensionlessImports: false,
-			},
-		},
 		Setup: func() plugin.PluginInstance {
 			astroDirsByProject := map[projectKey]string{}
 
@@ -123,7 +117,12 @@ func main() {
 					result := &plugin.ServiceCode{
 						ScriptKind:  plugin.ScriptKindTSX,
 						ServiceText: printed.Output,
-						Mappings:    plugin.SourceMapToMappings(sourceText, string(printed.Output), string(printed.SourceMapChunk.Buffer)),
+						Mappings:    getMappings(sourceText, &printed),
+					}
+					if result.Mappings == nil {
+						result.Errors = append(result.Errors, plugin.ServiceCodeError{
+							Message: "Source map is broken. File most likely contains invalid JSX syntax.",
+						})
 					}
 
 					// .astro files located in node_modules sometimes import virtual: files
@@ -141,4 +140,11 @@ func main() {
 			}
 		},
 	})
+}
+
+func getMappings(sourceText string, printed *printer.PrintResult) []plugin.Mapping {
+	defer func() {
+		recover()
+	}()
+	return plugin.SourceMapToMappings(sourceText, string(printed.Output), string(printed.SourceMapChunk.Buffer))
 }

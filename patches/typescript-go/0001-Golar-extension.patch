@@ -1,31 +1,19 @@
-From 6e0c1a5e42b68f1fa26aad5670ec116753ee15d5 Mon Sep 17 00:00:00 2001
+From 3ccbda507f689b74277ced63ab0786ec71279d98 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
-Date: Tue, 24 Mar 2026 21:14:47 +0300
-Subject: [PATCH] Golar extension
+Date: Wed, 25 Mar 2026 08:55:38 +0300
+Subject: [PATCH 1/3] Golar extension
 
 ---
- cmd/tsgo/main.go               |  1 +
  pkg/ast/ast.go                 | 12 ++++++++++++
- pkg/compiler/program.go        | 36 ++++++++++++++++++++++++++--------
+ pkg/compiler/program.go        | 29 ++++++++++++++++++++++++++++-
  pkg/diagnostics/diagnostics.go |  9 +++++++++
- pkg/module/resolver.go         | 21 ++++++++++++++++++++
+ pkg/module/resolver.go         | 21 +++++++++++++++++++++
  pkg/module/util.go             | 10 ++++++++++
  pkg/outputpaths/outputpaths.go |  5 +++++
- pkg/tspath/extension.go        | 29 +++++++++++++++++++++++++++
- 8 files changed, 115 insertions(+), 8 deletions(-)
+ pkg/tspath/extension.go        | 28 ++++++++++++++++++++++++++++
+ pkg/vfs/osvfs/os.go            |  9 +++++++--
+ 8 files changed, 120 insertions(+), 3 deletions(-)
 
-diff --git a/cmd/tsgo/main.go b/cmd/tsgo/main.go
-index 03bcb5064..65d452bf5 100644
---- a/cmd/tsgo/main.go
-+++ b/cmd/tsgo/main.go
-@@ -3,6 +3,7 @@ package main
- import (
- 	"os"
- 
-+	_ "github.com/auvred/golar"
- 	"github.com/microsoft/typescript-go/pkg/execute"
- )
- 
 diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
 index 55386aae6..783a056dc 100644
 --- a/pkg/ast/ast.go
@@ -61,47 +49,39 @@ index 55386aae6..783a056dc 100644
  	return node.parseOptions.Path
  }
 diff --git a/pkg/compiler/program.go b/pkg/compiler/program.go
-index 32aed9222..c576847b5 100644
+index b9d487f14..2b7aa42fa 100644
 --- a/pkg/compiler/program.go
 +++ b/pkg/compiler/program.go
-@@ -254,7 +254,15 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
+@@ -254,7 +254,18 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
  	return nil
  }
  
 +type golarExt struct {
-+	WrapCompilerHost func(config *tsoptions.ParsedCommandLine, host CompilerHost) CompilerHost
++	WrapCompilerHost func(base CompilerHost, configName string) CompilerHost
 +}
 +
 +var GolarExt = &golarExt{}
 +
  func NewProgram(opts ProgramOptions) *Program {
-+	// TODO: don't wrap already wrapped host
-+	opts.Host = GolarExt.WrapCompilerHost(opts.Config, opts.Host)
++	configName := ""
++	if opts.Config != nil && opts.Config.ConfigFile != nil && opts.Config.ConfigFile.SourceFile != nil {
++		configName = opts.Config.ConfigFile.SourceFile.FileName()
++	}
++	opts.Host = GolarExt.WrapCompilerHost(opts.Host, configName)
  	p := &Program{opts: opts}
  	p.processedFiles = processAllProgramFiles(p.opts, p.SingleThreaded())
  	p.initCheckerPool()
-@@ -475,14 +483,13 @@ func (p *Program) collectDiagnosticsFromFiles(ctx context.Context, sourceFiles [
- 
- func (p *Program) GetSyntacticDiagnostics(ctx context.Context, sourceFile *ast.SourceFile) []*ast.Diagnostic {
- 	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
--		diags := core.Concatenate(file.Diagnostics(), file.JSDiagnostics())
--		// For JS files that won't be checked by the checker (no checkJs/ts-check), we need
--		// program-level syntactic checks that require compiler options. This mirrors Strada's
--		// getJSSyntacticDiagnosticsForFile in program.ts.
--		if ast.IsSourceFileJS(file) && !ast.IsCheckJSEnabledForFile(file, p.Options()) {
--			diags = append(diags, getAdditionalJSSyntacticDiagnostics(file, p.Options())...)
-+		diags := file.Diagnostics()
-+		jsDiags := file.JSDiagnostics()
+@@ -482,6 +493,9 @@ func (p *Program) GetSyntacticDiagnostics(ctx context.Context, sourceFile *ast.S
+ 		if ast.IsSourceFileJS(file) && !ast.IsCheckJSEnabledForFile(file, p.Options()) {
+ 			diags = append(diags, getAdditionalJSSyntacticDiagnostics(file, p.Options())...)
+ 		}
 +		if file.WrapDiagnostics != nil {
 +			diags = file.WrapDiagnostics(diags)
-+			jsDiags = file.WrapDiagnostics(jsDiags)
- 		}
--		return diags
-+		return core.Concatenate(diags, jsDiags)
++		}
+ 		return diags
  	})
  }
- 
-@@ -524,7 +531,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
+@@ -524,7 +538,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
  		p.BindSourceFiles()
  	}
  	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
@@ -114,7 +94,7 @@ index 32aed9222..c576847b5 100644
  	})
  }
  
-@@ -557,6 +568,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
+@@ -557,6 +575,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
  		return nil
  	}
  	filtered, _ := p.getDiagnosticsWithPrecedingDirectives(sourceFile, p.includeProcessor.getDiagnostics(p).GetDiagnosticsForFile(sourceFile.FileName()))
@@ -124,7 +104,7 @@ index 32aed9222..c576847b5 100644
  	return filtered
  }
  
-@@ -1220,6 +1234,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1219,6 +1240,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  
  	isPlainJS := ast.IsPlainJSFile(sourceFile, compilerOptions.CheckJs)
  	if isPlainJS {
@@ -134,7 +114,7 @@ index 32aed9222..c576847b5 100644
  		return core.Filter(diags, func(d *ast.Diagnostic) bool {
  			return plainJSErrors.Has(d.Code())
  		})
-@@ -1239,6 +1256,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1238,6 +1262,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  			filtered = append(filtered, ast.NewDiagnostic(sourceFile, directive.Loc, diagnostics.Unused_ts_expect_error_directive))
  		}
  	}
@@ -243,20 +223,19 @@ index 18744c40c..217275a0b 100644
  }
  
 diff --git a/pkg/tspath/extension.go b/pkg/tspath/extension.go
-index 7b6578363..034c27b2d 100644
+index 7b6578363..1bc75d852 100644
 --- a/pkg/tspath/extension.go
 +++ b/pkg/tspath/extension.go
-@@ -23,6 +23,9 @@ const (
+@@ -23,6 +23,8 @@ const (
  )
  
  var (
-+	ExtraExtensions    = []string{}
-+	ExtraExtensionless = []string{}
-+
++	ExtraExtensions                                = []string{}
++	ExtraExtensionless                             = []string{}
  	SupportedDeclarationExtensions                 = []string{ExtensionDts, ExtensionDcts, ExtensionDmts}
  	SupportedTSImplementationExtensions            = []string{ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
  	supportedTSExtensionsForExtractExtension       = []string{ExtensionDts, ExtensionDcts, ExtensionDmts, ExtensionTs, ExtensionTsx, ExtensionMts, ExtensionCts}
-@@ -37,12 +40,33 @@ var (
+@@ -37,12 +39,33 @@ var (
  	ExtensionsNotSupportingExtensionlessResolution = []string{ExtensionMts, ExtensionDmts, ExtensionMjs, ExtensionCts, ExtensionDcts, ExtensionCjs}
  )
  
@@ -290,7 +269,7 @@ index 7b6578363..034c27b2d 100644
  func RemoveFileExtension(path string) string {
  	// Remove any known extension even if it has more than one dot
  	for _, ext := range extensionsToRemove {
-@@ -134,6 +158,11 @@ func GetDeclarationEmitExtensionForPath(path string) string {
+@@ -134,6 +157,11 @@ func GetDeclarationEmitExtensionForPath(path string) string {
  	case FileExtensionIsOneOf(path, []string{ExtensionJson}):
  		return `.d.json.ts` // Drive-by redefinition of json declaration file output name so if it's ever enabled, it behaves well
  	default:
@@ -302,6 +281,27 @@ index 7b6578363..034c27b2d 100644
  		return ExtensionDts
  	}
  }
+diff --git a/pkg/vfs/osvfs/os.go b/pkg/vfs/osvfs/os.go
+index 3eb279950..87c65824c 100644
+--- a/pkg/vfs/osvfs/os.go
++++ b/pkg/vfs/osvfs/os.go
+@@ -46,9 +46,14 @@ var isFileSystemCaseSensitive = func() bool {
+ 	// As a proxy for case-insensitivity, we check if the current executable exists under a different case.
+ 	// This is not entirely correct, since different OSs can have differing case sensitivity in different paths,
+ 	// but this is largely good enough for our purposes (and what sys.ts used to do with __filename).
+-	exe, err := os.Executable()
++	// exe, err := os.Executable()
++	// if err != nil {
++	// 	panic(fmt.Sprintf("vfs: failed to get executable path: %v", err))
++	// }
++	// Golar: os.Executable() doesn't work on macOS when compiled to addon
++	exe, err := os.Getwd()
+ 	if err != nil {
+-		panic(fmt.Sprintf("vfs: failed to get executable path: %v", err))
++		panic(fmt.Sprintf("vfs: failed to get cwd path: %v", err))
+ 	}
+ 
+ 	// If the current executable exists under a different case, we must be case-insensitive.
 -- 
 2.53.0
 

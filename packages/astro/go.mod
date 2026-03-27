@@ -21,7 +21,7 @@ require (
 	github.com/tdewolff/parse/v2 v2.6.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20221004154528-8021a29435af // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )

@@ -1,11 +1,11 @@
-import type { Mapping } from '@golar/plugin'
+import type { CodegenMapping } from 'golar/unstable'
 import { decode } from '@jridgewell/sourcemap-codec'
 
 export function sourceMapToMappings(opts: {
 	sourceText: string
 	serviceText: string
 	sourceMap: string
-}): Mapping[] {
+}): CodegenMapping[] {
 	const v3Mappings = decode(opts.sourceMap)
 	const sourceTextWithLineMap: SourceFileWithLineMap = {
 		text: opts.sourceText,
@@ -13,7 +13,7 @@ export function sourceMapToMappings(opts: {
 	const serviceTextWithLineMap: SourceFileWithLineMap = {
 		text: opts.serviceText,
 	}
-	const mappings: Mapping[] = []
+	const mappings: CodegenMapping[] = []
 
 	let current:
 		| {

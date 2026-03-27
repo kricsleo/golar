@@ -1,0 +1,190 @@
+From 97120f69e16c31f8a9331fb48188c46c73d4ef8d Mon Sep 17 00:00:00 2001
+From: auvred <aauvred@gmail.com>
+Date: Mon, 9 Mar 2026 10:37:15 +0300
+Subject: [PATCH 3/3] More extensions
+
+---
+ _packages/api/src/node/node.ts     |  8 ++++++++
+ _packages/api/src/node/protocol.ts |  3 ++-
+ pkg/api/encoder/encoder.go         | 12 ++++++++----
+ pkg/ast/ast.go                     |  8 +++++++-
+ pkg/ast/utilities.go               | 20 +++++++++++---------
+ 5 files changed, 36 insertions(+), 15 deletions(-)
+
+diff --git a/_packages/api/src/node/node.ts b/_packages/api/src/node/node.ts
+index 9295c7457..57e4ba5f7 100644
+--- a/_packages/api/src/node/node.ts
++++ b/_packages/api/src/node/node.ts
+@@ -26,6 +26,7 @@ import {
+     NODE_DATA_TYPE_EXTENDED,
+     NODE_DATA_TYPE_STRING,
+     NODE_LEN,
++    NODE_OFFSET_POINTER,
+ } from "./protocol.ts";
+ 
+ const popcount8 = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8];
+@@ -1032,6 +1033,13 @@ export class RemoteNode extends RemoteNodeBase implements Node {
+             flags |= modifierToFlag(mod.kind);
+         }
+         return flags;
++		}
++
++		get pointerHi(): number {
++        return this.view.getUint32(this._byteIndex + NODE_OFFSET_POINTER + 4, true);
++    }
++    get pointerLo(): number {
++        return this.view.getUint32(this._byteIndex + NODE_OFFSET_POINTER, true);
+     }
+ 
+     get phaseModifier(): SyntaxKind {
+diff --git a/_packages/api/src/node/protocol.ts b/_packages/api/src/node/protocol.ts
+index db97fcfac..7d800de4d 100644
+--- a/_packages/api/src/node/protocol.ts
++++ b/_packages/api/src/node/protocol.ts
+@@ -15,7 +15,7 @@ export const HEADER_OFFSET_STRUCTURED_DATA = 36;
+ export const HEADER_OFFSET_NODES = 40;
+ export const HEADER_SIZE = 44;
+ 
+-export const NODE_LEN = 28;
++export const NODE_LEN = 36;
+ 
+ export const NODE_OFFSET_KIND = 0;
+ export const NODE_OFFSET_POS = 4;
+@@ -24,6 +24,7 @@ export const NODE_OFFSET_NEXT = 12;
+ export const NODE_OFFSET_PARENT = 16;
+ export const NODE_OFFSET_DATA = 20;
+ export const NODE_OFFSET_FLAGS = 24;
++export const NODE_OFFSET_POINTER = 28;
+ 
+ export const KIND_NODE_LIST = 0xFFFFFFFF;
+ 
+diff --git a/pkg/api/encoder/encoder.go b/pkg/api/encoder/encoder.go
+index 40ea45e0b..8fad450f6 100644
+--- a/pkg/api/encoder/encoder.go
++++ b/pkg/api/encoder/encoder.go
+@@ -1,5 +1,7 @@
+ package encoder
+ 
++import "unsafe"
++
+ import (
+ 	"encoding/binary"
+ 	"fmt"
+@@ -17,8 +19,9 @@ const (
+ 	NodeOffsetParent
+ 	NodeOffsetData
+ 	NodeOffsetFlags
++	NodeOffsetPointer
+ 	// NodeSize is the number of bytes that represents a single node in the encoded format.
+-	NodeSize
++	NodeSize = NodeOffsetPointer + 8
+ )
+ 
+ const (
+@@ -367,7 +370,7 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error)
+ 					nodes[prevIndex*NodeSize+NodeOffsetNext+3] = b3
+ 				}
+ 
+-				nodes = appendUint32s(nodes, SyntaxKindNodeList, utf16(nodeList.Pos()), utf16(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)), 0)
++				nodes = appendUint32s(nodes, SyntaxKindNodeList, utf16(nodeList.Pos()), utf16(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)), 0, 0, 0)
+ 
+ 				saveParentIndex := parentIndex
+ 
+@@ -400,6 +403,7 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error)
+ 		}
+ 
+ 		nodes = appendUint32s(nodes, uint32(node.Kind), utf16(node.Pos()), utf16(node.End()), 0, parentIndex, getNodeData(node, strs, positionMap, &extendedData, &structuredData), uint32(node.Flags))
++		nodes = binary.LittleEndian.AppendUint64(nodes, uint64(uintptr(unsafe.Pointer(node))))
+ 
+ 		if nodeIndexMap != nil {
+ 			if _, ok := nodeIndexMap[node]; ok {
+@@ -423,13 +427,13 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error)
+ 		return node
+ 	}
+ 
+-	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0, 0)
++	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+ 
+ 	nodeCount++
+ 	parentIndex++
+ 
+ 	sfExtendedDataOffset = len(extendedData)
+-	nodes = appendUint32s(nodes, uint32(rootNode.Kind), utf16(rootNode.Pos()), utf16(rootNode.End()), 0, 0, getNodeData(rootNode, strs, positionMap, &extendedData, &structuredData), uint32(rootNode.Flags))
++	nodes = appendUint32s(nodes, uint32(rootNode.Kind), utf16(rootNode.Pos()), utf16(rootNode.End()), 0, 0, getNodeData(rootNode, strs, positionMap, &extendedData, &structuredData), uint32(rootNode.Flags), 0, 0)
+ 
+ 	visitor.VisitEachChild(rootNode)
+ 	if sourceFile != nil {
+diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
+index ffcb8c269..643b0d387 100644
+--- a/pkg/ast/ast.go
++++ b/pkg/ast/ast.go
+@@ -237,9 +237,11 @@ type Node struct {
+ 	Kind   Kind
+ 	Flags  NodeFlags
+ 	Loc    core.TextRange
+-	id     atomic.Uint64
+ 	Parent *Node
+ 	data   nodeData
++
++	SourceFileId uint32
++	Id           uint32
+ }
+ 
+ func (n *Node) Data() nodeData {
+@@ -11052,6 +11054,7 @@ type SourceFile struct {
+ 	LocalsContainerBase
+ 	compositeNodeBase
+ 
++	Id                      uint32
+ 	GolarLanguageData       any
+ 	WrapSemanticDiagnostics func([]*Diagnostic) []*Diagnostic
+ 	WrapDiagnostics         func([]*Diagnostic) []*Diagnostic
+@@ -11129,11 +11132,14 @@ type SourceFile struct {
+ 	positionMap     *PositionMap
+ }
+ 
++var sourceFileId atomic.Uint32
++
+ func (f *NodeFactory) NewSourceFile(opts SourceFileParseOptions, text string, statements *NodeList, endOfFileToken *TokenNode) *Node {
+ 	if tspath.GetEncodedRootLength(opts.FileName) == 0 || opts.FileName != tspath.NormalizePath(opts.FileName) {
+ 		panic(fmt.Sprintf("fileName should be normalized and absolute: %q", opts.FileName))
+ 	}
+ 	data := &SourceFile{}
++	data.Id = sourceFileId.Add(1)
+ 	data.fileName = opts.FileName
+ 	data.parseOptions = opts
+ 	data.text = text
+diff --git a/pkg/ast/utilities.go b/pkg/ast/utilities.go
+index 150c79e83..0a477af9f 100644
+--- a/pkg/ast/utilities.go
++++ b/pkg/ast/utilities.go
+@@ -20,15 +20,17 @@ var (
+ )
+ 
+ func GetNodeId(node *Node) NodeId {
+-	id := node.id.Load()
+-	if id == 0 {
+-		// Worst case, we burn a few ids if we have to CAS.
+-		id = nextNodeId.Add(1)
+-		if !node.id.CompareAndSwap(0, id) {
+-			id = node.id.Load()
+-		}
+-	}
+-	return NodeId(id)
++	return NodeId(node.Id)
++	// panic("nope, we don't want to support this here")
++	// id := node.id.Load()
++	// if id == 0 {
++	// 	// Worst case, we burn a few ids if we have to CAS.
++	// 	id = nextNodeId.Add(1)
++	// 	if !node.id.CompareAndSwap(0, id) {
++	// 		id = node.id.Load()
++	// 	}
++	// }
++	// return NodeId(id)
+ }
+ 
+ func GetSymbolId(symbol *Symbol) SymbolId {
+-- 
+2.53.0
+

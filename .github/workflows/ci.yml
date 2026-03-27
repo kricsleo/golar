@@ -43,10 +43,16 @@ jobs:
           node ./tools/patch-astro.ts
           node ./tools/patch-tsgo.ts
 
+      - if: runner.os == 'Windows'
+        run: node ./tools/download-node-lib.ts
+
       - run: pnpm build:typescript-lite
 
       - run: pnpm build:packages
 
-      - run: pnpm build:bin
+      - run: pnpm build:golar
 
-      - run: pnpm vitest
+      - run: cargo build
+
+      # windows is slow sometimes
+      - run: pnpm vitest --testTimeout 10000

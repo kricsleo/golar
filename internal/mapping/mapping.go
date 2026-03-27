@@ -3,7 +3,7 @@ package mapping
 import (
 	"slices"
 
-	"github.com/auvred/golar/internal/collections"
+	"github.com/microsoft/typescript-go/pkg/collections"
 )
 
 type CodeRangeKey int

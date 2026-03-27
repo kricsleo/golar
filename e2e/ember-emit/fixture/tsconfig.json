@@ -1,5 +1,7 @@
 {
+	"exclude": ["./golar.config.ts"],
 	"compilerOptions": {
-		"outDir": "dist"
+		"outDir": "dist",
+		"types": []
 	}
 }

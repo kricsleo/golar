@@ -12,12 +12,8 @@ test('ember emit', async () => {
 
 	const res = await runGolar({
 		cwd: fixtureDir,
-		args: ['--declaration', '--emitDeclarationOnly'],
-		plugins: {
-			ember: true,
-		},
+		args: ['tsc', '--declaration', '--emitDeclarationOnly'],
 	})
-	console.log(res.output)
 	expect(res).not.instanceof(SubprocessError)
 
 	const entries = await fs.readdir(distDir)

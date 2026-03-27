@@ -1,6 +1,6 @@
 {
 	"name": "@golar/sourcemap",
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
@@ -24,7 +24,7 @@
 		}
 	},
 	"dependencies": {
-		"@golar/plugin": "workspace:*",
-		"@jridgewell/sourcemap-codec": "^1.5.5"
+		"@jridgewell/sourcemap-codec": "^1.5.5",
+		"golar": "workspace:*"
 	}
 }

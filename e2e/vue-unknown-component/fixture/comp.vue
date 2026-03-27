@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const foo: string = 213
+	const foo: string = 213
 </script>
 
 <template>

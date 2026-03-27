@@ -1,6 +1,6 @@
 {
 	"name": "@golar/volar",
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts"
@@ -24,7 +24,7 @@
 		}
 	},
 	"dependencies": {
-		"@golar/plugin": "workspace:*",
+		"golar": "workspace:*",
 		"@volar/language-core": "^2.4.28"
 	},
 	"devDependencies": {

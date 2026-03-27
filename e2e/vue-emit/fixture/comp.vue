@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-defineProps<{
-	foo: string
-}>()
+	defineProps<{
+		foo: string
+	}>()
 </script>

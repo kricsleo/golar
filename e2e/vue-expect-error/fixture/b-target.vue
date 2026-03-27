@@ -7,5 +7,5 @@
 </template>
 
 <script setup lang="ts">
-import Comp from './comp.vue'
+	import Comp from './comp.vue'
 </script>

@@ -1,8 +1,12 @@
 {
 	"name": "golar",
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"type": "module",
 	"bin": "./src/bin.ts",
+	"exports": {
+		"./unstable": "./src/unstable.ts",
+		"./unstable-tsgo": "./src/unstable-tsgo.ts"
+	},
 	"files": [
 		"./dist"
 	],
@@ -18,36 +22,22 @@
 	"publishConfig": {
 		"access": "public",
 		"bin": "./dist/bin.js",
+		"exports": {
+			"./unstable": "./dist/unstable.js",
+			"./unstable-tsgo": "./dist/unstable-tsgo.js"
+		},
 		"executableFiles": [
 			"./dist/bin.js"
 		]
 	},
+	"dependencies": {
+		"@golar/util": "workspace:*"
+	},
 	"optionalDependencies": {
 		"@golar/win32-x64": "workspace:*",
-		"@golar/win32-arm64": "workspace:*",
 		"@golar/linux-x64": "workspace:*",
 		"@golar/linux-arm64": "workspace:*",
 		"@golar/darwin-x64": "workspace:*",
 		"@golar/darwin-arm64": "workspace:*"
-	},
-	"peerDependencies": {
-		"@golar/astro": "workspace:*",
-		"@golar/ember": "workspace:*",
-		"@golar/svelte": "workspace:*",
-		"@golar/vue": "workspace:*"
-	},
-	"peerDependenciesMeta": {
-		"@golar/astro": {
-			"optional": true
-		},
-		"@golar/ember": {
-			"optional": true
-		},
-		"@golar/svelte": {
-			"optional": true
-		},
-		"@golar/vue": {
-			"optional": true
-		}
 	}
 }

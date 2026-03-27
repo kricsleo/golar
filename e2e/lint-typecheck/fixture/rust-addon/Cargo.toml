@@ -1,0 +1,13 @@
+[package]
+name = "e2e-lint-typecheck-rust-addon"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+golar = { path = "../../../../crates/golar" }
+
+[build-dependencies]
+napi-build = "2.3.1"

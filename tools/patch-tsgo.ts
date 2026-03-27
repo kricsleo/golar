@@ -1,5 +1,6 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import spawn from 'nano-spawn'
 import {
 	applyPatches,
 	commitUninternal,
@@ -28,3 +29,18 @@ await fs.rename(path.join(dir, 'internal'), path.join(dir, 'pkg'))
 await commitUninternal(dir)
 
 await applyPatches('typescript-go', dir)
+
+await spawn('npm', ['install'], {
+	cwd: dir,
+	stdio: 'inherit',
+})
+
+await spawn('npx', ['tsc', '-b'], {
+	cwd: path.join(dir, '_packages', 'ast'),
+	stdio: 'inherit',
+})
+
+await spawn('npx', ['tsc', '-b'], {
+	cwd: path.join(dir, '_packages', 'api'),
+	stdio: 'inherit',
+})

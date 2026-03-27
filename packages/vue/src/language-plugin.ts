@@ -80,6 +80,7 @@ export function vueLanguagePlugin(
 			},
 			compilerOptions,
 			vueCompilerOptions,
+			config: {},
 		}),
 	)
 	return {

@@ -7,18 +7,13 @@ import { runGolar } from '../utils.ts'
 test('all languages', async () => {
 	const res = await runGolar({
 		cwd: path.join(import.meta.dirname, 'fixture'),
-		args: ['--noEmit', '--pretty'],
-		plugins: {
-			astro: true,
-			ember: true,
-			svelte: true,
-			vue: true,
-		},
+		args: ['tsc', '--noEmit', '--pretty'],
 	})
 
 	expect(res).instanceof(SubprocessError)
 	expect(util.stripVTControlCharacters(res.output)).toMatchInlineSnapshot(`
-		"comp.astro:5:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+		"Using config from ./golar.config.ts...
+		comp.astro:5:7 - error TS2322: Type 'number' is not assignable to type 'string'.
 
 		5 const astro: string = 123
 		        ~~~~~
@@ -48,10 +43,10 @@ test('all languages', async () => {
 		5 <button on:click={unknownVar}></button>
 		                    ~~~~~~~~~~
 
-		comp.vue:2:7 - error TS2322: Type 'number' is not assignable to type 'string'.
+		comp.vue:2:8 - error TS2322: Type 'number' is not assignable to type 'string'.
 
-		2 const vue: string = 123
-		        ~~~
+		2  const vue: string = 123
+		         ~~~
 
 		comp.vue:6:10 - error TS2339: Property 'unknownVar' does not exist on type 'ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 5 more ..., any>'.
 

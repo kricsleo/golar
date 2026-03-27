@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import spawn from 'nano-spawn'
 
 export const repoRoot = path.join(import.meta.dirname, '..')
+export const devDir = path.join(repoRoot, 'node_modules', '.golar-dev')
 
 export async function resetSubmodule(dir: string) {
 	await spawn('git', ['tag', '-d', 'golar-base'], {
@@ -10,7 +11,8 @@ export async function resetSubmodule(dir: string) {
 		stdio: 'inherit',
 	}).catch(() => {})
 
-	await spawn('git', ['submodule', 'update', dir], {
+	await spawn('git', ['submodule', 'update', '--force', dir], {
+		cwd: repoRoot,
 		stdio: 'inherit',
 	})
 
@@ -79,10 +81,14 @@ export async function applyPatches(
 		)
 	).map((p) => path.join(patchesdir, p))
 
-	await spawn('git', ['am', '--3way', '--no-gpg-sign', ...patches], {
-		cwd: submoduleDir,
-		stdio: 'inherit',
-	})
+	await spawn(
+		'git',
+		['am', '--keep-cr', '--3way', '--no-gpg-sign', ...patches],
+		{
+			cwd: submoduleDir,
+			stdio: 'inherit',
+		},
+	)
 }
 
 export async function savePatches(
@@ -107,3 +113,19 @@ export async function savePatches(
 		},
 	)
 }
+
+export const GOOS2PROCESS_PLATFORM = {
+	windows: 'win32',
+	linux: 'linux',
+	darwin: 'darwin',
+}
+export const GOARCH2PROCESS_ARCH = {
+	amd64: 'x64',
+	arm64: 'arm64',
+}
+export const PROCESS_PLATFORM2GOOS = Object.fromEntries(
+	Object.entries(GOOS2PROCESS_PLATFORM).map(([go, node]) => [node, go]),
+)
+export const PROCESS_ARCH2GOARCH = Object.fromEntries(
+	Object.entries(GOARCH2PROCESS_ARCH).map(([go, node]) => [node, go]),
+)

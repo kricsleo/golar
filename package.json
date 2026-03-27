@@ -2,17 +2,22 @@
 	"packageManager": "pnpm@10.28.0",
 	"type": "module",
 	"private": true,
-	"version": "0.0.17",
+	"version": "0.0.18-beta.7",
 	"scripts": {
+		"check": "golar",
+		"format": "prettier -w . && go fmt ./cmd/... ./internal/... ./plugin/... && cd packages/astro && go fmt . && cargo fmt --all",
 		"build:packages": "tsdown",
-		"build:bin": "node ./tools/build.ts",
+		"build:golar": "node ./tools/build.ts",
 		"build:typescript-lite": "pnpm -C packages/vue build-typescript-lite"
 	},
 	"devDependencies": {
 		"@types/node": "^25.0.8",
+		"golar": "workspace:*",
 		"nano-spawn": "^2.0.0",
 		"prettier": "^3.8.1",
+		"tar": "^7.5.13",
 		"tsdown": "^0.20.3",
-		"vitest": "^4.0.18"
+		"vitest": "^4.0.18",
+		"zod": "^4.3.6"
 	}
 }

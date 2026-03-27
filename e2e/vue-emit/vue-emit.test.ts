@@ -12,10 +12,7 @@ test('vue emit', async () => {
 
 	const res = await runGolar({
 		cwd: fixtureDir,
-		args: ['--declaration', '--emitDeclarationOnly'],
-		plugins: {
-			vue: true,
-		},
+		args: ['tsc', '--declaration', '--emitDeclarationOnly'],
 	})
 	expect(res).not.instanceof(SubprocessError)
 

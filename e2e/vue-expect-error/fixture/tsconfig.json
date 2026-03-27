@@ -1,1 +1,6 @@
-{}
+{
+	"exclude": ["./golar.config.ts"],
+	"compilerOptions": {
+		"types": []
+	}
+}

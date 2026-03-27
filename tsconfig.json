@@ -1,5 +1,5 @@
 {
-	"exclude": ["./thirdparty"],
+	"exclude": ["./thirdparty", "./e2e/*/fixture"],
 	"compilerOptions": {
 		"allowUnreachableCode": false,
 		"allowUnusedLabels": false,

@@ -1,15 +1,15 @@
 /// <reference types="@volar/typescript" />
 
 import {
-	createPlugin,
-	type Extension,
-	type ExpectErrorDirectiveMapping,
-	type IgnoreDirectiveMapping,
-	type Mapping,
+	JsCodegenPlugin,
+	type FileExtension,
+	type ExpectErrorDirectiveCodegenMapping,
+	type IgnoreDirectiveCodegenMapping,
+	type CodegenMapping,
 	type Promisable,
-	type ScriptKind,
+	type CodegenScriptKind,
 	type ServiceCodeError,
-} from '@golar/plugin'
+} from 'golar/unstable'
 import type { LanguagePlugin, VirtualCode } from '@volar/language-core'
 import type ts from 'typescript'
 
@@ -18,7 +18,7 @@ export type VolarLanguagePlugin = LanguagePlugin<string> & {
 }
 export type CreateVolarPluginOptions = {
 	filename: string
-	extensions: Extension[]
+	extensions: FileExtension[]
 	languagePlugins:
 		| VolarLanguagePlugin[]
 		| ((
@@ -32,8 +32,8 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 		string,
 		Promisable<VolarLanguagePlugin[]>
 	>()
-	createPlugin({
-		filename: opts.filename,
+	new JsCodegenPlugin({
+		id: opts.filename,
 		extensions: opts.extensions,
 		async createServiceCode(cwd, configFileName, fileName, sourceText) {
 			let languagePlugins: VolarLanguagePlugin[]
@@ -132,9 +132,9 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 				}
 
 				const serviceCovered: [number, number][] = []
-				const expectErrorMappings: ExpectErrorDirectiveMapping[] = []
+				const expectErrorMappings: ExpectErrorDirectiveCodegenMapping[] = []
 
-				const mappings = verificationMappings.flatMap((m): Mapping[] => {
+				const mappings = verificationMappings.flatMap((m): CodegenMapping[] => {
 					const mappingData = m.data as {
 						__suppressedDiagnostics?: number[]
 					}
@@ -143,7 +143,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					)
 						? mappingData.__suppressedDiagnostics
 						: undefined
-					return m.sourceOffsets.map((sourceOffset, i): Mapping => {
+					return m.sourceOffsets.map((sourceOffset, i): CodegenMapping => {
 						const generatedOffset = m.generatedOffsets[i]!
 						const sourceLength = m.lengths[i]!
 						const generatedLength = m.generatedLengths?.[i] ?? sourceLength
@@ -202,7 +202,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					}
 				}
 
-				const ignoreMappings: IgnoreDirectiveMapping[] = []
+				const ignoreMappings: IgnoreDirectiveCodegenMapping[] = []
 				let cursor = 0
 
 				for (const [s, e] of merged) {
@@ -256,7 +256,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 
 function tsScriptKindToGolar(
 	scriptKind: ts.ScriptKind | undefined,
-): ScriptKind {
+): CodegenScriptKind {
 	switch (scriptKind) {
 		case 1 satisfies ts.ScriptKind.JS:
 			return 'js'

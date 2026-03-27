@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"io"
 	"slices"
 	"sync"
@@ -34,7 +33,7 @@ type PluginInstance struct {
 	CreateServiceCode func(cwd, configFileName, fileName string, sourceText string) *ServiceCode
 }
 
-type Extension struct {
+type FileExtension struct {
 	// Example: ".vue" (include the leading dot)
 	Extension                    string `json:"extension"`
 	StripFromDeclarationFileName bool   `json:"stripFromDeclarationFileName"`
@@ -42,10 +41,9 @@ type Extension struct {
 }
 
 type PluginOptions struct {
-	Input      io.Reader
-	Output     io.Writer
-	Extensions []Extension
-	Setup      func() PluginInstance
+	Input  io.Reader
+	Output io.Writer
+	Setup  func() PluginInstance
 }
 
 func ensureCap(b []byte, needed uint32) []byte {
@@ -70,8 +68,6 @@ const (
 	MsgKindCreateServiceCode MsgKind = iota
 	MsgKindCreateServiceCodeResponse
 )
-
-const ProtocolVersion uint32 = 2
 
 type ServiceCodeProperties uint8
 
@@ -101,36 +97,9 @@ type ExpectErrorDirectiveMapping struct {
 	ServiceLength uint32
 }
 
-type InitializationMessage struct {
-	ProtocolVersion uint32      `json:"protocolVersion"`
-	Extensions      []Extension `json:"extensions"`
-}
-
 func Run(opts PluginOptions) {
 	var header [5]byte
 	var recvBuf []byte
-
-	{
-		extensions := slices.Clone(opts.Extensions)
-		if extensions == nil {
-			extensions = []Extension{}
-		}
-		initialization, err := json.Marshal(InitializationMessage{
-			ProtocolVersion: ProtocolVersion,
-			Extensions:      extensions,
-		})
-		if err != nil {
-			panic(err)
-		}
-
-		binary.LittleEndian.PutUint32(header[:], uint32(len(initialization)))
-		if _, err = opts.Output.Write(header[:4]); err != nil {
-			panic(err)
-		}
-		if _, err = opts.Output.Write(initialization); err != nil {
-			panic(err)
-		}
-	}
 
 	tasks := make(chan []byte, 1000)
 	var writeMu sync.Mutex
