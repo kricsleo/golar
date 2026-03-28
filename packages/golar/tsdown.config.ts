@@ -1,12 +1,17 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-	entry: ['./src/bin.ts', './src/unstable.ts', './src/unstable-tsgo.ts'],
+	entry: [
+		'./src/bin.ts',
+		'./src/worker.ts',
+		'./src/unstable.ts',
+		'./src/unstable-tsgo.ts',
+	],
 	dts: true,
 	exports: {
 		devExports: true,
 		packageJson: false,
-		exclude: ['bin'],
+		exclude: ['bin', 'worker'],
 	},
 	// TODO: don't inline
 	inlineOnly: ['zod'],
