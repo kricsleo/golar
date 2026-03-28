@@ -18,7 +18,7 @@ const argv = process.argv.slice(2)
 
 const cwd = process.cwd()
 // TODO: find-up?
-const configPath = path.join(cwd, 'golar.config.ts')
+let configPath = path.join(cwd, 'golar.config.ts')
 
 if (argv[0] === '--help') {
 	console.log(`
@@ -43,11 +43,23 @@ Options:
 }
 
 if (!fs.existsSync(configPath)) {
-	console.log(`${styleText('red', 'Error:')} ./golar.config.ts not found`)
-	process.exit(1)
+	try {
+		configPath = await Promise.any(
+			[
+				'golar.config.mts',
+				'golar.config.mjs',
+				'golar.config.cts',
+				'golar.config.cjs',
+				'golar.config.js',
+			].map((p) => fs.promises.stat(p).then(() => path.join(cwd, p))),
+		)
+	} catch {
+		console.log(`${styleText('red', 'Error:')} ./golar.config.ts not found`)
+		process.exit(1)
+	}
 }
 console.log(
-	`${styleText('dim', 'Using config from')} ./golar.config.ts${styleText('dim', '...')}`,
+	`${styleText('dim', 'Using config from')} ./${path.basename(configPath)}${styleText('dim', '...')}`,
 )
 const config = await loadConfig(configPath)
 // TODO: error message; here and in other places
