@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"types": [],
+		"rootDir": ".",
+		"target": "esnext",
+		"module": "preserve",
+		"moduleResolution": "bundler"
+	},
+	"vueCompilerOptions": {
+		"plugins": [
+			"vue-router/volar/sfc-route-blocks",
+			{ "name": "vue-router/volar/sfc-typed-router", "options": {} }
+		]
+	}
+}

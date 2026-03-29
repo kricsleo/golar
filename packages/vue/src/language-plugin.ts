@@ -67,12 +67,13 @@ export function vueLanguagePlugin(
 			? createParsedCommandLineByJson(ts, ts.sys, cwd, {})
 			: createParsedCommandLine(ts, ts.sys, configFileName)
 	const plugins = [
-		PluginVueTsx,
-		PluginFileVue,
-		PluginVueScriptJs,
-		PluginVueTemplateHtml,
-		PluginVueStyleCSS,
-	].flatMap(({ default: ctor }) =>
+		PluginVueTsx.default,
+		PluginFileVue.default,
+		PluginVueScriptJs.default,
+		PluginVueTemplateHtml.default,
+		PluginVueStyleCSS.default,
+		...vueCompilerOptions.plugins,
+	].flatMap((ctor) =>
 		ctor({
 			modules: {
 				typescript: ts,

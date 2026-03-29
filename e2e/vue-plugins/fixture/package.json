@@ -1,0 +1,13 @@
+{
+	"type": "module",
+	"scripts": {
+		"gen-typed-router": "node ./gen-typed-router.ts"
+	},
+	"dependencies": {
+		"@golar/vue": "workspace:*",
+		"golar": "workspace:*",
+		"typescript": "^5.9.3",
+		"vue": "^3.5.29",
+		"vue-router": "^5.0.4"
+	}
+}
