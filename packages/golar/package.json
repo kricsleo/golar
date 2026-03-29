@@ -1,6 +1,6 @@
 {
 	"name": "golar",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"type": "module",
 	"bin": "./src/bin.ts",
 	"exports": {
