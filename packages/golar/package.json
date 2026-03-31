@@ -2,6 +2,9 @@
 	"name": "golar",
 	"version": "0.1.3",
 	"type": "module",
+	"engines": {
+		"node": ">=22.12.0"
+	},
 	"bin": "./src/bin.ts",
 	"exports": {
 		"./unstable": "./src/unstable.ts",
