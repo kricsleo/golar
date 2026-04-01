@@ -12,6 +12,9 @@
 			"./golar-astro"
 		]
 	},
+	"engines": {
+		"node": ">=22.12.0"
+	},
 	"name": "@golar/astro-linux-arm64",
 	"preferUnplugged": true,
 	"files": [

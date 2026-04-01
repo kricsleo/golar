@@ -9,6 +9,9 @@
 	"publishConfig": {
 		"access": "public"
 	},
+	"engines": {
+		"node": ">=22.12.0"
+	},
 	"name": "@golar/linux-arm64-musl",
 	"preferUnplugged": true,
 	"files": [

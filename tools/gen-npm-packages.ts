@@ -114,6 +114,9 @@ const commonPackageJson = {
 	publishConfig: {
 		access: 'public',
 	},
+	engines: {
+		node: ">=22.12.0"
+	},
 } as const
 
 const repoRoot = path.join(import.meta.dirname, '..')

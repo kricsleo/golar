@@ -12,6 +12,9 @@
 			"./golar-astro.exe"
 		]
 	},
+	"engines": {
+		"node": ">=22.12.0"
+	},
 	"name": "@golar/astro-win32-x64",
 	"preferUnplugged": true,
 	"files": [
