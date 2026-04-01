@@ -19,7 +19,7 @@
 		"directory": "packages/volar"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/volar#readme",
+	"homepage": "https://golar.dev",
 	"publishConfig": {
 		"access": "public",
 		"exports": {

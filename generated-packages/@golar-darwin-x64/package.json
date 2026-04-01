@@ -5,7 +5,7 @@
 	"author": "auvred <aauvred@gmail.com> (https://github.com/auvred)",
 	"repository": "github:auvred/golar",
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar#readme",
+	"homepage": "https://golar.dev",
 	"publishConfig": {
 		"access": "public"
 	},

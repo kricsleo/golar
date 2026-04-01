@@ -22,7 +22,7 @@
 		"directory": "packages/vue"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/vue#readme",
+	"homepage": "https://golar.dev/languages/vue",
 	"publishConfig": {
 		"access": "public",
 		"exports": {

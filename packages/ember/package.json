@@ -19,7 +19,7 @@
 		"directory": "packages/ember"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/ember#readme",
+	"homepage": "https://golar.dev/languages/ember",
 	"publishConfig": {
 		"access": "public",
 		"exports": {

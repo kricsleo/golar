@@ -19,7 +19,7 @@
 		"directory": "packages/svelte"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/svelte#readme",
+	"homepage": "https://golar.dev/languages/svelte",
 	"publishConfig": {
 		"access": "public",
 		"exports": {

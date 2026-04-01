@@ -19,7 +19,7 @@
 		"directory": "packages/astro"
 	},
 	"bugs": "https://github.com/auvred/golar/issues",
-	"homepage": "https://github.com/auvred/golar/tree/main/packages/astro#readme",
+	"homepage": "https://golar.dev/languages/astro",
 	"publishConfig": {
 		"access": "public",
 		"exports": {
