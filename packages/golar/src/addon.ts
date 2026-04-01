@@ -2,6 +2,7 @@ import os from 'node:os'
 import process from 'node:process'
 import url from 'node:url'
 import worker_threads from 'node:worker_threads'
+import { family as libcFamily, GLIBC, MUSL } from 'detect-libc'
 
 const addonModule = {
 	exports: {} as {
@@ -20,19 +21,42 @@ const addonModule = {
 	},
 }
 
+let addonPackageName = `@golar/${process.platform}-${process.arch}`
+let _isMusl = false
+if (process.platform === 'linux') {
+	const family = await libcFamily()
+	switch (family) {
+		case GLIBC:
+			break
+		case MUSL:
+			addonPackageName = `@golar/${process.platform}-${process.arch}-musl`
+			_isMusl = true
+			break
+		default:
+			throw new Error('Unknown Linux libc family')
+	}
+}
+
+export const isMusl = _isMusl
 export const golarAddonPath = url.fileURLToPath(
-	import.meta.resolve(`@golar/${process.platform}-${process.arch}/golar.node`),
+	import.meta.resolve(`${addonPackageName}/golar.node`),
 )
 
-process.dlopen(
-	addonModule,
-	golarAddonPath,
-	os.constants.dlopen.RTLD_NOW | os.constants.dlopen.RTLD_GLOBAL,
-)
+let addonLoaded = false
+export function loadAddon() {
+	if (addonLoaded) {
+		return
+	}
+	addonLoaded = true
+	process.dlopen(
+		addonModule,
+		golarAddonPath,
+		os.constants.dlopen.RTLD_NOW | os.constants.dlopen.RTLD_GLOBAL,
+	)
+	addon.setSyncBuffer(worker_threads.threadId, syncBuf)
+}
 export const { exports: addon } = addonModule
 
 // TODO: grow dynamically?
 export const syncBuf = new ArrayBuffer(10 * 1024 * 1024)
 export const syncView = new DataView(syncBuf)
-
-addon.setSyncBuffer(worker_threads.threadId, syncBuf)

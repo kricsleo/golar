@@ -12,6 +12,7 @@ import {
 	SyntaxKind,
 	type SourceFile,
 } from '../../packages/golar/src/unstable-tsgo.ts'
+import { loadAddon } from '../../packages/golar/src/addon.ts'
 import { Workspace } from '../../packages/golar/src/workspace.ts'
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture')
@@ -19,6 +20,8 @@ const typesFile = path.join(fixtureDir, 'types.ts')
 
 const indexFile = path.join(fixtureDir, 'index.ts')
 const extraFile = path.join(fixtureDir, 'extra.ts')
+
+loadAddon()
 
 test('getTypeAtLocation decodes intrinsic property types', async () => {
 	const workspace = await (

@@ -61,6 +61,10 @@ export async function commitUninternal(dir: string) {
 		stdio: 'inherit',
 	})
 
+	await golarBaseTag(dir)
+}
+
+export async function golarBaseTag(dir: string) {
 	await spawn('git', ['tag', '--message', 'golar-base', 'golar-base'], {
 		cwd: dir,
 		stdio: 'inherit',
@@ -118,14 +122,52 @@ export const GOOS2PROCESS_PLATFORM = {
 	windows: 'win32',
 	linux: 'linux',
 	darwin: 'darwin',
-}
+} as const
+
+export type GoOs = keyof typeof GOOS2PROCESS_PLATFORM
+export type ProcessPlatform = (typeof GOOS2PROCESS_PLATFORM)[GoOs]
+
 export const GOARCH2PROCESS_ARCH = {
 	amd64: 'x64',
 	arm64: 'arm64',
-}
+} as const
+
+export type GoArch = keyof typeof GOARCH2PROCESS_ARCH
+export type ProcessArch = (typeof GOARCH2PROCESS_ARCH)[GoArch]
+
 export const PROCESS_PLATFORM2GOOS = Object.fromEntries(
 	Object.entries(GOOS2PROCESS_PLATFORM).map(([go, node]) => [node, go]),
 )
 export const PROCESS_ARCH2GOARCH = Object.fromEntries(
 	Object.entries(GOARCH2PROCESS_ARCH).map(([go, node]) => [node, go]),
 )
+
+export type LinuxLibc = 'glibc' | 'musl'
+
+export function getBuildArtifactName(
+	goos: string,
+	goarch: string,
+	libc?: LinuxLibc,
+) {
+	return `golar-${goos}-${goarch}${goos === 'linux' && libc === 'musl' ? '-musl' : ''}`
+}
+
+export function getAddonPackageName(
+	platform: ProcessPlatform,
+	arch: ProcessArch,
+	libc?: LinuxLibc,
+) {
+	return `@golar/${platform}-${arch}${platform === 'linux' && libc === 'musl' ? '-musl' : ''}`
+}
+
+export function getAddonPackageDirName(
+	platform: ProcessPlatform,
+	arch: ProcessArch,
+	libc?: LinuxLibc,
+) {
+	return getAddonPackageName(platform, arch, libc).replaceAll('/', '-')
+}
+
+export function getExecutableExtension(platform: GoOs | ProcessPlatform) {
+	return platform === 'windows' || platform === 'win32' ? '.exe' : ''
+}

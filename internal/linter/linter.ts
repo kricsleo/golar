@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import os from 'node:os'
-import path from 'node:path'
 import process from 'node:process'
+import { golarAddonPath } from '../../packages/golar/src/addon.ts'
 
 const addon = {
 	exports: {} as {
@@ -15,7 +15,7 @@ const addon = {
 }
 process.dlopen(
 	addon,
-	path.join(import.meta.dirname, '../../golar.node'),
+	golarAddonPath,
 	os.constants.dlopen.RTLD_NOW,
 )
 

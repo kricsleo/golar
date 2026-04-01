@@ -1,11 +1,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#define NAPI_VERSION 6
 
+#ifdef GOLAR_NAPI_DYNAMIC
+#include <dlfcn.h>
+#include <pthread.h>
+#endif
+
+#define NAPI_VERSION 6
 #include "../../napi-include/node_api.h"
 
 #include "exports.h"
+
+#ifdef GOLAR_NAPI_DYNAMIC
+#define X(NAME) static __typeof__(&NAME) golar_##NAME##_ptr;
+#include "napi_dynamic_symbols.inc"
+#undef X
+
+static int golar_resolve_symbol(void **target, const char *name) {
+	dlerror();
+	*target = dlsym(RTLD_DEFAULT, name);
+	const char *err = dlerror();
+	if (err != NULL) {
+		fprintf(stderr, "golar.node: failed to resolve %s: %s\n", name, err);
+		return 0;
+	}
+	return 1;
+}
+
+static bool golar_init_napi_symbols_once_ok = false;
+static void golar_init_napi_symbols_once() {
+#define X(NAME) \
+	if (!golar_resolve_symbol((void **)&golar_##NAME##_ptr, #NAME)) { \
+		return; \
+	}
+#include "napi_dynamic_symbols.inc"
+#undef X
+	golar_init_napi_symbols_once_ok = true;
+}
+
+static pthread_once_t golar_napi_symbols_once = PTHREAD_ONCE_INIT;
+static bool golar_init_napi_symbols(void) {
+	if (pthread_once(&golar_napi_symbols_once, golar_init_napi_symbols_once) != 0) {
+		fprintf(stderr, "golar.node: pthread_once failed\n");
+		return false;
+	}
+
+	return golar_init_napi_symbols_once_ok;
+}
+
+#include "napi_dynamic_aliases.h"
+#endif
 
 #define METHOD_DESCRIPTOR_STR(NAME, VALUE) (napi_property_descriptor){ \
 	.utf8name = NAME, \
@@ -233,6 +278,12 @@ void napi_call_threadsafe_function_any(uintptr_t func, uintptr_t data, size_t is
 }
 
 NAPI_MODULE_INIT() {
+	#ifdef GOLAR_NAPI_DYNAMIC
+	if (!golar_init_napi_symbols()) {
+		return NULL;
+	}
+	#endif
+
 	napi_property_descriptor descriptors[] = {
 		METHOD_DESCRIPTOR_STR("setSyncBuffer", setSyncBuffer_bridge),
 		METHOD_DESCRIPTOR_STR("registerJsCodegen", registerJsCodegen_bridge),

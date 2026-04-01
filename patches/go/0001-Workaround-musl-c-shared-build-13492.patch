@@ -1,0 +1,194 @@
+From 0eb2573940b920f6aaf54033b5038e25427bdea7 Mon Sep 17 00:00:00 2001
+From: auvred <aauvred@gmail.com>
+Date: Tue, 31 Mar 2026 17:49:05 +0300
+Subject: [PATCH] Workaround musl c-shared build 13492
+
+---
+ src/runtime/cgo/environ.go           | 11 +++++++++
+ src/runtime/cgo/gcc_environ.c        | 12 ++++++++++
+ src/runtime/os_linux.go              | 28 ++++++++++++-----------
+ src/runtime/runtime1.go              | 10 ++++++++
+ src/runtime/runtime_environ_linux.go | 34 ++++++++++++++++++++++++++++
+ src/runtime/runtime_environ_other.go |  7 ++++++
+ 6 files changed, 89 insertions(+), 13 deletions(-)
+ create mode 100644 src/runtime/cgo/environ.go
+ create mode 100644 src/runtime/cgo/gcc_environ.c
+ create mode 100644 src/runtime/runtime_environ_linux.go
+ create mode 100644 src/runtime/runtime_environ_other.go
+
+diff --git a/src/runtime/cgo/environ.go b/src/runtime/cgo/environ.go
+new file mode 100644
+index 00000000..db3a1fb3
+--- /dev/null
++++ b/src/runtime/cgo/environ.go
+@@ -0,0 +1,11 @@
++//go:build linux
++
++package cgo
++
++import _ "unsafe" // for go:linkname
++
++//go:cgo_import_static x_cgo_environ
++//go:linkname x_cgo_environ x_cgo_environ
++//go:linkname _cgo_environ runtime._cgo_environ
++var x_cgo_environ byte
++var _cgo_environ = &x_cgo_environ
+diff --git a/src/runtime/cgo/gcc_environ.c b/src/runtime/cgo/gcc_environ.c
+new file mode 100644
+index 00000000..222b64d2
+--- /dev/null
++++ b/src/runtime/cgo/gcc_environ.c
+@@ -0,0 +1,12 @@
++//go:build linux
++
++#include "libcgo.h"
++
++// https://www.man7.org/linux/man-pages/man7/environ.7.html
++extern char **environ;
++
++void x_cgo_environ(void **arg) {
++	_cgo_tsan_acquire();
++	arg[0] = environ;
++	_cgo_tsan_release();
++}
+diff --git a/src/runtime/os_linux.go b/src/runtime/os_linux.go
+index 7e6af22d..310459e8 100644
+--- a/src/runtime/os_linux.go
++++ b/src/runtime/os_linux.go
+@@ -235,22 +235,24 @@ func mincore(addr unsafe.Pointer, n uintptr, dst *byte) int32
+ var auxvreadbuf [128]uintptr
+ 
+ func sysargs(argc int32, argv **byte) {
+-	n := argc + 1
++	if argv != nil {
++		n := argc + 1
+ 
+-	// skip over argv, envp to get to auxv
+-	for argv_index(argv, n) != nil {
+-		n++
+-	}
++		// skip over argv, envp to get to auxv
++		for argv_index(argv, n) != nil {
++			n++
++		}
+ 
+-	// skip NULL separator
+-	n++
++		// skip NULL separator
++		n++
+ 
+-	// now argv+n is auxv
+-	auxvp := (*[1 << 28]uintptr)(add(unsafe.Pointer(argv), uintptr(n)*goarch.PtrSize))
++		// now argv+n is auxv
++		auxvp := (*[1 << 28]uintptr)(add(unsafe.Pointer(argv), uintptr(n)*goarch.PtrSize))
+ 
+-	if pairs := sysauxv(auxvp[:]); pairs != 0 {
+-		auxv = auxvp[: pairs*2 : pairs*2]
+-		return
++		if pairs := sysauxv(auxvp[:]); pairs != 0 {
++			auxv = auxvp[: pairs*2 : pairs*2]
++			return
++		}
+ 	}
+ 	// In some situations we don't get a loader-provided
+ 	// auxv, such as when loaded as a library on Android.
+@@ -280,7 +282,7 @@ func sysargs(argc int32, argv **byte) {
+ 		return
+ 	}
+ 
+-	n = read(fd, noescape(unsafe.Pointer(&auxvreadbuf[0])), int32(unsafe.Sizeof(auxvreadbuf)))
++	n := read(fd, noescape(unsafe.Pointer(&auxvreadbuf[0])), int32(unsafe.Sizeof(auxvreadbuf)))
+ 	closefd(fd)
+ 	if n < 0 {
+ 		return
+diff --git a/src/runtime/runtime1.go b/src/runtime/runtime1.go
+index 965ff8ab..0d8d63bf 100644
+--- a/src/runtime/runtime1.go
++++ b/src/runtime/runtime1.go
+@@ -61,6 +61,9 @@ var (
+ //
+ //go:nosplit
+ func argv_index(argv **byte, i int32) *byte {
++	if argv == nil {
++		return nil
++	}
+ 	return *(**byte)(add(unsafe.Pointer(argv), uintptr(i)*goarch.PtrSize))
+ }
+ 
+@@ -74,6 +77,9 @@ func goargs() {
+ 	if GOOS == "windows" {
+ 		return
+ 	}
++	if islibrary || isarchive {
++		return
++	}
+ 	argslice = make([]string, argc)
+ 	for i := int32(0); i < argc; i++ {
+ 		argslice[i] = gostringnocopy(argv_index(argv, i))
+@@ -81,6 +87,10 @@ func goargs() {
+ }
+ 
+ func goenvs_unix() {
++	// workaround for https://github.com/golang/go/issues/13492
++	if goenvs_unix_from_global() {
++		return
++	}
+ 	// TODO(austin): ppc64 in dynamic linking mode doesn't
+ 	// guarantee env[] will immediately follow argv. Might cause
+ 	// problems.
+diff --git a/src/runtime/runtime_environ_linux.go b/src/runtime/runtime_environ_linux.go
+new file mode 100644
+index 00000000..1c910bc8
+--- /dev/null
++++ b/src/runtime/runtime_environ_linux.go
+@@ -0,0 +1,34 @@
++//go:build linux
++
++package runtime
++
++import "unsafe"
++
++var _cgo_environ unsafe.Pointer
++
++func cgo_environ() **byte {
++	if _cgo_environ == nil {
++		return nil
++	}
++	arg := [1]unsafe.Pointer{}
++	asmcgocall(_cgo_environ, unsafe.Pointer(&arg))
++	return (**byte)(arg[0])
++}
++
++func goenvs_unix_from_global() bool {
++	envp := cgo_environ()
++	if envp == nil {
++		return false
++	}
++
++	n := int32(0)
++	for argv_index(envp, n) != nil {
++		n++
++	}
++
++	envs = make([]string, n)
++	for i := range n {
++		envs[i] = gostring(argv_index(envp, i))
++	}
++	return true
++}
+diff --git a/src/runtime/runtime_environ_other.go b/src/runtime/runtime_environ_other.go
+new file mode 100644
+index 00000000..0eef4a16
+--- /dev/null
++++ b/src/runtime/runtime_environ_other.go
+@@ -0,0 +1,7 @@
++//go:build !linux
++
++package runtime
++
++func goenvs_unix_from_global() bool {
++	return false
++}
+-- 
+2.53.0
+

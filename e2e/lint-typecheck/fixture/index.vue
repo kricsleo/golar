@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-	import { fn } from './index.ts'
+	import { fn } from './index.js'
 
 	declare function onlyStr(str: string): string
 </script>

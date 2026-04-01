@@ -34,13 +34,16 @@
 		]
 	},
 	"dependencies": {
-		"@golar/util": "workspace:*"
+		"@golar/util": "workspace:*",
+		"detect-libc": "^2.1.2"
 	},
 	"optionalDependencies": {
-		"@golar/win32-x64": "workspace:*",
-		"@golar/linux-x64": "workspace:*",
-		"@golar/linux-arm64": "workspace:*",
+		"@golar/darwin-arm64": "workspace:*",
 		"@golar/darwin-x64": "workspace:*",
-		"@golar/darwin-arm64": "workspace:*"
+		"@golar/linux-arm64": "workspace:*",
+		"@golar/linux-arm64-musl": "workspace:*",
+		"@golar/linux-x64": "workspace:*",
+		"@golar/linux-x64-musl": "workspace:*",
+		"@golar/win32-x64": "workspace:*"
 	}
 }

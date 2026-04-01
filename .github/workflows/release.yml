@@ -16,12 +16,27 @@ jobs:
           - runs_on: ubuntu-latest
             goos: linux
             goarch: amd64
+            libc: glibc
+            artifact_name: golar-linux-amd64
+          - runs_on: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            libc: musl
+            artifact_name: golar-linux-amd64-musl
           - runs_on: ubuntu-24.04-arm
             goos: linux
             goarch: arm64
+            libc: glibc
+            artifact_name: golar-linux-arm64
+          - runs_on: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+            libc: musl
+            artifact_name: golar-linux-arm64-musl
           - runs_on: windows-latest
             goos: windows
             goarch: amd64
+            artifact_name: golar-windows-amd64
           #    # runtime/cgo
           #      gcc_arm64.S: Assembler messages:
           #      gcc_arm64.S:30: Error: no such instruction: `stp x29,x30,[sp,'
@@ -34,9 +49,11 @@ jobs:
           - runs_on: macos-15-intel
             goos: darwin
             goarch: amd64
+            artifact_name: golar-darwin-amd64
           - runs_on: macos-latest
             goos: darwin
             goarch: arm64
+            artifact_name: golar-darwin-arm64
     steps:
       # for thirdparty/typescript
       - run: git config --global core.longpaths true
@@ -68,11 +85,28 @@ jobs:
       - if: runner.os == 'Windows'
         run: node ./tools/download-node-lib.ts
 
-      - run: pnpm build:golar put-to-bin
+      - if: matrix.libc == 'musl'
+        env:
+          CC: musl-gcc
+          GOLAR_LIBC: musl
+          GOTOOLCHAIN: local
+        run: |
+          sudo apt update
+          sudo apt install -y musl-tools
+
+          node ./tools/patch-go.ts
+          pushd thirdparty/go/src
+          ./make.bash
+          popd
+
+          PATH="$(pwd)/thirdparty/go/bin:$PATH" pnpm build:golar put-to-bin
+
+      - if: matrix.libc != 'musl'
+        run: pnpm build:golar put-to-bin
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: golar-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: ${{ matrix.artifact_name }}
           path: bin/
 
   publish:

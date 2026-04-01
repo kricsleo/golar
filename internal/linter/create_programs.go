@@ -286,6 +286,9 @@ func (s *programSearchState) configuredProgram(configFileName string, parsedConf
 		forcedConfig.SetCompilerOptions(forcedOptions)
 		programConfig = forcedConfig
 	}
+	opts := programConfig.CompilerOptions()
+	opts.NoEmit = core.TSTrue
+	programConfig.SetCompilerOptions(opts)
 
 	program := compiler.NewProgram(compiler.ProgramOptions{
 		Host:                        utils.NewIndexedCompilerHost(golar.NewCompilerHost(s.host, programConfig.ConfigName(), &s.sourceFileCache)),

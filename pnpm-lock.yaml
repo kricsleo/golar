@@ -16,6 +16,9 @@ importers:
       '@types/node':
         specifier: ^25.0.8
         version: 25.0.8
+      detect-libc:
+        specifier: ^2.1.2
+        version: 2.1.2
       golar:
         specifier: workspace:*
         version: link:packages/golar
@@ -177,7 +180,11 @@ importers:
 
   generated-packages/@golar-linux-arm64: {}
 
+  generated-packages/@golar-linux-arm64-musl: {}
+
   generated-packages/@golar-linux-x64: {}
+
+  generated-packages/@golar-linux-x64-musl: {}
 
   generated-packages/@golar-win32-x64: {}
 
@@ -220,6 +227,9 @@ importers:
       '@golar/util':
         specifier: workspace:*
         version: link:../util
+      detect-libc:
+        specifier: ^2.1.2
+        version: 2.1.2
     optionalDependencies:
       '@golar/darwin-arm64':
         specifier: workspace:*
@@ -230,9 +240,15 @@ importers:
       '@golar/linux-arm64':
         specifier: workspace:*
         version: link:../../generated-packages/@golar-linux-arm64
+      '@golar/linux-arm64-musl':
+        specifier: workspace:*
+        version: link:../../generated-packages/@golar-linux-arm64-musl
       '@golar/linux-x64':
         specifier: workspace:*
         version: link:../../generated-packages/@golar-linux-x64
+      '@golar/linux-x64-musl':
+        specifier: workspace:*
+        version: link:../../generated-packages/@golar-linux-x64-musl
       '@golar/win32-x64':
         specifier: workspace:*
         version: link:../../generated-packages/@golar-win32-x64

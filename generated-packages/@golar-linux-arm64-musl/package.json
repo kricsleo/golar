@@ -9,7 +9,7 @@
 	"publishConfig": {
 		"access": "public"
 	},
-	"name": "@golar/linux-arm64",
+	"name": "@golar/linux-arm64-musl",
 	"preferUnplugged": true,
 	"files": [
 		"./golar.node"
@@ -21,6 +21,6 @@
 		"arm64"
 	],
 	"libc": [
-		"glibc"
+		"musl"
 	]
 }

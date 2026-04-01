@@ -9,3 +9,7 @@
 [submodule "thirdparty/typescript-go"]
 	path = thirdparty/typescript-go
 	url = https://github.com/microsoft/typescript-go
+[submodule "thirdparty/go"]
+	path = thirdparty/go
+	url = https://github.com/golang/go
+	shallow = true

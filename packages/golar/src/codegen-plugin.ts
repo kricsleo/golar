@@ -1,6 +1,6 @@
 import os from 'node:os'
 import worker_threads from 'node:worker_threads'
-import { addon, syncBuf, syncView } from './addon.ts'
+import { addon, loadAddon, syncBuf, syncView } from './addon.ts'
 
 export type FileExtension = {
 	/** Include the leading dot, e.g. '.vue'. */
@@ -135,6 +135,7 @@ export class JsCodegenPlugin {
 		syncView.setUint32(offset, initializationLen, true)
 		offset += 4 + initializationLen
 
+		loadAddon()
 		addon.registerJsCodegen(worker_threads.threadId, () =>
 			this.executeCreateServiceCode(),
 		)
@@ -366,6 +367,7 @@ export class IpcCodegenPlugin {
 		)
 		syncView.setUint32(0, initializationLen, true)
 
+		loadAddon()
 		addon.registerIpcCodegen()
 	}
 }
