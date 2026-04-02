@@ -1,16 +1,18 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 import path from 'node:path'
 
 export declare const GolarBrand: unique symbol
 
-export type RuleDefinition<TOptions extends Record<string, z.ZodDefault>> = {
+type SchemaWithDefault = v.OptionalSchema<v.GenericSchema, unknown>
+
+export type RuleDefinition<TOptions extends Record<string, SchemaWithDefault>> = {
 	[GolarBrand]: {
 		options: TOptions
 	}
 }
 
 export function ruleConfig<
-	TOptions extends Record<string, z.ZodDefault> = never,
+	TOptions extends Record<string, SchemaWithDefault> = never,
 >(config: {
 	dirname: string
 	options?: TOptions
@@ -19,27 +21,27 @@ export function ruleConfig<
 	// 		| true
 	// 		| ([TOptions] extends [never]
 	// 				? never
-	// 				: z.input<z.ZodObject<NoInfer<TOptions>, z.core.$strict>>)
+	// 				: v.InferInput<v.StrictObjectSchema<NoInfer<TOptions>, undefined>>)
 	// 	logicalStrict?:
 	// 		| true
 	// 		| ([TOptions] extends [never]
 	// 				? never
-	// 				: z.input<z.ZodObject<NoInfer<TOptions>, z.core.$strict>>)
+	// 				: v.InferInput<v.StrictObjectSchema<NoInfer<TOptions>, undefined>>)
 	// 	stylistic?:
 	// 		| true
 	// 		| ([TOptions] extends [never]
 	// 				? never
-	// 				: z.input<z.ZodObject<NoInfer<TOptions>, z.core.$strict>>)
+	// 				: v.InferInput<v.StrictObjectSchema<NoInfer<TOptions>, undefined>>)
 	// 	stylisticStrict?:
 	// 		| true
 	// 		| ([TOptions] extends [never]
 	// 				? never
-	// 				: z.input<z.ZodObject<NoInfer<TOptions>, z.core.$strict>>)
+	// 				: v.InferInput<v.StrictObjectSchema<NoInfer<TOptions>, undefined>>)
 	// 	javascript?:
 	// 		| true
 	// 		| ([TOptions] extends [never]
 	// 				? never
-	// 				: z.input<z.ZodObject<NoInfer<TOptions>, z.core.$strict>>)
+	// 				: v.InferInput<v.StrictObjectSchema<NoInfer<TOptions>, undefined>>)
 	// }
 }) {
 	return {
@@ -49,42 +51,45 @@ export function ruleConfig<
 	} as unknown as RuleDefinition<TOptions>
 }
 
-export const typeOrValueSpecifier = z.array(
-	z
-		.discriminatedUnion('from', [
-			z.strictObject({
-				from: z.literal('file'),
-				name: z.union([z.string(), z.array(z.string())]),
-				path: z.string().optional(),
+export const typeOrValueSpecifier = v.pipe(
+	v.array(
+		v.variant('from', [
+			v.strictObject({
+				from: v.literal('file'),
+				name: v.union([v.string(), v.array(v.string())]),
+				path: v.optional(v.string()),
 			}),
-			z.strictObject({
-				from: z.literal('lib'),
-				name: z.union([z.string(), z.array(z.string())]),
+			v.strictObject({
+				from: v.literal('lib'),
+				name: v.union([v.string(), v.array(v.string())]),
 			}),
-			z.strictObject({
-				from: z.literal('package'),
-				name: z.union([z.string(), z.array(z.string())]),
-				package: z.string(),
+			v.strictObject({
+				from: v.literal('package'),
+				name: v.union([v.string(), v.array(v.string())]),
+				package: v.string(),
 			}),
-		])
-		.transform((v) => {
+		]),
+	),
+	v.transform((items) =>
+		items.map((item) => {
 			const res = {
-				from: v.from,
-				name: Array.isArray(v.name) ? v.name : [v.name],
+				from: item.from,
+				name: Array.isArray(item.name) ? item.name : [item.name],
 			}
-			switch (v.from) {
+			switch (item.from) {
 				case 'file':
 					return {
 						...res,
-						filePath: v.path ?? '',
+						filePath: item.path ?? '',
 					}
 				case 'lib':
 					return res
 				case 'package':
 					return {
 						...res,
-						package: v.package ?? '',
+						package: item.package ?? '',
 					}
 			}
 		}),
+	),
 )

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { typeOrValueSpecifier } from '../internal/linter/rule-creator.ts'
 import spawn from 'nano-spawn'
 
@@ -45,27 +45,27 @@ for (const ruleDir of ruleDirs) {
 		continue
 	}
 
-	for (const [option, { def: _def }] of Object.entries(
-		rule.options as Record<string, z.ZodType>,
+	for (const [option, schema] of Object.entries(
+		rule.options as Record<string, v.GenericSchema>,
 	)) {
 		const fieldName = option[0]!.toUpperCase() + option.slice(1)
 
 		function invalid(msg: string): never {
 			throw new Error(`${option}: ${msg}`)
 		}
-		if (_def.type !== 'default') {
-			invalid('must specify .default()')
+		if (schema.type !== 'optional' || !('default' in schema)) {
+			invalid('must specify a default via v.optional(schema, default)')
 		}
 
 		generatedFields += `${fieldName} `
 
-		const def = _def as z.core.$ZodDefaultDef<any>
-		if (def.innerType === typeOrValueSpecifier) {
+		const optionalSchema = schema as v.OptionalSchema<v.GenericSchema, unknown>
+		if (optionalSchema.wrapped === typeOrValueSpecifier) {
 			hasTypeOrValueSpecifierOption = true
 			generatedFields += '[]rule.TypeOrValueSpecifier'
 		} else {
-			const innerDef = def.innerType.def as z.core.$ZodTypeDef
-			switch (innerDef.type) {
+			const innerSchema = optionalSchema.wrapped
+			switch (innerSchema.type) {
 				case 'string':
 					generatedFields += 'string'
 					break
@@ -73,17 +73,18 @@ for (const ruleDir of ruleDirs) {
 					generatedFields += 'bool'
 					break
 				case 'array': {
-					const arrayDef = innerDef as z.core.$ZodTypeDef & {
-						element: z.ZodType
-					}
-					if (arrayDef.element.def.type !== 'string') {
-						invalid(`unknown array element type: ${arrayDef.element.def.type}`)
+					const arraySchema = innerSchema as v.ArraySchema<
+						v.GenericSchema,
+						undefined
+					>
+					if (arraySchema.item.type !== 'string') {
+						invalid(`unknown array element type: ${arraySchema.item.type}`)
 					}
 					generatedFields += '[]string'
 					break
 				}
 				default:
-					invalid(`unknown inner type: ${innerDef.type}`)
+					invalid(`unknown inner type: ${innerSchema.type}`)
 			}
 		}
 		generatedFields += ` \`json:"${option}"\`\n`

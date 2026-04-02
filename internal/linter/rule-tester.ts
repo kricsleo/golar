@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 import { ruleTesterLint } from './linter.ts'
 import assert from 'node:assert/strict'
 
@@ -72,7 +72,7 @@ export class Tester {
 					;(hasOnly && typeof valid !== 'string' && valid.only
 						? this.opts.it.only
 						: this.opts.it)(code, () => {
-						const opts = z.object(rule.options).parse(options ?? {})
+						const opts = v.parse(v.object(rule.options), options ?? {})
 						const res = ruleTesterLint(files, filename, rule.name, opts)
 						assert.equal(
 							res.snapshot,
@@ -96,7 +96,7 @@ export class Tester {
 								...(invalid.files ?? {}),
 								[filename]: invalid.code,
 							}
-							const opts = z.object(rule.options).parse(invalid.options ?? {})
+							const opts = v.parse(v.object(rule.options), invalid.options ?? {})
 							const res = ruleTesterLint(files, filename, rule.name, opts)
 							assert.equal(
 								res.snapshot,

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as v from 'valibot'
 import { rules as generated } from './builtin-rules.generated.ts'
 import type { GolarBrand } from '../../../internal/linter/rule-creator.ts'
 import type { LintConfiguredRule } from './config.ts'
@@ -7,8 +7,8 @@ export const rules: (configs: {
 	[TRule in keyof typeof generated]?:
 		| true
 		| undefined
-		| z.input<
-				z.ZodObject<(typeof generated)[TRule][typeof GolarBrand]['options']>
+		| v.InferInput<
+				v.ObjectSchema<(typeof generated)[TRule][typeof GolarBrand]['options'] & v.ObjectEntries, undefined>
 		  >
 }) => LintConfiguredRule[] = (configs) =>
 	Object.entries(configs).map(

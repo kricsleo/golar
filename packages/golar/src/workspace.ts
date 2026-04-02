@@ -14,7 +14,7 @@ import {
 	type RemoteNodeList,
 } from '../../../thirdparty/typescript-go/_packages/api/dist/node/node.js'
 import { Registry, Type, type NodeHandle } from './type-decoder.ts'
-import { z } from 'zod'
+import * as v from 'valibot'
 import { addon, golarAddonPath, syncBuf, syncView } from './addon.ts'
 import type { LintConfiguredRule } from './config.ts'
 
@@ -302,7 +302,7 @@ export class Workspace implements Disposable {
 						// @ts-expect-error
 						name: rule.rule.name,
 						// @ts-expect-error
-						options: z.object(rule.rule.options).parse(rule.options ?? {}),
+						options: v.parse(v.object(rule.rule.options), rule.options ?? {}),
 					})
 				}
 				indexes.push(idx)
