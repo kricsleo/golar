@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
-	_ "github.com/auvred/golar"
+	_ "github.com/auvred/golar/internal/golar"
 
 	apiencoder "github.com/microsoft/typescript-go/pkg/api/encoder"
 	"github.com/microsoft/typescript-go/pkg/ast"
