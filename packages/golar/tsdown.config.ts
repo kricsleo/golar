@@ -14,7 +14,7 @@ export default defineConfig({
 		exclude: ['bin', 'worker'],
 	},
 	// TODO: don't inline
-	inlineOnly: ['zod'],
+	inlineOnly: ['valibot'],
 	unbundle: true,
 	fixedExtension: false,
 })
