@@ -236,6 +236,9 @@ importers:
       detect-libc:
         specifier: ^2.1.2
         version: 2.1.2
+      tinyglobby:
+        specifier: ^0.2.15
+        version: 0.2.15
     optionalDependencies:
       '@golar/darwin-arm64':
         specifier: workspace:*
