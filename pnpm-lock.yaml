@@ -31,6 +31,9 @@ importers:
       tar:
         specifier: ^7.5.13
         version: 7.5.13
+      tinyglobby:
+        specifier: ^0.2.15
+        version: 0.2.15
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(typescript@5.9.3)
@@ -236,6 +239,9 @@ importers:
       detect-libc:
         specifier: ^2.1.2
         version: 2.1.2
+      tinyglobby:
+        specifier: ^0.2.15
+        version: 0.2.15
     optionalDependencies:
       '@golar/darwin-arm64':
         specifier: workspace:*

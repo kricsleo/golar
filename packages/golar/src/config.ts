@@ -1,7 +1,6 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import url from 'node:url'
 import util from 'node:util'
+import { globSync } from 'tinyglobby'
 import { Debug } from '@golar/util'
 import type { GolarBrand } from '../../../internal/linter/rule-creator.ts'
 import { globalState } from './codegen-plugin.ts'
@@ -57,12 +56,7 @@ export function resolveConfig(cwd: string, config: Config) {
 
 	for (const group of config.lint?.use ?? []) {
 		// TODO: parallelize?
-		for (const file of new Set(
-			fs
-				.globSync(group.files, { cwd, withFileTypes: true })
-				.filter((entry) => entry.isFile())
-				.map((entry) => path.resolve(cwd, entry.parentPath, entry.name)),
-		)) {
+		for (const file of new Set(globSync(group.files, { cwd, absolute: true }))) {
 			allFiles.add(file)
 
 			for (const rule of group.rules) {
@@ -133,14 +127,11 @@ export function resolveConfig(cwd: string, config: Config) {
 		'**/.jj',
 	]
 
-	typecheckFiles = fs
-		.globSync(typecheckInclude, {
-			cwd,
-			exclude: typecheckExclude,
-			withFileTypes: true,
-		})
-		.filter((entry) => entry.isFile())
-		.map((entry) => path.resolve(cwd, entry.parentPath, entry.name))
+	typecheckFiles = globSync(typecheckInclude, {
+		cwd,
+		ignore: typecheckExclude,
+		absolute: true,
+	})
 	for (const file of typecheckFiles) {
 		allFiles.add(file)
 	}

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import spawn from 'nano-spawn'
+import { glob } from 'tinyglobby'
 
 export const repoRoot = path.join(import.meta.dirname, '..')
 export const devDir = path.join(repoRoot, 'node_modules', '.golar-dev')
@@ -77,13 +78,10 @@ export async function applyPatches(
 ) {
 	const patchesdir = path.join(repoRoot, 'patches', patchesDirName)
 
-	const patches = (
-		await Array.fromAsync(
-			fs.glob('*.patch', {
-				cwd: patchesdir,
-			}),
-		)
-	).map((p) => path.join(patchesdir, p))
+	const patches = await glob('*.patch', {
+		cwd: patchesdir,
+		absolute: true,
+	})
 
 	await spawn(
 		'git',

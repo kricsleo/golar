@@ -35,7 +35,8 @@
 	},
 	"dependencies": {
 		"@golar/util": "workspace:*",
-		"detect-libc": "^2.1.2"
+		"detect-libc": "^2.1.2",
+		"tinyglobby": "^0.2.15"
 	},
 	"optionalDependencies": {
 		"@golar/darwin-arm64": "workspace:*",
