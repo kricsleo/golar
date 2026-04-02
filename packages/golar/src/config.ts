@@ -56,7 +56,7 @@ export function resolveConfig(cwd: string, config: Config) {
 
 	for (const group of config.lint?.use ?? []) {
 		// TODO: parallelize?
-		for (const file of new Set(globSync(group.files, { cwd, absolute: true }))) {
+		for (const file of globSync(group.files, { cwd, absolute: true })) {
 			allFiles.add(file)
 
 			for (const rule of group.rules) {
