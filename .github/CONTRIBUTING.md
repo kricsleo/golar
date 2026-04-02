@@ -4,6 +4,10 @@ Golar is at a very early stage of development, and the overall architecture is n
 That's why I want to implement major architectural changes myself.
 
 However, I'd be more than happy to accept enthusiastic third-party contributions with a smaller scope.
+For simple changes and trivial bugs, you can just open a PR.
+If you want to contribute an enhancement or fix a non-trivial bug, it's better to open an issue first.
+This way, we can discuss things and decide what the right approach to the problem is.
+
 Here is a brief guide on how to build Golar locally.
 
 > [!NOTE]
