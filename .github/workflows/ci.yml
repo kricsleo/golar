@@ -54,7 +54,6 @@ jobs:
 
       - run: cargo build
 
-      # 10sec timeout is because windows is slow sometimes
       - run: pnpm vitest --testTimeout 10000
 
   test-linux-musl:
@@ -111,4 +110,4 @@ jobs:
 
       - run: cargo build
 
-      - run: LD_PRELOAD="$(pwd)/generated-packages/@golar-linux-x64-musl/golar.node" node ./node_modules/vitest/vitest.mjs
+      - run: LD_PRELOAD="$(pwd)/generated-packages/@golar-linux-x64-musl/golar.node" node ./node_modules/vitest/vitest.mjs --testTimeout 10000
