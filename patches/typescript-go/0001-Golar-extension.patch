@@ -1,18 +1,19 @@
-From 3ccbda507f689b74277ced63ab0786ec71279d98 Mon Sep 17 00:00:00 2001
+From 3672218c1b59f6790538ee45c580b8da56890b51 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Wed, 25 Mar 2026 08:55:38 +0300
 Subject: [PATCH 1/3] Golar extension
 
 ---
- pkg/ast/ast.go                 | 12 ++++++++++++
- pkg/compiler/program.go        | 29 ++++++++++++++++++++++++++++-
- pkg/diagnostics/diagnostics.go |  9 +++++++++
- pkg/module/resolver.go         | 21 +++++++++++++++++++++
- pkg/module/util.go             | 10 ++++++++++
- pkg/outputpaths/outputpaths.go |  5 +++++
- pkg/tspath/extension.go        | 28 ++++++++++++++++++++++++++++
- pkg/vfs/osvfs/os.go            |  9 +++++++--
- 8 files changed, 120 insertions(+), 3 deletions(-)
+ pkg/ast/ast.go                      | 12 ++++++++++++
+ pkg/compiler/program.go             | 30 ++++++++++++++++++++++++++++-
+ pkg/diagnostics/diagnostics.go      |  9 +++++++++
+ pkg/execute/incremental/snapshot.go | 11 ++++++-----
+ pkg/module/resolver.go              | 21 ++++++++++++++++++++
+ pkg/module/util.go                  | 10 ++++++++++
+ pkg/outputpaths/outputpaths.go      |  5 +++++
+ pkg/tspath/extension.go             | 28 +++++++++++++++++++++++++++
+ pkg/vfs/osvfs/os.go                 |  9 +++++++--
+ 9 files changed, 127 insertions(+), 8 deletions(-)
 
 diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
 index 55386aae6..783a056dc 100644
@@ -49,15 +50,16 @@ index 55386aae6..783a056dc 100644
  	return node.parseOptions.Path
  }
 diff --git a/pkg/compiler/program.go b/pkg/compiler/program.go
-index b9d487f14..2b7aa42fa 100644
+index b9d487f14..f40025907 100644
 --- a/pkg/compiler/program.go
 +++ b/pkg/compiler/program.go
-@@ -254,7 +254,18 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
+@@ -254,7 +254,19 @@ func (p *Program) GetSourceFileFromReference(origin *ast.SourceFile, ref *ast.Fi
  	return nil
  }
  
 +type golarExt struct {
-+	WrapCompilerHost func(base CompilerHost, configName string) CompilerHost
++	WrapCompilerHost    func(base CompilerHost, configName string) CompilerHost
++	ReportingSourceFile func(file *ast.SourceFile) *ast.SourceFile
 +}
 +
 +var GolarExt = &golarExt{}
@@ -71,7 +73,7 @@ index b9d487f14..2b7aa42fa 100644
  	p := &Program{opts: opts}
  	p.processedFiles = processAllProgramFiles(p.opts, p.SingleThreaded())
  	p.initCheckerPool()
-@@ -482,6 +493,9 @@ func (p *Program) GetSyntacticDiagnostics(ctx context.Context, sourceFile *ast.S
+@@ -482,6 +494,9 @@ func (p *Program) GetSyntacticDiagnostics(ctx context.Context, sourceFile *ast.S
  		if ast.IsSourceFileJS(file) && !ast.IsCheckJSEnabledForFile(file, p.Options()) {
  			diags = append(diags, getAdditionalJSSyntacticDiagnostics(file, p.Options())...)
  		}
@@ -81,7 +83,7 @@ index b9d487f14..2b7aa42fa 100644
  		return diags
  	})
  }
-@@ -524,7 +538,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
+@@ -524,7 +539,11 @@ func (p *Program) GetBindDiagnostics(ctx context.Context, sourceFile *ast.Source
  		p.BindSourceFiles()
  	}
  	return p.collectDiagnostics(ctx, sourceFile, false /*concurrent*/, func(_ context.Context, file *ast.SourceFile) []*ast.Diagnostic {
@@ -94,7 +96,7 @@ index b9d487f14..2b7aa42fa 100644
  	})
  }
  
-@@ -557,6 +575,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
+@@ -557,6 +576,9 @@ func (p *Program) GetIncludeProcessorDiagnostics(sourceFile *ast.SourceFile) []*
  		return nil
  	}
  	filtered, _ := p.getDiagnosticsWithPrecedingDirectives(sourceFile, p.includeProcessor.getDiagnostics(p).GetDiagnosticsForFile(sourceFile.FileName()))
@@ -104,7 +106,7 @@ index b9d487f14..2b7aa42fa 100644
  	return filtered
  }
  
-@@ -1219,6 +1240,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1219,6 +1241,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  
  	isPlainJS := ast.IsPlainJSFile(sourceFile, compilerOptions.CheckJs)
  	if isPlainJS {
@@ -114,7 +116,7 @@ index b9d487f14..2b7aa42fa 100644
  		return core.Filter(diags, func(d *ast.Diagnostic) bool {
  			return plainJSErrors.Has(d.Code())
  		})
-@@ -1238,6 +1262,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
+@@ -1238,6 +1263,9 @@ func (p *Program) getBindAndCheckDiagnosticsForFile(ctx context.Context, sourceF
  			filtered = append(filtered, ast.NewDiagnostic(sourceFile, directive.Loc, diagnostics.Unused_ts_expect_error_directive))
  		}
  	}
@@ -144,6 +146,36 @@ index ac7809a1e..b5385bf58 100644
  // For debugging only.
  func (m *Message) String() string {
  	return m.text
+diff --git a/pkg/execute/incremental/snapshot.go b/pkg/execute/incremental/snapshot.go
+index 5db73c7a7..d0e951f97 100644
+--- a/pkg/execute/incremental/snapshot.go
++++ b/pkg/execute/incremental/snapshot.go
+@@ -152,19 +152,20 @@ type DiagnosticsOrBuildInfoDiagnosticsWithFileName struct {
+ }
+ 
+ func (b *buildInfoDiagnosticWithFileName) toDiagnostic(p *compiler.Program, file *ast.SourceFile) *ast.Diagnostic {
+-	var fileForDiagnostic *ast.SourceFile
++	var rawFileForDiagnostic *ast.SourceFile
+ 	if b.file != "" {
+-		fileForDiagnostic = p.GetSourceFileByPath(b.file)
++		rawFileForDiagnostic = p.GetSourceFileByPath(b.file)
+ 	} else if !b.noFile {
+-		fileForDiagnostic = file
++		rawFileForDiagnostic = file
+ 	}
++	fileForDiagnostic := compiler.GolarExt.ReportingSourceFile(rawFileForDiagnostic)
+ 	var messageChain []*ast.Diagnostic
+ 	for _, msg := range b.messageChain {
+-		messageChain = append(messageChain, msg.toDiagnostic(p, fileForDiagnostic))
++		messageChain = append(messageChain, msg.toDiagnostic(p, rawFileForDiagnostic))
+ 	}
+ 	var relatedInformation []*ast.Diagnostic
+ 	for _, info := range b.relatedInformation {
+-		relatedInformation = append(relatedInformation, info.toDiagnostic(p, fileForDiagnostic))
++		relatedInformation = append(relatedInformation, info.toDiagnostic(p, rawFileForDiagnostic))
+ 	}
+ 	return ast.NewDiagnosticFromSerialized(
+ 		fileForDiagnostic,
 diff --git a/pkg/module/resolver.go b/pkg/module/resolver.go
 index 86465ffdf..738241935 100644
 --- a/pkg/module/resolver.go

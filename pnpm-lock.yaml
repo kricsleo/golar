@@ -155,6 +155,15 @@ importers:
         specifier: ^5.0.4
         version: 5.0.4(@vue/compiler-sfc@3.5.29)(vue@3.5.29(typescript@5.9.3))
 
+  e2e/vue-tsc-incremental/fixture:
+    dependencies:
+      '@golar/vue':
+        specifier: workspace:*
+        version: link:../../../packages/vue
+      vue:
+        specifier: ^3.5.29
+        version: 3.5.29(typescript@5.9.3)
+
   e2e/vue-unknown-component/fixture:
     dependencies:
       '@golar/vue':

@@ -263,4 +263,5 @@ func init() {
 		}
 		return utils.NewIndexedCompilerHost(NewCompilerHost(base, configName, nil))
 	}
+	compiler.GolarExt.ReportingSourceFile = ReportingSourceFile
 }

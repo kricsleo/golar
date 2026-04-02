@@ -1,0 +1,8 @@
+{
+	"exclude": ["./golar.config.ts"],
+	"compilerOptions": {
+		"incremental": true,
+		"outDir": "./dist",
+		"types": []
+	}
+}
