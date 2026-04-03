@@ -104,6 +104,12 @@ importers:
         specifier: ^3.5.29
         version: 3.5.29(typescript@5.9.3)
 
+  e2e/typecheck-gitignore/fixture:
+    dependencies:
+      golar:
+        specifier: workspace:*
+        version: link:../../../packages/golar
+
   e2e/typecheck-implicit-files/fixture:
     dependencies:
       '@golar/vue':
