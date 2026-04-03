@@ -7,9 +7,11 @@ import { runGolar } from '../utils.ts'
 
 const fixtureDir = path.join(import.meta.dirname, 'fixture')
 const gitDir = path.join(fixtureDir, '.git')
+const gitignorePath = path.join(fixtureDir, '.gitignore')
 
 beforeAll(async () => {
 	await fs.rm(gitDir, { recursive: true, force: true })
+	await fs.writeFile(gitignorePath, 'generated/\nsecret.ts\n*.auto.ts\n')
 	child_process.execFileSync('git', ['init'], {
 		cwd: fixtureDir,
 		stdio: 'pipe',
@@ -18,6 +20,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	await fs.rm(gitDir, { recursive: true, force: true })
+	await fs.rm(gitignorePath, { force: true })
 })
 
 test('typecheck respects .gitignore', async () => {
