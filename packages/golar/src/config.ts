@@ -1,6 +1,7 @@
+import { execSync } from 'node:child_process'
 import url from 'node:url'
 import util from 'node:util'
-import { globSync } from 'tinyglobby'
+import { escapePath, globSync } from 'tinyglobby'
 import { Debug } from '@golar/util'
 import type { GolarBrand } from '../../../internal/linter/rule-creator.ts'
 import { globalState } from './codegen-plugin.ts'
@@ -119,8 +120,11 @@ export function resolveConfig(cwd: string, config: Config) {
 						.toArray(),
 				]
 			: config.typecheck.include
-	// TODO: support .gitignore
+
+	const gitignorePaths = lsGitignorePaths(cwd)
+	debug.print('.gitignore paths:', gitignorePaths.join(', ') || '(none)')
 	const typecheckExclude = [
+		...gitignorePaths,
 		...(config.typecheck?.exclude ?? []),
 		'**/node_modules',
 		'**/.git',
@@ -145,5 +149,19 @@ export function resolveConfig(cwd: string, config: Config) {
 		jsRulesByFile: jsEffectiveRulesByFile,
 		nativeRulesByFile,
 		typecheckFiles,
+	}
+}
+
+function lsGitignorePaths(cwd: string): string[] {
+	try {
+		return execSync(
+			'git ls-files --others --ignored --exclude-standard --directory',
+			{ cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+		)
+			.split('\n')
+			.filter(Boolean)
+			.map((p) => escapePath(p))
+	} catch {
+		return []
 	}
 }
