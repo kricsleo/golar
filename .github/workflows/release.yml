@@ -99,10 +99,10 @@ jobs:
           ./make.bash
           popd
 
-          PATH="$(pwd)/thirdparty/go/bin:$PATH" pnpm build:golar put-to-bin
+          PATH="$(pwd)/thirdparty/go/bin:$PATH" pnpm build:golar release put-to-bin
 
       - if: matrix.libc != 'musl'
-        run: pnpm build:golar put-to-bin
+        run: pnpm build:golar release put-to-bin
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:

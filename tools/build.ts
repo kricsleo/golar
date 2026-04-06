@@ -13,10 +13,12 @@ import { family as libcFamily, MUSL } from 'detect-libc'
 
 const args = process.argv.slice(2)
 
-const debug = args[0] === 'debug'
-const putToBin = args[0] === 'put-to-bin'
+const debug = args.includes('debug')
+const release = args.includes('release')
+const putToBin = args.includes('put-to-bin')
 
 const goDebug = debug ? ['-gcflags', 'all=-N -l'] : []
+const goRelease = release ? ['-trimpath'] : []
 
 const libc =
 	process.env.GOLAR_LIBC === 'musl' || (await libcFamily()) === MUSL
@@ -49,6 +51,7 @@ await spawn(
 	[
 		'build',
 		...goDebug,
+		...goRelease,
 		// '-cover',
 		// '-covermode=atomic',
 		'-o',
@@ -98,6 +101,7 @@ await spawn(
 	[
 		'build',
 		...goDebug,
+		...goRelease,
 		'-o',
 		putToBin
 			? path.join(
