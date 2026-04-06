@@ -18,21 +18,22 @@ if (isMusl) {
 				: ''),
 	}
 
-	process.execve?.(process.execPath, [
+	process.execve?.(
 		process.execPath,
-		cliPath,
-		...process.argv.slice(2)
-	], env)
+		[process.execPath, cliPath, ...process.argv.slice(2)],
+		env,
+	)
 
 	try {
-  	child_process.execFileSync(process.execPath, [
-			cliPath,
-			...process.argv.slice(2)
-		], { stdio: "inherit", env });
+		child_process.execFileSync(
+			process.execPath,
+			[cliPath, ...process.argv.slice(2)],
+			{ stdio: 'inherit', env },
+		)
 	} catch (e) {
-    if (e instanceof Error && 'status' in e && typeof e.status === 'number') {
+		if (e instanceof Error && 'status' in e && typeof e.status === 'number') {
 			process.exit(e.status)
-    }
+		}
 		throw e
 	}
 } else {

@@ -33,7 +33,8 @@ test('vue tsc incremental preserves source positions', async () => {
 		Found 1 error in comp.vue:6
 		"
 	`)
-	expect(util.stripVTControlCharacters(secondRun.output)).toMatchInlineSnapshot(`
+	expect(util.stripVTControlCharacters(secondRun.output))
+		.toMatchInlineSnapshot(`
 		"Using config from ./golar.config.ts...
 		comp.vue:6:8 - error TS2322: Type 'number' is not assignable to type 'string'.
 

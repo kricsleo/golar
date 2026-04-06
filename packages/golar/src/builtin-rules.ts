@@ -8,7 +8,11 @@ export const rules: (configs: {
 		| true
 		| undefined
 		| v.InferInput<
-				v.ObjectSchema<(typeof generated)[TRule][typeof GolarBrand]['options'] & v.ObjectEntries, undefined>
+				v.ObjectSchema<
+					(typeof generated)[TRule][typeof GolarBrand]['options'] &
+						v.ObjectEntries,
+					undefined
+				>
 		  >
 }) => LintConfiguredRule[] = (configs) =>
 	Object.entries(configs).map(

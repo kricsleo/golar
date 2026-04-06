@@ -115,7 +115,7 @@ const commonPackageJson = {
 		access: 'public',
 	},
 	engines: {
-		node: ">=22.12.0"
+		node: '>=22.12.0',
 	},
 } as const
 
