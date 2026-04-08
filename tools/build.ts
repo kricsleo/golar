@@ -25,6 +25,14 @@ const libc =
 		? 'musl'
 		: 'glibc'
 
+const CFLAGS: string[] = ['-fvisibility=hidden']
+if (process.env.CGO_CFLAGS) {
+	CFLAGS.push(process.env.CGO_CFLAGS)
+}
+if (libc === 'musl') {
+	CFLAGS.push('-DGOLAR_NAPI_DYNAMIC')
+}
+
 const objDir = path.join(devDir, 'build-obj')
 await fs.mkdir(objDir, { recursive: true })
 
@@ -62,13 +70,7 @@ await spawn(
 	{
 		env: {
 			...process.env,
-			...(libc === 'musl'
-				? {
-						CGO_CFLAGS: [process.env.CGO_CFLAGS, '-DGOLAR_NAPI_DYNAMIC']
-							.filter((v) => typeof v === 'string')
-							.join(' '),
-					}
-				: {}),
+			CGO_CFLAGS: CFLAGS.join(' '),
 		},
 		stdio: 'inherit',
 	},
