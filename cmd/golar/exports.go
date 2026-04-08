@@ -6,10 +6,20 @@ package main
 
 void napi_call_threadsafe_function_any(uintptr_t func, uintptr_t data, size_t is_blocking);
 
+#ifdef _WIN32
+#define GOLAR_EXPORT
+#else
+#define GOLAR_EXPORT __attribute__((visibility("default")))
+#endif
+
 typedef struct {
 	uintptr_t program;
 	uintptr_t source_file;
 } golar_file_with_program;
+
+extern golar_file_with_program golar_workspace_get_requested_file(uintptr_t workspacePtr, uint32_t fileIdx) GOLAR_EXPORT;
+extern uintptr_t golar_program_get_type_at_location(uintptr_t programPtr, uintptr_t nodePtr) GOLAR_EXPORT;
+extern void golar_workspace_report(uintptr_t workspacePtr, uint32_t fileIdx, int32_t start, int32_t end, char *ruleNameData, size_t ruleNameLen, char *messageData, size_t messageLen) GOLAR_EXPORT;
 */
 import "C"
 
