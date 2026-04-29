@@ -13,11 +13,7 @@ const addon = {
 		): string
 	},
 }
-process.dlopen(
-	addon,
-	golarAddonPath,
-	os.constants.dlopen.RTLD_NOW,
-)
+process.dlopen(addon, golarAddonPath, os.constants.dlopen.RTLD_NOW)
 
 export function ruleTesterLint(
 	files: Record<string, string>,

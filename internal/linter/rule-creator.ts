@@ -5,11 +5,12 @@ export declare const GolarBrand: unique symbol
 
 type SchemaWithDefault = v.OptionalSchema<v.GenericSchema, unknown>
 
-export type RuleDefinition<TOptions extends Record<string, SchemaWithDefault>> = {
-	[GolarBrand]: {
-		options: TOptions
+export type RuleDefinition<TOptions extends Record<string, SchemaWithDefault>> =
+	{
+		[GolarBrand]: {
+			options: TOptions
+		}
 	}
-}
 
 export function ruleConfig<
 	TOptions extends Record<string, SchemaWithDefault> = never,

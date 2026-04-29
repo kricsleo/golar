@@ -96,7 +96,10 @@ export class Tester {
 								...(invalid.files ?? {}),
 								[filename]: invalid.code,
 							}
-							const opts = v.parse(v.object(rule.options), invalid.options ?? {})
+							const opts = v.parse(
+								v.object(rule.options),
+								invalid.options ?? {},
+							)
 							const res = ruleTesterLint(files, filename, rule.name, opts)
 							assert.equal(
 								res.snapshot,
