@@ -86,9 +86,10 @@ export const globalState = (globalTyped[stateSymbol] ??= {
 })
 
 function registerCodegenPlugin(plugin: CodegenPlugin) {
-	if (globalState.codegenPlugins.get(plugin.id)) {
-		throw new Error(`Duplicate ${plugin.id} codegen plugin`)
-	}
+	// TODO: check duplicates, but allow re-registration
+	// if (globalState.codegenPlugins.get(plugin.id)) {
+	// 	throw new Error(`Duplicate ${plugin.id} codegen plugin`)
+	// }
 	globalState.codegenPlugins.set(plugin.id, plugin)
 }
 

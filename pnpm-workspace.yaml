@@ -10,6 +10,7 @@ packages:
   - e2e/vue-plugins/fixture
   - e2e/vue-tsc-incremental/fixture
   - e2e/vue-unknown-component/fixture
+  - e2e/vue-vitepress/fixture
   - packages/*
   - generated-packages/*
 

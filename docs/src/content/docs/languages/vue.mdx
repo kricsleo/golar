@@ -48,6 +48,35 @@ If you need declaration emit for Vue files, use [`tsc`](/modes/tsc/) mode:
 
 This emits `.vue.d.ts` files for Vue components.
 
+## VitePress
+
+Vue Language Tools supports specifying VitePress file extensions via [`vitePressExtensions` in `tsconfig.json`](https://github.com/vuejs/language-tools/wiki/Vue-Compiler-Options#vitepressextensions-v2015).
+
+To enable typechecking support for VitePress `.md` files, it's required to explicitly configure the Vue plugin:
+
+```typescript ins="* as vue from" ins={6-8}
+// golar.config.ts
+
+import { defineConfig } from 'golar/unstable'
+import * as vue from '@golar/vue'
+
+vue.configure({
+	vitePressExtensions: ['.md'],
+})
+
+export default defineConfig({})
+```
+
+```json ins={5}
+// tsconfig.json
+
+{
+	"vueCompilerOptions": {
+		"vitePressExtensions": [".md"]
+	}
+}
+```
+
 ## Official Tooling Used
 
 Golar's Vue support is built on the official [@vue/language-core](https://github.com/vuejs/language-tools/tree/master/packages/language-core) package.

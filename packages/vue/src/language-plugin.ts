@@ -11,6 +11,7 @@ import PluginFileVue from '@vue/language-core/lib/plugins/file-vue.js'
 import PluginVueScriptJs from '@vue/language-core/lib/plugins/vue-script-js.js'
 import PluginVueTemplateHtml from '@vue/language-core/lib/plugins/vue-template-html.js'
 import PluginVueStyleCSS from '@vue/language-core/lib/plugins/vue-style-css.js'
+import PluginFileMd from '@vue/language-core/lib/plugins/file-md.js'
 import type { VolarLanguagePlugin } from '@golar/volar'
 
 const SUPPRESSED_DIAGNOSTIC_CODES = [2339, 2551, 2353, 2561, 6133] as const
@@ -72,6 +73,7 @@ export function vueLanguagePlugin(
 		PluginVueScriptJs.default,
 		PluginVueTemplateHtml.default,
 		PluginVueStyleCSS.default,
+		PluginFileMd.default,
 		...vueCompilerOptions.plugins,
 	].flatMap((ctor) =>
 		ctor({
@@ -86,7 +88,13 @@ export function vueLanguagePlugin(
 	)
 	return {
 		getLanguageId(scriptId) {
-			return scriptId.endsWith('.vue') ? 'vue' : undefined
+			for (const plugin of plugins) {
+				const languageId = plugin.getLanguageId?.(scriptId)
+				if (languageId) {
+					return languageId
+				}
+			}
+			return undefined
 		},
 		createVirtualCode(scriptId, languageId, snapshot) {
 			return new GolarVueVirtualCode(
@@ -108,13 +116,7 @@ export function vueLanguagePlugin(
 				}))
 		},
 		typescript: {
-			extraFileExtensions: [
-				{
-					extension: 'vue',
-					isMixedContent: true,
-					scriptKind: 7 satisfies import('typescript').ScriptKind.Deferred,
-				},
-			],
+			extraFileExtensions: [],
 			getServiceScript(root) {
 				for (const code of forEachEmbeddedCode(root)) {
 					if (/script_(js|jsx|ts|tsx)/.test(code.id)) {
