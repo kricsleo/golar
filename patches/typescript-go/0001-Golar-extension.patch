@@ -1,10 +1,10 @@
-From 3672218c1b59f6790538ee45c580b8da56890b51 Mon Sep 17 00:00:00 2001
+From 67c96d9b13baa2d020ddcecd1758389524b34602 Mon Sep 17 00:00:00 2001
 From: auvred <aauvred@gmail.com>
 Date: Wed, 25 Mar 2026 08:55:38 +0300
 Subject: [PATCH 1/3] Golar extension
 
 ---
- pkg/ast/ast.go                      | 12 ++++++++++++
+ pkg/ast/ast.go                      | 15 +++++++++++++++
  pkg/compiler/program.go             | 30 ++++++++++++++++++++++++++++-
  pkg/diagnostics/diagnostics.go      |  9 +++++++++
  pkg/execute/incremental/snapshot.go | 11 ++++++-----
@@ -13,13 +13,23 @@ Subject: [PATCH 1/3] Golar extension
  pkg/outputpaths/outputpaths.go      |  5 +++++
  pkg/tspath/extension.go             | 28 +++++++++++++++++++++++++++
  pkg/vfs/osvfs/os.go                 |  9 +++++++--
- 9 files changed, 127 insertions(+), 8 deletions(-)
+ 9 files changed, 130 insertions(+), 8 deletions(-)
 
 diff --git a/pkg/ast/ast.go b/pkg/ast/ast.go
-index 55386aae6..783a056dc 100644
+index 55386aae6..70cfb0983 100644
 --- a/pkg/ast/ast.go
 +++ b/pkg/ast/ast.go
-@@ -11048,6 +11048,10 @@ type SourceFile struct {
+@@ -128,6 +128,9 @@ func NewNodeFactory(hooks NodeFactoryHooks) *NodeFactory {
+ 	return &NodeFactory{hooks: hooks}
+ }
+ 
++func NewNode(kind Kind, data nodeData) *Node {
++	return newNode(kind, data, NodeFactoryHooks{})
++}
+ func newNode(kind Kind, data nodeData, hooks NodeFactoryHooks) *Node {
+ 	n := data.AsNode()
+ 	n.Loc = core.UndefinedTextRange()
+@@ -11048,6 +11051,10 @@ type SourceFile struct {
  	LocalsContainerBase
  	compositeNodeBase
  
@@ -30,7 +40,7 @@ index 55386aae6..783a056dc 100644
  	// Fields set by NewSourceFile
  	fileName       string // For debugging convenience
  	parseOptions   SourceFileParseOptions
-@@ -11142,10 +11146,18 @@ func (node *SourceFile) Text() string {
+@@ -11142,10 +11149,18 @@ func (node *SourceFile) Text() string {
  	return node.text
  }
  

@@ -249,7 +249,7 @@ export function createVolarPlugin(opts: CreateVolarPluginOptions) {
 					ignoreNotMappedDiagnostics: true,
 				}
 			}
-			throw new Error('Unknown language')
+			throw new Error(`Cannot determine language id for file ${fileName}`)
 		},
 	})
 }

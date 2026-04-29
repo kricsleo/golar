@@ -105,15 +105,16 @@ func (h *compilerHostProxy) parseFile(opts ast.SourceFileParseOptions, sourceTex
 			SourceText:     sourceText,
 		})
 		if resp.Errors != nil {
-			file := ast.SourceFile{}
+			file := ast.NewNode(ast.KindSourceFile, &ast.SourceFile{}).AsSourceFile()
+			file.Statements = &ast.NodeList{Nodes: []*ast.Node{}}
 			file.SetText(sourceText)
 			file.SetParseOptions(opts)
 			diags := make([]*ast.Diagnostic, len(resp.Errors))
 			for i, err := range resp.Errors {
-				diags[i] = ast.NewDiagnostic(&file, err.Loc, pluginErrorDiagnostic, err.Message)
+				diags[i] = ast.NewDiagnostic(file, err.Loc, pluginErrorDiagnostic, err.Message)
 			}
 			file.SetDiagnostics(diags)
-			return &file
+			return file
 		}
 
 		file := parser.ParseSourceFile(opts, resp.ServiceText, resp.ScriptKind)
@@ -157,12 +158,13 @@ func ReportingSourceFile(file *ast.SourceFile) *ast.SourceFile {
 	}
 
 	langData := file.GolarLanguageData.(languageData)
-	newFile := ast.SourceFile{}
+	newFile := ast.NewNode(ast.KindSourceFile, &ast.SourceFile{}).AsSourceFile()
+	newFile.Statements = &ast.NodeList{Nodes: []*ast.Node{}}
 	newFile.GolarLanguageData = langData
 	newFile.SetText(langData.sourceText)
 	newFile.SetParseOptions(file.ParseOptions())
 
-	return &newFile
+	return newFile
 }
 
 func adjustDiagnostic(file *ast.SourceFile, diagnostic *ast.Diagnostic, dropUnmatched bool) *ast.Diagnostic {
